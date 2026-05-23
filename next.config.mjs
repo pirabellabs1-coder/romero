@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    serverComponentsExternalPackages: ["better-sqlite3", "bcryptjs"],
+    serverComponentsExternalPackages: ["better-sqlite3", "bcryptjs", "sharp"],
   },
   images: {
     remotePatterns: [],
