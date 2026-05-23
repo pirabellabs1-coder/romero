@@ -32,8 +32,10 @@ export function getDb(): Database.Database {
   if (_db) return _db;
   const dbPath = ensureWritableDb();
   const db = new Database(dbPath);
-  // WAL needs writable dir for -wal/-shm files. /tmp is writable, so this works on Vercel too.
-  db.pragma("journal_mode = WAL");
+  // Use DELETE journal mode (rollback journal) to keep all data in the single .db file.
+  // WAL would create separate -wal/-shm files that don't get committed to git nor packaged
+  // by Vercel's file tracing, which silently strips fresh data from the deployed DB.
+  db.pragma("journal_mode = DELETE");
   db.pragma("foreign_keys = ON");
   migrate(db);
   seedIfEmpty(db);
