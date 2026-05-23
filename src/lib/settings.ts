@@ -26,18 +26,32 @@ export type Settings = {
   button_style: string;
 };
 
+// In-memory cache to avoid repeating the same SQL query on every render of the same request lifecycle.
+// TTL is short (15s) because the admin can update tokens at any moment, and revalidatePath() invalidates Next's caches anyway.
+let _cache: { value: Settings; expiresAt: number } | null = null;
+const CACHE_TTL_MS = 15_000;
+
 export function getSettings(): Settings {
   noStore();
+  const now = Date.now();
+  if (_cache && _cache.expiresAt > now) return _cache.value;
   const rows = getDb().prepare("SELECT key, value FROM settings").all() as { key: string; value: string }[];
   const out: Record<string, string> = {};
   for (const r of rows) out[r.key] = r.value;
-  return out as unknown as Settings;
+  const value = out as unknown as Settings;
+  _cache = { value, expiresAt: now + CACHE_TTL_MS };
+  return value;
+}
+
+export function invalidateSettingsCache() {
+  _cache = null;
 }
 
 export function setSetting(key: string, value: string) {
   getDb()
     .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     .run(key, value);
+  invalidateSettingsCache();
 }
 
 export function setSettings(updates: Record<string, string>) {
@@ -49,6 +63,7 @@ export function setSettings(updates: Record<string, string>) {
     for (const [k, v] of entries) stmt.run(k, v);
   });
   tx(Object.entries(updates));
+  invalidateSettingsCache();
 }
 
 /* ---------- design token mapping (mirrors prototype app.jsx) ---------- */

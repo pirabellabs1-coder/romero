@@ -65,6 +65,9 @@ export default function HomePage() {
               <img
                 src={HERO_PHOTO}
                 alt="Couple sous un voile"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
                 style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }}
               />
               <div style={{ position: "absolute", top: 18, left: 18, width: 28, height: 28, borderTop: "1px solid var(--gold-light)", borderLeft: "1px solid var(--gold-light)", opacity: 0.85 }} />

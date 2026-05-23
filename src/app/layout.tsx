@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { getSettings, buildTokenStyle } from "@/lib/settings";
 import ModalProvider from "@/components/ui/Modal";
 
-// Force fresh render so design-token changes apply immediately after admin save
-export const dynamic = "force-dynamic";
+// Use ISR with short revalidation — settings have a 15s memory cache anyway, and admin actions call revalidatePath()
+export const revalidate = 60;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
@@ -90,11 +90,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap"
-          rel="stylesheet"
-        />
+        {/* Single dynamic Google Fonts request — covers both serif + sans from current settings */}
         <link href={googleFontHref} rel="stylesheet" />
+        {/* Preload the hero LCP image so it appears immediately */}
+        <link rel="preload" as="image" href="/uploads/hero.jpg" fetchPriority="high" />
         {/* Dynamic design tokens from settings */}
         <style dangerouslySetInnerHTML={{ __html: css }} />
         <script

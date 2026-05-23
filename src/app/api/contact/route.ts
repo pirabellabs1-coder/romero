@@ -45,15 +45,22 @@ export async function POST(req: Request) {
   const place = clean(body.place, 200);
   const lang = body.lang === "en" ? "en" : "fr";
 
-  getDb()
-    .prepare(
-      `INSERT INTO messages (first_name, last_name, email, phone, wedding_date, place, message, lang)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(first_name, last_name, email, phone, wedding_date, place, message, lang);
+  // 1. Persist to DB (best-effort: on serverless read-only FS, this throws — we still want to send the mail).
+  let saved = false;
+  try {
+    getDb()
+      .prepare(
+        `INSERT INTO messages (first_name, last_name, email, phone, wedding_date, place, message, lang)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(first_name, last_name, email, phone, wedding_date, place, message, lang);
+    saved = true;
+  } catch (e) {
+    console.error("[contact] DB save failed (serverless? read-only fs?):", e);
+  }
 
-  // Best-effort email notification — never blocks the success response if SMTP isn't configured.
-  sendContactNotification({
+  // 2. Always try to send the email — that's the most important guarantee for the photographer.
+  const mailResult = await sendContactNotification({
     firstName: first_name,
     lastName: last_name,
     email,
@@ -62,7 +69,17 @@ export async function POST(req: Request) {
     place,
     message,
     lang,
-  }).catch((e) => console.error("[contact] mail send failed:", e));
+  }).catch((e) => {
+    console.error("[contact] mail send failed:", e);
+    return { sent: false as const, error: e instanceof Error ? e.message : "unknown" };
+  });
 
-  return NextResponse.json({ ok: true });
+  // Success if either path succeeded
+  if (saved || mailResult.sent) {
+    return NextResponse.json({ ok: true, saved, mailSent: mailResult.sent });
+  }
+  return NextResponse.json(
+    { ok: false, error: "Could not save the message nor send the email. Please try again or contact us directly." },
+    { status: 500 }
+  );
 }
