@@ -43,7 +43,7 @@ export default function ContactForm({ t, lang }: Props) {
   };
 
   return (
-    <form onSubmit={onSubmit} style={{ background: "var(--cream)", padding: "50px 56px", border: "1px solid var(--rule)" }}>
+    <form onSubmit={onSubmit} className="contact-form">
       {sent ? (
         <div style={{ textAlign: "center", padding: "80px 20px" }}>
           <Monogram size={60} label={false} />

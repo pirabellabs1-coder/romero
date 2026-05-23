@@ -33,6 +33,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+html { overflow-x: hidden; }
 body {
   background: var(--cream);
   color: var(--ink);
@@ -41,6 +42,9 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  /* Reserve scrollbar gutter so 100vw fixed elements don't overflow */
+  scrollbar-gutter: stable;
 }
 img { display: block; max-width: 100%; }
 button { font-family: inherit; cursor: pointer; }
@@ -364,6 +368,18 @@ section { position: relative; }
 .lead { font-size: 17px; line-height: 1.65; color: var(--ink); max-width: 56ch; }
 .body { color: var(--ink); }
 .muted { color: var(--muted); }
+
+/* Contact form */
+.contact-form {
+  background: var(--cream);
+  padding: 50px 56px;
+  border: 1px solid var(--rule);
+  max-width: 100%;
+}
+@media (max-width: 720px) {
+  .contact-form { padding: 32px 22px; }
+}
+.rise { max-width: 100%; }
 
 /* Form controls */
 .input, .textarea {
