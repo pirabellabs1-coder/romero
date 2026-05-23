@@ -2,6 +2,7 @@ import "@/styles/globals.css";
 import type { Metadata } from "next";
 import { getSettings, buildTokenStyle } from "@/lib/settings";
 import ModalProvider from "@/components/ui/Modal";
+import { cormorant, inter } from "@/app/fonts";
 
 // Use ISR with short revalidation — settings have a 15s memory cache anyway, and admin actions call revalidatePath()
 export const revalidate = 60;
@@ -85,13 +86,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     ],
   };
 
+  // Only load the extra Google Font when the admin picked a non-default family
+  const usingDefaultFonts =
+    settings.display_font === "Cormorant Garamond" && settings.body_font === "Inter";
+
   return (
-    <html lang="fr">
+    <html lang="fr" className={`${cormorant.variable} ${inter.variable}`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {/* Single dynamic Google Fonts request — covers both serif + sans from current settings */}
-        <link href={googleFontHref} rel="stylesheet" />
+        {/* Self-hosted default fonts via next/font are inlined automatically.
+            Only fetch Google Fonts if the admin picked a custom family. */}
+        {!usingDefaultFonts && (
+          <>
+            <link rel="preconnect" href="https://fonts.googleapis.com" />
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+            <link href={googleFontHref} rel="stylesheet" />
+          </>
+        )}
         {/* Preload the hero LCP image so it appears immediately */}
         <link rel="preload" as="image" href="/uploads/hero.jpg" fetchPriority="high" />
         {/* Dynamic design tokens from settings */}
