@@ -75,13 +75,20 @@ export default function CoupleGallery({ t, gallery, photos, intro }: Props) {
               Galerie en préparation.
             </div>
           )}
-          {photos.map((p) => {
+          {photos.map((p, i) => {
             const ratio = SPAN_RATIOS[p.span] ?? "4 / 5";
             const cls = "masonry-cell" + (p.span ? ` span-${p.span}` : "");
+            const eager = i < 4; // above-the-fold on most viewports
             return (
               <div key={p.id} className={cls} onClick={() => setLightbox(p)} style={{ aspectRatio: p.span === "tall" || p.span === "big" ? undefined : ratio }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/uploads/${p.filename}`} alt={p.alt || p.filename} />
+                <img
+                  src={`/uploads/${p.filename}`}
+                  alt={p.alt || p.filename}
+                  loading={eager ? "eager" : "lazy"}
+                  fetchPriority={eager ? "high" : "low"}
+                  decoding="async"
+                />
               </div>
             );
           })}
