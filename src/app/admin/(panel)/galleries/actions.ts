@@ -137,12 +137,9 @@ export async function uploadPhoto(galleryId: number, formData: FormData) {
       const max = Math.max(meta.width || 0, meta.height || 0);
       let pipeline = img;
       if (max > MAX_DIM) {
-        pipeline = pipeline.resize({
-          width: (meta.width || 0) >= (meta.height || 0) ? MAX_DIM : null,
-          height: (meta.height || 0) > (meta.width || 0) ? MAX_DIM : null,
-          fit: "inside",
-          withoutEnlargement: true,
-        });
+        const w = (meta.width || 0) >= (meta.height || 0) ? MAX_DIM : undefined;
+        const h = (meta.height || 0) > (meta.width || 0) ? MAX_DIM : undefined;
+        pipeline = pipeline.resize({ width: w, height: h, fit: "inside", withoutEnlargement: true });
       }
       await pipeline.webp({ quality: WEBP_QUALITY, effort: 5 }).toFile(fullPath);
     } catch {
