@@ -3,16 +3,36 @@ import path from "node:path";
 import fs from "node:fs";
 import bcrypt from "bcryptjs";
 
-const DB_DIR = path.join(process.cwd(), "data");
-const DB_PATH = path.join(DB_DIR, "romero.db");
+// On Vercel/Lambda the deployment bundle (process.cwd()) is read-only.
+// Detect that, copy the seed DB to /tmp (the only writable area) on first use.
+const IS_SERVERLESS = !!process.env.VERCEL || process.env.NEXT_RUNTIME === "edge";
+const SOURCE_DB = path.join(process.cwd(), "data", "romero.db");
+const RUNTIME_DB_DIR = IS_SERVERLESS ? "/tmp/romero-data" : path.join(process.cwd(), "data");
+const RUNTIME_DB = path.join(RUNTIME_DB_DIR, "romero.db");
 
-if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
+function ensureWritableDb(): string {
+  if (!IS_SERVERLESS) {
+    if (!fs.existsSync(RUNTIME_DB_DIR)) fs.mkdirSync(RUNTIME_DB_DIR, { recursive: true });
+    return RUNTIME_DB;
+  }
+  // serverless: copy seed DB into /tmp once per cold start
+  if (!fs.existsSync(RUNTIME_DB_DIR)) fs.mkdirSync(RUNTIME_DB_DIR, { recursive: true });
+  if (!fs.existsSync(RUNTIME_DB)) {
+    if (fs.existsSync(SOURCE_DB)) {
+      fs.copyFileSync(SOURCE_DB, RUNTIME_DB);
+    }
+    // else: empty file, migrate() will create tables and seedIfEmpty() will populate
+  }
+  return RUNTIME_DB;
+}
 
 let _db: Database.Database | null = null;
 
 export function getDb(): Database.Database {
   if (_db) return _db;
-  const db = new Database(DB_PATH);
+  const dbPath = ensureWritableDb();
+  const db = new Database(dbPath);
+  // WAL needs writable dir for -wal/-shm files. /tmp is writable, so this works on Vercel too.
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   migrate(db);
