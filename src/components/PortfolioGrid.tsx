@@ -1,0 +1,81 @@
+"use client";
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import Rise from "@/components/Rise";
+import Photo from "@/components/Photo";
+import type { GalleryRow } from "@/lib/content";
+
+type GalleryWithCover = GalleryRow & { coverUrl: string };
+
+type Props = {
+  filters: string[];
+  galleries: GalleryWithCover[];
+};
+
+export default function PortfolioGrid({ filters, galleries }: Props) {
+  const [filter, setFilter] = useState(filters[0]);
+
+  const filtered = useMemo(() => {
+    if (filter === filters[0]) return galleries;
+    if (filter === filters[1]) return galleries.filter((g) => g.region === "FRANCE");
+    if (filter === filters[2]) return galleries.filter((g) => g.region === "INTERNATIONAL");
+    if (filter === filters[3]) return galleries.filter((g) => g.kind === "INTIMISTE");
+    return galleries;
+  }, [filter, filters, galleries]);
+
+  return (
+    <>
+      <section style={{ background: "var(--cream)", paddingBottom: 40 }}>
+        <div className="container-wide" style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
+          {filters.map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className="btn"
+              style={{
+                background: filter === f ? "var(--forest)" : "transparent",
+                color: filter === f ? "#F4EFE3" : "var(--forest)",
+                borderColor: filter === f ? "var(--forest)" : "var(--rule)",
+                fontSize: 10,
+              }}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ background: "var(--cream)", paddingBottom: 120 }}>
+        <div className="container-wide portfolio-grid">
+          {filtered.map((g, i) => (
+            <Rise key={g.id} delay={(i % 3) * 80}>
+              <Link href={`/portfolio/${g.slug}`}>
+                <div style={{ cursor: "pointer" }}>
+                  <div style={{ position: "relative", overflow: "hidden" }}>
+                    <div style={{ aspectRatio: i % 4 === 0 ? "3 / 4" : "4 / 5", overflow: "hidden" }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={g.coverUrl}
+                        alt={g.names}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 1.2s ease" }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 22, textAlign: "center" }}>
+                    <div className="cap-tracked-sm gold">
+                      {g.region} — {g.place.toUpperCase().split(",")[0]}
+                    </div>
+                    <div className="serif" style={{ fontSize: 26, color: "var(--forest)", marginTop: 8, fontStyle: "italic" }}>
+                      {g.names}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, letterSpacing: "0.04em" }}>{g.date_label}</div>
+                  </div>
+                </div>
+              </Link>
+            </Rise>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}

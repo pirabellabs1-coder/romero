@@ -1,0 +1,256 @@
+import Database from "better-sqlite3";
+import path from "node:path";
+import fs from "node:fs";
+import bcrypt from "bcryptjs";
+
+const DB_DIR = path.join(process.cwd(), "data");
+const DB_PATH = path.join(DB_DIR, "romero.db");
+
+if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
+
+let _db: Database.Database | null = null;
+
+export function getDb(): Database.Database {
+  if (_db) return _db;
+  const db = new Database(DB_PATH);
+  db.pragma("journal_mode = WAL");
+  db.pragma("foreign_keys = ON");
+  migrate(db);
+  seedIfEmpty(db);
+  _db = db;
+  return db;
+}
+
+function migrate(db: Database.Database) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS galleries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT UNIQUE NOT NULL,
+      names TEXT NOT NULL,
+      place TEXT NOT NULL,
+      date_label TEXT NOT NULL,
+      region TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      intro_fr TEXT NOT NULL DEFAULT '',
+      intro_en TEXT NOT NULL DEFAULT '',
+      cover_photo_id INTEGER,
+      featured INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      published INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS photos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      gallery_id INTEGER REFERENCES galleries(id) ON DELETE CASCADE,
+      filename TEXT NOT NULL,
+      alt TEXT DEFAULT '',
+      span TEXT DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS posts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT UNIQUE NOT NULL,
+      title_fr TEXT NOT NULL,
+      title_en TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL,
+      excerpt_fr TEXT NOT NULL DEFAULT '',
+      excerpt_en TEXT NOT NULL DEFAULT '',
+      body_fr TEXT NOT NULL DEFAULT '',
+      body_en TEXT NOT NULL DEFAULT '',
+      cover_filename TEXT,
+      published_at TEXT NOT NULL,
+      read_minutes INTEGER NOT NULL DEFAULT 5,
+      published INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      date_label TEXT NOT NULL,
+      rating INTEGER NOT NULL DEFAULT 5,
+      text_fr TEXT NOT NULL,
+      text_en TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      published INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      first_name TEXT NOT NULL,
+      last_name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT DEFAULT '',
+      wedding_date TEXT DEFAULT '',
+      place TEXT DEFAULT '',
+      message TEXT NOT NULL,
+      lang TEXT NOT NULL DEFAULT 'fr',
+      read_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+}
+
+function seedIfEmpty(db: Database.Database) {
+  const userCount = (db.prepare("SELECT COUNT(*) as c FROM users").get() as { c: number }).c;
+  if (userCount === 0) {
+    const hash = bcrypt.hashSync("admin", 10);
+    db.prepare("INSERT OR IGNORE INTO users (email, password_hash) VALUES (?, ?)").run("admin@romero.local", hash);
+  }
+
+  const defaults: Record<string, string> = {
+    contact_city: "Nice, Côte d'Azur",
+    contact_phone: "06 04 03 70 76",
+    contact_email: "romerophotography.contact@gmail.com",
+    instagram_handle: "@romeromomentsphoto",
+    pinterest_handle: "Romero Photography",
+    accent: "#B8975A",
+    background: "cream",
+    foreground: "forest",
+    sage_tone: "sage",
+    display_font: "Cormorant Garamond",
+    body_font: "Inter",
+    image_treatment: "natural",
+    italic_titles: "1",
+    watercolor: "1",
+    ornaments: "regular",
+    section_density: "regular",
+    image_radius: "4",
+    caps_tracking: "32",
+    font_scale: "100",
+    monogram_style: "framed",
+    header_style: "transparent",
+    button_style: "sage",
+  };
+  const ins = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
+  for (const [k, v] of Object.entries(defaults)) ins.run(k, v);
+
+  const galleryCount = (db.prepare("SELECT COUNT(*) as c FROM galleries").get() as { c: number }).c;
+  if (galleryCount === 0) {
+    const insGal = db.prepare(`
+      INSERT OR IGNORE INTO galleries (slug, names, place, date_label, region, kind, intro_fr, intro_en, featured, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const seedGals: Array<[string, string, string, string, string, string, string, string, number, number]> = [
+      ["anastasia-jordan", "Anastasia & Jordan", "Èze, France", "Septembre 2025", "FRANCE", "INTIMISTE",
+        "Un mariage suspendu au-dessus de la Méditerranée. Anastasia portait un voile que le mistral n'arrêtait pas de soulever — et Jordan, lui, ne regardait qu'elle. La cérémonie laïque s'est tenue au coucher du soleil, dans le jardin d'une villa privée taillée dans la pierre claire d'Èze.",
+        "A wedding suspended above the Mediterranean. Anastasia wore a veil the mistral kept lifting — and Jordan only had eyes for her. The civil ceremony took place at sunset, in the garden of a private villa carved into the pale stone of Èze.",
+        1, 0],
+      ["manon-kevin", "Manon & Kevin", "Saint-Paul-de-Vence", "Juin 2025", "FRANCE", "INTIMISTE",
+        "Un mariage en petit comité dans les ruelles ocres de Saint-Paul. Cinquante invités, des tables longues sous les tilleuls, et une mariée qui a dansé pieds nus jusqu'au dernier morceau.",
+        "An intimate wedding in the ochre alleys of Saint-Paul. Fifty guests, long tables under the lime trees, and a bride who danced barefoot till the last song.",
+        1, 1],
+      ["sonia-sebastien", "Sonia & Sébastien", "Cap Ferrat", "Mai 2025", "FRANCE", "INTIMISTE",
+        "Cap Ferrat, un matin de mai. La mer plate comme une plaque d'argent, un déjeuner sur la terrasse d'une villa Belle Époque, et le rire de Sonia qui résonnait jusqu'aux pins.",
+        "Cap Ferrat, a May morning. The sea flat as a silver plate, lunch on the terrace of a Belle Époque villa, and Sonia's laughter echoing all the way to the pines.",
+        1, 2],
+      ["sandy-alain", "Sandy & Alain", "Marrakech, Maroc", "Octobre 2024", "INTERNATIONAL", "INTERNATIONAL",
+        "Quatre jours de fête dans un riad de la palmeraie. Lanternes en cuivre, tapis berbères, henné dansé jusqu'à l'aube — un mariage chaleureux et joyeusement bruyant.",
+        "Four days of celebration in a riad in the palm grove. Copper lanterns, Berber rugs, henna danced till dawn — a warm, joyfully loud wedding.",
+        0, 3],
+      ["victoria-patrick", "Victoria & Patrick", "Lac de Côme, Italie", "Juillet 2024", "INTERNATIONAL", "INTERNATIONAL",
+        "Une cérémonie sur le ponton d'une villa du XVIIIᵉ siècle, et un dîner à la lueur de centaines de bougies. Victoria portait la robe de sa grand-mère, restaurée fil à fil.",
+        "A ceremony on the jetty of an 18th-century villa, and a dinner lit by hundreds of candles. Victoria wore her grandmother's gown, restored thread by thread.",
+        0, 4],
+      ["lea-thomas", "Léa & Thomas", "Mougins, France", "Avril 2024", "FRANCE", "INTIMISTE",
+        "Trente invités, un domaine viticole, et une cérémonie sous les oliviers. Le genre de jour qu'on n'oublie pas.",
+        "Thirty guests, a wine estate, and a ceremony under the olive trees. The kind of day you don't forget.",
+        0, 5],
+    ];
+    const insPhoto = db.prepare("INSERT INTO photos (gallery_id, filename, alt, span, sort_order) VALUES (?, ?, ?, ?, ?)");
+    const setCover = db.prepare("UPDATE galleries SET cover_photo_id = ? WHERE id = ?");
+    for (const g of seedGals) {
+      const r = insGal.run(...g);
+      const id = Number(r.lastInsertRowid);
+      // Seed every demo gallery with the hero photo as its cover, so the
+      // portfolio + homepage look populated until the user uploads real photos.
+      const span = g[0] === "anastasia-jordan" ? "big" : "";
+      const ph = insPhoto.run(id, "hero.jpg", g[1], span, 0);
+      setCover.run(Number(ph.lastInsertRowid), id);
+    }
+  }
+
+  const postCount = (db.prepare("SELECT COUNT(*) as c FROM posts").get() as { c: number }).c;
+  if (postCount === 0) {
+    const ins = db.prepare(`
+      INSERT OR IGNORE INTO posts (slug, title_fr, title_en, category, excerpt_fr, excerpt_en, body_fr, body_en, published_at, read_minutes, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const posts: Array<[string, string, string, string, string, string, string, string, string, number, number]> = [
+      ["5-lieux-secrets-cote-azur", "5 lieux secrets pour se marier sur la Côte d'Azur", "5 secret venues to marry on the French Riviera", "LIEUX",
+        "Au-delà des classiques, voici cinq adresses confidentielles pour un mariage hors du temps — d'une chapelle perchée dans l'arrière-pays niçois aux jardins privés du Cap d'Antibes.",
+        "Beyond the classics, five confidential addresses for a timeless wedding — from a chapel perched in the Nice hinterland to the private gardens of Cap d'Antibes.",
+        "", "", "2026-04-12", 6, 0],
+      ["anastasia-jordan-eze", "Anastasia & Jordan — un mariage à Èze", "Anastasia & Jordan — a wedding in Èze", "MARIAGES",
+        "Retour sur une journée suspendue entre ciel et Méditerranée. Le mistral, le voile, le coucher de soleil — toute l'histoire en 60 images.",
+        "A day suspended between sky and Mediterranean. The mistral, the veil, the sunset — the whole story in 60 images.",
+        "", "", "2026-03-28", 8, 1],
+      ["choisir-photographe-mariage", "Comment choisir son photographe de mariage", "How to choose your wedding photographer", "CONSEILS",
+        "Style, prix, feeling, livrables : le guide honnête pour ne pas se tromper, écrit par un photographe qui a vu beaucoup d'erreurs (et quelques merveilles).",
+        "Style, price, vibe, deliverables: the honest guide to not getting it wrong, written by a photographer who's seen many mistakes (and a few marvels).",
+        "", "", "2026-03-15", 5, 2],
+      ["heure-doree", "L'heure dorée : pourquoi tout le monde en parle", "Golden hour: why everyone is talking about it", "CONSEILS",
+        "Cette lumière qui tombe une heure avant le coucher du soleil — comment la prévoir, comment l'attendre, et comment ne pas la rater.",
+        "That light that falls an hour before sunset — how to predict it, how to wait for it, and how not to miss it.",
+        "", "", "2026-03-02", 4, 3],
+      ["manon-kevin-saint-paul", "Manon & Kevin — Saint-Paul, intime", "Manon & Kevin — Saint-Paul, intimate", "MARIAGES",
+        "Un mariage à cinquante invités dans les ruelles de Saint-Paul-de-Vence. Tables longues, tilleuls, mariée pieds nus.",
+        "A fifty-guest wedding in the alleys of Saint-Paul-de-Vence. Long tables, lime trees, barefoot bride.",
+        "", "", "2026-02-20", 7, 4],
+      ["domaine-de-la-tour", "Domaine de la Tour : visite guidée", "Domaine de la Tour: guided tour", "LIEUX",
+        "Trois hectares, deux oliveraies, une chapelle XVIIᵉ. Un repérage en images d'un domaine qui mérite votre attention.",
+        "Three hectares, two olive groves, a 17th-century chapel. A photo tour of an estate that deserves your attention.",
+        "", "", "2026-02-08", 5, 5],
+    ];
+    for (const p of posts) ins.run(...p);
+  }
+
+  const reviewCount = (db.prepare("SELECT COUNT(*) as c FROM reviews").get() as { c: number }).c;
+  if (reviewCount === 0) {
+    const ins = db.prepare("INSERT INTO reviews (name, date_label, rating, text_fr, text_en, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+    const reviews: Array<[string, string, number, string, string, number]> = [
+      ["Anastasia & Jordan", "il y a 2 mois", 5,
+        "Mickael a transformé notre journée en un véritable poème visuel. Discret, attentionné, doué d'un œil rare — il a saisi des regards, des frissons, des fous rires que nous n'avions même pas remarqués sur le moment. Trois mois après, nous regardons encore les photos chaque dimanche.",
+        "Mickael turned our day into a true visual poem. Discreet, attentive, gifted with a rare eye — he caught glances, shivers, laughter we hadn't even noticed at the time. Three months later, we still look at the photos every Sunday.",
+        0],
+      ["Manon C.", "il y a 4 mois", 5,
+        "Nous cherchions un photographe sensible, capable de raconter une histoire plutôt que de cocher des cases. Mickael est cela, et bien plus. Sa galerie est devenue notre bien le plus précieux.",
+        "We were looking for a sensitive photographer who could tell a story rather than tick boxes. Mickael is that, and much more. His gallery has become our most precious belonging.",
+        1],
+      ["Sonia & Sébastien", "il y a 6 mois", 5,
+        "Une rencontre humaine avant tout. Mickael nous a mis à l'aise dès le premier appel, et le jour J il s'est presque fait oublier. Le résultat est lumineux, élégant, profondément vrai.",
+        "A human encounter above all. Mickael put us at ease from the first call, and on the day he was almost invisible. The result is luminous, elegant, deeply true.",
+        2],
+      ["Sandy R.", "il y a 8 mois", 5,
+        "Nous l'avons emmené avec nous au Maroc pour quatre jours de fête. Il a tout suivi, tout capté, sans jamais peser. Et il a su rendre chaque détail — du henné aux lanternes — avec une délicatesse infinie.",
+        "We took him with us to Morocco for four days of celebration. He followed everything, captured everything, never imposing. And he rendered every detail — from henna to lanterns — with infinite delicacy.",
+        3],
+      ["Victoria P.", "il y a 10 mois", 5,
+        "Mickael a une qualité rare : il rend ses sujets à eux-mêmes. Sur ses photos, je nous reconnais — pas une version idéalisée, nous, simplement, avec notre lumière du jour.",
+        "Mickael has a rare quality: he returns his subjects to themselves. In his photos, I recognise us — not an idealised version, just us, with our own daylight.",
+        4],
+      ["Léa & Thomas", "il y a 1 an", 5,
+        "Une livraison rapide, des images sublimes, et un accompagnement de bout en bout. Nous le recommandons les yeux fermés à tous nos amis qui se marient.",
+        "Fast delivery, stunning images, and end-to-end support. We recommend him with our eyes closed to all our friends getting married.",
+        5],
+    ];
+    for (const r of reviews) ins.run(...r);
+  }
+}

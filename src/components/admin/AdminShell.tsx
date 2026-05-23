@@ -1,0 +1,135 @@
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+type Props = {
+  unread: number;
+  children: React.ReactNode;
+};
+
+const LINKS: Array<{ href: string; label: string }> = [
+  { href: "/admin", label: "Dashboard" },
+  { href: "/admin/galleries", label: "Galeries" },
+  { href: "/admin/posts", label: "Journal" },
+  { href: "/admin/reviews", label: "Avis" },
+  { href: "/admin/messages", label: "Messages" },
+  { href: "/admin/mail-preview", label: "Email" },
+  { href: "/admin/settings", label: "Paramètres" },
+  { href: "/admin/design", label: "Design" },
+  { href: "/admin/account", label: "Compte" },
+];
+
+function linkActive(pathname: string, href: string) {
+  if (href === "/admin") return pathname === "/admin";
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+const COLLAPSE_KEY = "rp_admin_collapsed";
+
+export default function AdminShell({ unread, children }: Props) {
+  const pathname = usePathname() ?? "";
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Load collapse preference once
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+    } catch {}
+  }, []);
+
+  // Persist collapse
+  useEffect(() => {
+    try { localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0"); } catch {}
+  }, [collapsed]);
+
+  // Close mobile drawer on route change
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  // Lock body scroll while mobile drawer open
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMobileOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
+
+  return (
+    <div className={`admin-shell ${collapsed ? "is-collapsed" : ""}`}>
+      {/* Mobile top bar */}
+      <div className="admin-topbar">
+        <button
+          type="button"
+          aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
+          aria-expanded={mobileOpen}
+          onClick={() => setMobileOpen((v) => !v)}
+          className="admin-burger"
+        >
+          <span className={`burger-line ${mobileOpen ? "x1" : ""}`} />
+          <span className={`burger-line ${mobileOpen ? "x2" : ""}`} />
+          <span className={`burger-line ${mobileOpen ? "x3" : ""}`} />
+        </button>
+        <span className="serif" style={{ fontSize: 18, color: "var(--gold-light)", letterSpacing: ".04em" }}>
+          Romero Admin
+        </span>
+        <Link href="/" target="_blank" className="cap-tracked-sm gold" style={{ marginLeft: "auto" }}>
+          Site ↗
+        </Link>
+      </div>
+
+      <div className={`admin-drawer-scrim ${mobileOpen ? "open" : ""}`} onClick={() => setMobileOpen(false)} />
+
+      <aside className={`admin-side ${mobileOpen ? "open" : ""}`}>
+        <div className="admin-side-header">
+          <h1>{collapsed ? "R" : "Romero Admin"}</h1>
+          <button
+            type="button"
+            className="admin-collapse-btn"
+            aria-label={collapsed ? "Déplier la barre latérale" : "Replier la barre latérale"}
+            title={collapsed ? "Déplier" : "Replier"}
+            onClick={() => setCollapsed((v) => !v)}
+          >
+            {collapsed ? "›" : "‹"}
+          </button>
+        </div>
+        <nav className="admin-side-nav">
+          {LINKS.map((l) => {
+            const active = linkActive(pathname, l.href);
+            return (
+              <Link
+                key={l.href}
+                href={l.href}
+                className={active ? "active" : ""}
+                title={collapsed ? l.label : undefined}
+              >
+                <span className="admin-side-label">{collapsed ? l.label.charAt(0) : l.label}</span>
+                {l.href === "/admin/messages" && unread > 0 && (
+                  <span className="badge">{unread}</span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="spacer" />
+        <Link href="/" target="_blank" style={{ color: "var(--gold-light)" }} title="Voir le site">
+          {collapsed ? "↗" : "Voir le site ↗"}
+        </Link>
+        <form method="post" action="/api/auth/logout">
+          <button type="submit" title="Déconnexion">
+            {collapsed ? "⎋" : "Déconnexion"}
+          </button>
+        </form>
+      </aside>
+
+      <main className="admin-main">{children}</main>
+    </div>
+  );
+}
