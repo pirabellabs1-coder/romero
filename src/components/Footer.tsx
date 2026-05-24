@@ -111,8 +111,8 @@ export default function Footer({ t, lang, settings }: Props) {
         >
           <span>{t.footer.copy}</span>
           <span style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            <span>{t.footer.legal}</span>
-            <span>{t.footer.privacy}</span>
+            <Link href="/mentions-legales" style={{ color: "#9B948A" }}>{t.footer.legal}</Link>
+            <Link href="/politique-confidentialite" style={{ color: "#9B948A" }}>{t.footer.privacy}</Link>
           </span>
         </div>
         <div

@@ -2,6 +2,7 @@ import "@/styles/globals.css";
 import type { Metadata } from "next";
 import { getSettings, buildTokenStyle } from "@/lib/settings";
 import ModalProvider from "@/components/ui/Modal";
+import { localBusinessSchema, personSchema, websiteSchema, jsonLdScript } from "@/lib/jsonld";
 import { cormorant, inter } from "@/app/fonts";
 
 // Use ISR with short revalidation — settings have a 15s memory cache anyway, and admin actions call revalidatePath()
@@ -53,38 +54,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const settings = getSettings();
   const { css, googleFontHref } = buildTokenStyle(settings);
 
-  const ldJson = {
-    "@context": "https://schema.org",
-    "@type": "Photograph",
-    name: "Romero Photography",
-    description: "Photographe de mariage à Nice & sur la Côte d'Azur.",
-    url: siteUrl,
-    image: `${siteUrl}/uploads/hero.jpg`,
-    author: {
-      "@type": "Person",
-      name: "Mickael Romero",
-      jobTitle: "Photographe de mariage",
-      address: { "@type": "PostalAddress", addressLocality: "Nice", addressCountry: "FR" },
-      email: settings.contact_email,
-      telephone: settings.contact_phone,
-    },
-  };
-  const ldLocalBusiness = {
-    "@context": "https://schema.org",
-    "@type": "LocalBusiness",
-    "@id": `${siteUrl}#business`,
-    name: "Romero Photography",
-    url: siteUrl,
-    image: `${siteUrl}/uploads/hero.jpg`,
-    priceRange: "€€€",
-    address: { "@type": "PostalAddress", addressLocality: settings.contact_city, addressCountry: "FR" },
-    telephone: settings.contact_phone,
-    email: settings.contact_email,
-    areaServed: ["Nice", "Côte d'Azur", "France", "Worldwide"],
-    sameAs: [
-      `https://www.instagram.com/${(settings.instagram_handle || "").replace(/^@/, "")}`,
-    ],
-  };
+  const ldLocalBusiness = localBusinessSchema(settings);
+  const ldPerson = personSchema();
+  const ldWebsite = websiteSchema();
 
   // Only load the extra Google Font when the admin picked a non-default family
   const usingDefaultFonts =
@@ -104,15 +76,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
         {/* Preload the hero LCP image so it appears immediately */}
         <link rel="preload" as="image" href="/uploads/hero.jpg" fetchPriority="high" />
+        {/* hreflang */}
+        <link rel="alternate" hrefLang="fr" href={siteUrl} />
+        <link rel="alternate" hrefLang="en" href={siteUrl} />
+        <link rel="alternate" hrefLang="x-default" href={siteUrl} />
         {/* Dynamic design tokens from settings */}
         <style dangerouslySetInnerHTML={{ __html: css }} />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(ldJson) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(ldWebsite) }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(ldLocalBusiness) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(ldLocalBusiness) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(ldPerson) }}
         />
       </head>
       <body>

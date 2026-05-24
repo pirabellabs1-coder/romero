@@ -4,6 +4,7 @@ import CoupleGallery from "@/components/CoupleGallery";
 import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { getGallery, listPhotosForGallery, galleryIntro } from "@/lib/content";
+import { imageGallerySchema, breadcrumbList, jsonLdScript } from "@/lib/jsonld";
 
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
   const g = getGallery(params.slug);
@@ -28,5 +29,27 @@ export default function CouplePage({ params }: { params: { slug: string } }) {
   const gallery = getGallery(params.slug);
   if (!gallery) notFound();
   const photos = listPhotosForGallery(gallery.id);
-  return <CoupleGallery t={t} gallery={gallery} photos={photos} intro={galleryIntro(gallery, lang)} />;
+  const intro = galleryIntro(gallery, lang);
+
+  const ldGallery = imageGallerySchema({
+    slug: gallery.slug,
+    names: gallery.names,
+    place: gallery.place,
+    date: gallery.date_label,
+    intro,
+    images: photos.map((p) => ({ filename: p.filename, alt: p.alt || `${gallery.names} — ${gallery.place}` })),
+  });
+  const ldBreadcrumb = breadcrumbList([
+    { name: lang === "en" ? "Home" : "Accueil", url: "/" },
+    { name: "Portfolio", url: "/portfolio" },
+    { name: gallery.names, url: `/portfolio/${gallery.slug}` },
+  ]);
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(ldGallery) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(ldBreadcrumb) }} />
+      <CoupleGallery t={t} gallery={gallery} photos={photos} intro={intro} />
+    </>
+  );
 }

@@ -6,6 +6,7 @@ import CTABlock from "@/components/CTABlock";
 import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { getPost, listPosts, postExcerpt, postTitle, pickShowcasePhotos } from "@/lib/content";
+import { articleSchema, breadcrumbList, jsonLdScript } from "@/lib/jsonld";
 
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
   const p = getPost(params.slug);
@@ -42,8 +43,26 @@ export default function PostDetail({ params }: { params: { slug: string } }) {
     .filter((p) => p.id !== post.id)
     .slice(0, 3);
 
+  // JSON-LD for SEO
+  const ldArticle = articleSchema({
+    slug: post.slug,
+    title,
+    description: postExcerpt(post, lang) || title,
+    publishedAt: post.published_at,
+    image: cover ? `/uploads/${cover}` : undefined,
+    author: "Mickael Romero",
+    category: post.category,
+  });
+  const ldBreadcrumb = breadcrumbList([
+    { name: lang === "en" ? "Home" : "Accueil", url: "/" },
+    { name: lang === "en" ? "Journal" : "Blog", url: "/blog" },
+    { name: title, url: `/blog/${post.slug}` },
+  ]);
+
   return (
     <main className="page-enter">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(ldArticle) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(ldBreadcrumb) }} />
       {/* HERO */}
       <section style={{ paddingTop: 160, paddingBottom: 60, background: "var(--cream)" }}>
         <div className="container" style={{ maxWidth: 820, textAlign: "center" }}>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { sendContactNotification } from "@/lib/mailer";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,10 @@ type Body = {
   place?: string;
   message?: string;
   lang?: string;
+  /** Honeypot — should be empty. If filled, the sender is a bot. */
+  website?: string;
+  /** Minimum elapsed ms since the form was rendered, anti-bot heuristic. */
+  formAgeMs?: number;
 };
 
 function clean(v: unknown, max = 1000): string {
@@ -21,11 +26,34 @@ function clean(v: unknown, max = 1000): string {
 }
 
 export async function POST(req: Request) {
+  // 1. Rate limit: 3 submissions per IP per 10 minutes
+  const ip = clientIp(req);
+  const rl = rateLimit(`contact:${ip}`, 3, 10 * 60_000);
+  if (!rl.ok) {
+    const retryAfter = Math.ceil((rl.resetAt - Date.now()) / 1000);
+    return NextResponse.json(
+      { ok: false, error: "Trop de demandes. Réessayez dans quelques minutes." },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    );
+  }
+
   let body: Body;
   try {
     body = (await req.json()) as Body;
   } catch {
     return NextResponse.json({ ok: false, error: "Bad JSON" }, { status: 400 });
+  }
+
+  // 2. Honeypot — silently succeed (don't reveal it's a trap)
+  if (body.website && body.website.trim().length > 0) {
+    console.warn("[contact] Honeypot triggered from IP", ip);
+    return NextResponse.json({ ok: true });
+  }
+
+  // 3. Form-age heuristic — humans take >2s to fill the form
+  if (typeof body.formAgeMs === "number" && body.formAgeMs < 1500) {
+    console.warn("[contact] Form-age too short from IP", ip, body.formAgeMs);
+    return NextResponse.json({ ok: true });
   }
 
   const first_name = clean(body.firstName, 80);
@@ -45,7 +73,7 @@ export async function POST(req: Request) {
   const place = clean(body.place, 200);
   const lang = body.lang === "en" ? "en" : "fr";
 
-  // 1. Persist to DB (best-effort: on serverless read-only FS, this throws — we still want to send the mail).
+  // 4. Persist to DB (best-effort: on serverless read-only FS, this throws — we still want to send the mail).
   let saved = false;
   try {
     getDb()
@@ -59,7 +87,7 @@ export async function POST(req: Request) {
     console.error("[contact] DB save failed (serverless? read-only fs?):", e);
   }
 
-  // 2. Always try to send the email — that's the most important guarantee for the photographer.
+  // 5. Always try to send the email — that's the most important guarantee for the photographer.
   const mailResult = await sendContactNotification({
     firstName: first_name,
     lastName: last_name,
@@ -74,7 +102,6 @@ export async function POST(req: Request) {
     return { sent: false as const, error: e instanceof Error ? e.message : "unknown" };
   });
 
-  // Success if either path succeeded
   if (saved || mailResult.sent) {
     return NextResponse.json({ ok: true, saved, mailSent: mailResult.sent });
   }

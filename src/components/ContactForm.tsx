@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Monogram from "@/components/Monogram";
 import OrnamentDivider from "@/components/OrnamentDivider";
 import type { Strings, Lang } from "@/lib/i18n";
@@ -19,6 +19,9 @@ export default function ContactForm({ t, lang }: Props) {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Anti-bot: honeypot field + form-render timestamp
+  const [honeypot, setHoneypot] = useState("");
+  const formRenderedAt = useRef(Date.now());
 
   const onChange = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [k]: e.target.value });
@@ -31,7 +34,12 @@ export default function ContactForm({ t, lang }: Props) {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, lang }),
+        body: JSON.stringify({
+          ...form,
+          lang,
+          website: honeypot,
+          formAgeMs: Date.now() - formRenderedAt.current,
+        }),
       });
       if (!res.ok) throw new Error("Request failed");
       setSent(true);
@@ -62,6 +70,22 @@ export default function ContactForm({ t, lang }: Props) {
               {error}
             </div>
           )}
+          {/* Honeypot — invisible to humans, filled by bots */}
+          <div
+            aria-hidden="true"
+            style={{ position: "absolute", left: "-9999px", top: "auto", width: 1, height: 1, overflow: "hidden" }}
+          >
+            <label htmlFor="rp_hp_website">Ne pas remplir ce champ</label>
+            <input
+              id="rp_hp_website"
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
             <Field label={t.contact.form.firstName}>
               <input className="input" required value={form.firstName} onChange={onChange("firstName")} />
