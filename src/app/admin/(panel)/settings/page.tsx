@@ -29,11 +29,30 @@ export default function SettingsAdmin({ searchParams }: { searchParams: { ok?: s
             </div>
             <div>
               <label className="admin-label">Instagram (handle)</label>
-              <input className="admin-input" name="instagram_handle" defaultValue={s.instagram_handle} />
+              <input
+                className="admin-input"
+                name="instagram_handle"
+                defaultValue={s.instagram_handle}
+                placeholder="@romeromomentsphoto"
+              />
             </div>
             <div>
-              <label className="admin-label">Pinterest</label>
-              <input className="admin-input" name="pinterest_handle" defaultValue={s.pinterest_handle} />
+              <label className="admin-label">Instagram (URL complète)</label>
+              <input
+                className="admin-input"
+                name="instagram_url"
+                defaultValue={s.instagram_url}
+                placeholder="https://www.instagram.com/romeromomentsphoto"
+              />
+            </div>
+            <div>
+              <label className="admin-label">Lien Google (fiche avis)</label>
+              <input
+                className="admin-input"
+                name="google_reviews_url"
+                defaultValue={s.google_reviews_url}
+                placeholder="https://share.google/..."
+              />
             </div>
           </div>
           <button className="admin-btn" type="submit" style={{ marginTop: 22 }}>

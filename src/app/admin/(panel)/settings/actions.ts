@@ -9,7 +9,8 @@ const ALLOWED = new Set([
   "contact_phone",
   "contact_email",
   "instagram_handle",
-  "pinterest_handle",
+  "instagram_url",
+  "google_reviews_url",
 ]);
 
 export async function updateContactSettings(formData: FormData) {
