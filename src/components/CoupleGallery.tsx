@@ -1,7 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useRef } from "react";
 import Link from "next/link";
-import Photo from "@/components/Photo";
 import OrnamentDivider from "@/components/OrnamentDivider";
 import type { Strings } from "@/lib/i18n";
 import type { GalleryRow, PhotoRow } from "@/lib/content";
@@ -21,7 +20,22 @@ const SPAN_RATIOS: Record<string, string> = {
 };
 
 export default function CoupleGallery({ t, gallery, photos, intro }: Props) {
-  const [lightbox, setLightbox] = useState<PhotoRow | null>(null);
+  const refs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // Click a thumbnail → scroll to it & enlarge it inline (instead of zoom modal)
+  const onPhotoClick = (id: number, el: HTMLDivElement | null) => {
+    if (!el) return;
+    // 1. Toggle "focused" state — large display
+    refs.current.forEach((other) => {
+      if (other !== el) other.classList.remove("masonry-focused");
+    });
+    el.classList.toggle("masonry-focused");
+    // 2. Smooth-scroll to the photo, centered in viewport
+    if (el.classList.contains("masonry-focused")) {
+      const top = el.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top, behavior: "smooth" });
+    }
+  };
 
   return (
     <main className="page-enter">
@@ -78,9 +92,18 @@ export default function CoupleGallery({ t, gallery, photos, intro }: Props) {
           {photos.map((p, i) => {
             const ratio = SPAN_RATIOS[p.span] ?? "4 / 5";
             const cls = "masonry-cell" + (p.span ? ` span-${p.span}` : "");
-            const eager = i < 4; // above-the-fold on most viewports
+            const eager = i < 4;
             return (
-              <div key={p.id} className={cls} onClick={() => setLightbox(p)} style={{ aspectRatio: p.span === "tall" || p.span === "big" ? undefined : ratio }}>
+              <div
+                key={p.id}
+                ref={(el) => {
+                  if (el) refs.current.set(p.id, el);
+                  else refs.current.delete(p.id);
+                }}
+                className={cls}
+                onClick={(e) => onPhotoClick(p.id, e.currentTarget)}
+                style={{ aspectRatio: p.span === "tall" || p.span === "big" ? undefined : ratio }}
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`/uploads/${p.filename}`}
@@ -109,25 +132,6 @@ export default function CoupleGallery({ t, gallery, photos, intro }: Props) {
           </Link>
         </div>
       </section>
-
-      {lightbox && (
-        <div className="lightbox-bg" onClick={() => setLightbox(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: "90vw", maxHeight: "85vh", background: "#fff", padding: 12 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/uploads/${lightbox.filename}`}
-              alt={lightbox.alt || lightbox.filename}
-              style={{ maxWidth: "100%", maxHeight: "80vh", objectFit: "contain" }}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 8px 4px", color: "var(--muted)" }}>
-              <span className="cap-tracked-sm gold">{gallery.names}</span>
-              <span style={{ cursor: "pointer" }} onClick={() => setLightbox(null)}>
-                ✕ FERMER
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

@@ -79,7 +79,9 @@ export default function ReviewsCarousel({ reviews, lang }: Props) {
                     <div className="serif" style={{ fontSize: 17, color: "var(--forest)" }}>
                       {r.name}
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--muted)" }}>{r.date_label}</div>
+                    {r.date_label && (
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{r.date_label}</div>
+                    )}
                   </div>
                   <div style={{ marginLeft: "auto", fontSize: 14 }}>
                     <GoogleG />

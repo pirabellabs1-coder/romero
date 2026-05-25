@@ -6,7 +6,9 @@ export type Settings = {
   contact_phone: string;
   contact_email: string;
   instagram_handle: string;
-  pinterest_handle: string;
+  instagram_url: string;
+  google_reviews_url: string;
+  pinterest_handle?: string;
   accent: string;
   background: string;
   foreground: string;

@@ -27,6 +27,10 @@ export default function Footer({ t, lang, settings }: Props) {
     ["blog", t.nav.blog],
   ];
 
+  const instagramUrl =
+    settings.instagram_url ||
+    `https://www.instagram.com/${(settings.instagram_handle || "").replace(/^@/, "")}`;
+
   return (
     <footer
       style={{
@@ -43,17 +47,6 @@ export default function Footer({ t, lang, settings }: Props) {
           </div>
           <p style={{ marginTop: 22, color: "#C7C2B6", maxWidth: 320, fontSize: 14, lineHeight: 1.7 }}>
             {t.footer.tagline}
-          </p>
-          <p
-            style={{
-              marginTop: 10,
-              color: "var(--gold-light)",
-              fontSize: 11,
-              letterSpacing: "0.22em",
-              textTransform: "uppercase",
-            }}
-          >
-            {t.footer.crafted}
           </p>
         </div>
 
@@ -78,19 +71,27 @@ export default function Footer({ t, lang, settings }: Props) {
           </div>
           <div style={{ color: "#D9D4C8", fontSize: 13, lineHeight: 1.9 }}>
             <div>{settings.contact_city}</div>
-            <div>{settings.contact_phone}</div>
-            <div style={{ fontSize: 12, wordBreak: "normal", overflowWrap: "anywhere" }}>{settings.contact_email}</div>
+            <div><a href={`tel:${(settings.contact_phone || "").replace(/\s+/g, "")}`} style={{ color: "#D9D4C8" }}>{settings.contact_phone}</a></div>
+            <div style={{ fontSize: 12, wordBreak: "normal", overflowWrap: "anywhere" }}>
+              <a href={`mailto:${settings.contact_email}`} style={{ color: "#D9D4C8" }}>{settings.contact_email}</a>
+            </div>
           </div>
         </div>
 
         <div>
           <div className="cap-tracked-sm" style={{ color: "var(--gold-light)", marginBottom: 18 }}>
-            SOCIAL
+            {lang === "en" ? "FOLLOW" : "SUIVRE"}
           </div>
           <div style={{ color: "#D9D4C8", fontSize: 13, lineHeight: 2 }}>
-            <div>Instagram</div>
-            <div>Pinterest</div>
-            <div>Vimeo</div>
+            <a
+              href={instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#D9D4C8", display: "inline-flex", alignItems: "center", gap: 8 }}
+            >
+              <span aria-hidden style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, border: "1px solid rgba(212,185,122,.4)", borderRadius: 4, fontSize: 10, letterSpacing: ".04em", color: "var(--gold-light)" }}>IG</span>
+              Instagram
+            </a>
           </div>
           <LangSwitcher lang={lang} variant="footer" />
         </div>
@@ -114,35 +115,6 @@ export default function Footer({ t, lang, settings }: Props) {
             <Link href="/mentions-legales" style={{ color: "#9B948A" }}>{t.footer.legal}</Link>
             <Link href="/politique-confidentialite" style={{ color: "#9B948A" }}>{t.footer.privacy}</Link>
           </span>
-        </div>
-        <div
-          className="container-wide"
-          style={{
-            marginTop: 18,
-            paddingTop: 18,
-            borderTop: "1px solid rgba(255,255,255,.05)",
-            textAlign: "center",
-            fontSize: 11,
-            color: "#9B948A",
-            letterSpacing: "0.14em",
-          }}
-        >
-          <a
-            href="https://pirabellabs.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Pirabel Labs — Agence Web, Marketing & SEO"
-            style={{
-              color: "#9B948A",
-              textTransform: "uppercase",
-              transition: "color .25s ease",
-            }}
-            className="pirabel-credit"
-          >
-            Réalisé par <span style={{ color: "var(--gold-light)", fontWeight: 500 }}>Pirabel Labs</span>
-            <span style={{ margin: "0 8px", color: "#5C6258" }}>·</span>
-            Agence Web, Marketing &amp; SEO
-          </a>
         </div>
       </div>
     </footer>

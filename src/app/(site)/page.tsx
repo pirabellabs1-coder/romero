@@ -43,7 +43,7 @@ export default function HomePage() {
               {t.home.sub}
             </p>
 
-            <div style={{ marginTop: 48, display: "flex", gap: 18, flexWrap: "wrap" }}>
+            <div className="hero-cta-row" style={{ marginTop: 48, display: "flex", gap: 18, flexWrap: "wrap" }}>
               <Link href="/portfolio" className="btn btn-sage">
                 {t.home.cta}
               </Link>
@@ -52,7 +52,7 @@ export default function HomePage() {
               </Link>
             </div>
 
-            <div style={{ marginTop: 60, display: "flex", alignItems: "center", gap: 14, color: "var(--muted)", flexWrap: "wrap" }}>
+            <div className="hero-cta-row" style={{ marginTop: 60, display: "flex", alignItems: "center", gap: 14, color: "var(--muted)", flexWrap: "wrap" }}>
               <span className="diamond" />
               <span style={{ fontSize: 11, letterSpacing: "0.32em", textTransform: "uppercase" }}>{t.home.locale}</span>
               <span className="diamond" />

@@ -94,12 +94,13 @@ export const STRINGS: Record<Lang, Strings> = {
       title: "Une passion, un regard,",
       titleAccent: "une signature",
       lead: "Mickael Romero photographie les mariages comme on raconte une histoire — avec patience, avec tendresse, et avec ce regard qui sait reconnaître l'instant juste.",
-      bodyEyebrow: "NOTRE HISTOIRE",
-      bodyTitle: "L'art de figer l'éphémère",
+      bodyEyebrow: "MON HISTOIRE",
+      bodyTitle: "L'authenticité d'un regard sincère",
       body: [
-        "Né sur la Côte d'Azur, Mickael a fait de la lumière méditerranéenne sa première complice. Après dix ans à explorer le portrait et le reportage, il consacre désormais son objectif aux mariages — ces journées où chaque seconde devient mémoire.",
-        "Son approche ? Discrète, attentive, profondément humaine. Il ne dirige pas, il accompagne. Il ne pose pas, il écoute. Et c'est dans cette écoute que naissent les images les plus sincères.",
-        "Chaque mariage est unique, chaque couple a sa langue. Mickael apprend la vôtre avant de photographier — pour que vos images ressemblent à ce que vous êtes, pas à ce qu'on attend de vous."
+        "Je m'appelle Mickael Romero, j'ai 31 ans et je suis le fondateur de Romero Photography. Passionné par la photographie depuis l'enfance, j'ai toujours été attiré par l'émotion qu'une image peut transmettre&nbsp;: un regard, une expression, un moment sincère figé dans le temps.",
+        "Il y a environ quatre ans, lors d'un roadtrip de plusieurs mois en Asie, j'ai décidé de transformer cette passion en métier et de créer Romero Photography. C'est là-bas que tout a réellement commencé. À travers mes voyages et mes rencontres, je me suis naturellement tourné vers la photographie de portrait et de mannequin, fasciné par les visages, les émotions et les histoires que chaque personne dégage devant l'objectif.",
+        "Depuis maintenant trois ans, je me suis spécialisé dans le reportage de mariage, un univers dans lequel je m'épanouis pleinement. J'aime capturer l'authenticité de cette journée unique&nbsp;: les regards complices, les éclats de rire, les larmes de joie et tous ces instants précieux qui racontent une histoire vraie.",
+        "Mon approche est avant tout humaine et naturelle. Mon objectif est de créer des images élégantes, sincères et intemporelles, afin que chaque couple puisse revivre les émotions de son mariage encore et encore à travers mes photos."
       ],
       valuesEyebrow: "MES VALEURS",
       valuesTitle: "Ce qui guide chaque cliché",
@@ -119,8 +120,19 @@ export const STRINGS: Record<Lang, Strings> = {
       ],
       gearEyebrow: "ÉQUIPEMENT",
       gearTitle: "Des outils au service de l'instant",
-      gearLead: "Un équipement choisi avec soin — silencieux, lumineux, fidèle. Mais l'outil ne fait pas l'image. Le regard, lui, ne s'achète pas.",
-      gear: ["Sony A7 IV — boîtier principal", "Sony A7 III — second boîtier", "Sigma 35mm f/1.4 ART", "85mm f/1.8 portrait", "16-35mm f/2.8 grand-angle", "Profoto B10 — éclairage portable"]
+      gearLead: "Un équipement haut de gamme choisi avec soin — silencieux, lumineux, fidèle. Mais l'outil ne fait pas l'image. Le regard, lui, ne s'achète pas.",
+      gear: [
+        "Sony A7R V — boîtier principal",
+        "Sony A7 IV — second boîtier",
+        "Sony FE 50mm f/1.2 GM",
+        "Sony FE 24-70mm f/2.8 GM",
+        "Sony FE 70-200mm f/2.8 GM",
+        "Sony FE 35mm f/1.4 GM",
+        "Sigma 14-24mm f/2.8 DG DN Art",
+        "Sony FE 400-800mm G OSS",
+        "DJI Mic — micros cravate sans fil",
+        "Godox AD600 Pro — flash portable",
+      ]
     },
 
     services: {
@@ -129,8 +141,8 @@ export const STRINGS: Record<Lang, Strings> = {
       titleAccent: "moindres détails",
       lead: "Trois formules, une exigence : que chaque image vous ressemble, et que chaque souvenir vous accompagne longtemps.",
       cards: [
-        ["REPORTAGE COMPLET MARIAGE", "De la préparation à l'ouverture de bal", "À partir de 2 400 €", "Couverture intégrale de votre journée, des préparatifs jusqu'à la première danse. Galerie privée en ligne, retouches professionnelles, album papier en option."],
-        ["SÉANCE COUPLE / ENGAGEMENT", "Une parenthèse intime avant le grand jour", "À partir de 480 €", "Une heure et demie en duo, en bord de mer ou dans un lieu qui vous est cher. Idéal pour apprivoiser l'objectif avant le mariage."],
+        ["REPORTAGE COMPLET MARIAGE", "De la préparation à l'ouverture de bal", "Sur devis", "Couverture intégrale de votre journée, des préparatifs jusqu'à la première danse. Galerie privée en ligne, retouches professionnelles, album papier en option."],
+        ["SÉANCE COUPLE / ENGAGEMENT", "Une parenthèse intime avant le grand jour", "À partir de 299 €", "Une heure et demie en duo, en bord de mer ou dans un lieu qui vous est cher. Idéal pour apprivoiser l'objectif avant le mariage."],
         ["ÉVÉNEMENTS PRIVÉS", "Anniversaires, baptêmes, fiançailles", "Sur devis", "Une présence sensible pour vos célébrations familiales — fêtes intimistes, vins d'honneur, anniversaires marquants."]
       ],
       zoomEyebrow: "ZOOM SUR",
@@ -166,7 +178,7 @@ export const STRINGS: Record<Lang, Strings> = {
       titleAccent: "confiance",
       lead: "Chaque mariage est une rencontre. Voici ce que mes mariés en ont retenu.",
       googleCta: "VOIR TOUS LES AVIS SUR GOOGLE",
-      stats: [["5,0", "NOTE GOOGLE"], ["87", "AVIS CLIENTS"], ["120+", "MARIAGES IMMORTALISÉS"]],
+      stats: [["5,0", "NOTE GOOGLE"], ["16", "AVIS CLIENTS"], ["100%", "RECOMMANDATIONS"]],
       live: "EN DIRECT DE GOOGLE",
       liveTitle: "Ils ont vécu l'expérience"
     },
@@ -218,13 +230,13 @@ export const STRINGS: Record<Lang, Strings> = {
     },
 
     footer: {
-      tagline: "Photographe de mariage à Nice & dans le monde.",
+      tagline: "Photographe de mariage à Nice et à l'international.",
       explore: "EXPLORER",
       contactCol: "CONTACT",
       legal: "MENTIONS LÉGALES",
       privacy: "POLITIQUE DE CONFIDENTIALITÉ",
       copy: "© 2026 Romero Photography — Tous droits réservés.",
-      crafted: "Site conçu avec soin sur la Riviera."
+      crafted: ""
     }
   },
 
@@ -261,11 +273,12 @@ export const STRINGS: Record<Lang, Strings> = {
       titleAccent: "a signature",
       lead: "Mickael Romero photographs weddings the way one tells a story — patiently, tenderly, with an eye that knows the right instant when it sees it.",
       bodyEyebrow: "MY STORY",
-      bodyTitle: "The art of holding the fleeting",
+      bodyTitle: "The authenticity of a sincere gaze",
       body: [
-        "Born on the Côte d'Azur, Mickael made Mediterranean light his first companion. After ten years exploring portraiture and reportage, his lens is now devoted to weddings — those days when every second becomes memory.",
-        "His approach? Quiet, attentive, deeply human. He doesn't direct, he accompanies. He doesn't pose, he listens. And from that listening, the truest images are born.",
-        "Every wedding is unique, every couple has its own language. Mickael learns yours before photographing — so your images look like who you are, not what's expected of you."
+        "My name is Mickael Romero, I am 31 and the founder of Romero Photography. Passionate about photography since childhood, I have always been drawn to the emotion an image can convey — a glance, an expression, a sincere moment frozen in time.",
+        "About four years ago, during a months-long road trip across Asia, I decided to turn this passion into a profession and create Romero Photography. That's where it all really began. Through my travels and encounters, I naturally moved towards portrait and modelling photography, fascinated by the faces, emotions and stories each person carries in front of the lens.",
+        "For the past three years, I have specialised in wedding reportage — a world I'm deeply in love with. I love capturing the authenticity of that unique day&nbsp;: knowing glances, bursts of laughter, tears of joy, and all the precious instants that tell a true story.",
+        "My approach is above all human and natural. My goal is to create elegant, sincere and timeless images, so every couple can relive the emotions of their wedding again and again through my photos."
       ],
       valuesEyebrow: "MY VALUES",
       valuesTitle: "What guides every frame",
@@ -285,8 +298,19 @@ export const STRINGS: Record<Lang, Strings> = {
       ],
       gearEyebrow: "GEAR",
       gearTitle: "Tools in service of the moment",
-      gearLead: "Equipment chosen with care — quiet, luminous, reliable. But the tool doesn't make the image. Vision can't be bought.",
-      gear: ["Sony A7 IV — primary body", "Sony A7 III — second body", "Sigma 35mm f/1.4 ART", "85mm f/1.8 portrait", "16-35mm f/2.8 wide", "Profoto B10 — portable lighting"]
+      gearLead: "High-end equipment chosen with care — quiet, luminous, reliable. But the tool doesn't make the image. Vision can't be bought.",
+      gear: [
+        "Sony A7R V — primary body",
+        "Sony A7 IV — second body",
+        "Sony FE 50mm f/1.2 GM",
+        "Sony FE 24-70mm f/2.8 GM",
+        "Sony FE 70-200mm f/2.8 GM",
+        "Sony FE 35mm f/1.4 GM",
+        "Sigma 14-24mm f/2.8 DG DN Art",
+        "Sony FE 400-800mm G OSS",
+        "DJI Mic — wireless lavalier microphones",
+        "Godox AD600 Pro — portable flash",
+      ]
     },
 
     services: {
@@ -295,8 +319,8 @@ export const STRINGS: Record<Lang, Strings> = {
       titleAccent: "every detail in mind",
       lead: "Three offerings, one promise: every image looks like you, and every memory stays with you.",
       cards: [
-        ["FULL WEDDING COVERAGE", "From getting ready to the first dance", "From €2,400", "Full-day coverage from preparations to the first dance. Private online gallery, professional retouching, optional printed album."],
-        ["COUPLE / ENGAGEMENT SHOOT", "An intimate moment before the big day", "From €480", "An hour and a half together, by the sea or in a place dear to you. Perfect for getting comfortable in front of the lens."],
+        ["FULL WEDDING COVERAGE", "From getting ready to the first dance", "On request", "Full-day coverage from preparations to the first dance. Private online gallery, professional retouching, optional printed album."],
+        ["COUPLE / ENGAGEMENT SHOOT", "An intimate moment before the big day", "From €299", "An hour and a half together, by the sea or in a place dear to you. Perfect for getting comfortable in front of the lens."],
         ["PRIVATE EVENTS", "Birthdays, christenings, engagements", "On request", "A sensitive presence for your family celebrations — intimate parties, receptions, milestone birthdays."]
       ],
       zoomEyebrow: "ZOOM ON",
@@ -332,7 +356,7 @@ export const STRINGS: Record<Lang, Strings> = {
       titleAccent: "trust in me",
       lead: "Every wedding is an encounter. Here's what my couples remembered.",
       googleCta: "READ ALL REVIEWS ON GOOGLE",
-      stats: [["5.0", "GOOGLE RATING"], ["87", "CLIENT REVIEWS"], ["120+", "WEDDINGS CAPTURED"]],
+      stats: [["5.0", "GOOGLE RATING"], ["16", "CLIENT REVIEWS"], ["100%", "RECOMMEND"]],
       live: "LIVE FROM GOOGLE",
       liveTitle: "They lived the experience"
     },
@@ -384,13 +408,13 @@ export const STRINGS: Record<Lang, Strings> = {
     },
 
     footer: {
-      tagline: "Wedding photographer in Nice & worldwide.",
+      tagline: "Wedding photographer in Nice & internationally.",
       explore: "EXPLORE",
       contactCol: "CONTACT",
       legal: "LEGAL NOTICE",
       privacy: "PRIVACY POLICY",
       copy: "© 2026 Romero Photography — All rights reserved.",
-      crafted: "Crafted with care on the Riviera."
+      crafted: ""
     }
   }
 };
