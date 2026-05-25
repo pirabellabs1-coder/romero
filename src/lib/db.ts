@@ -165,6 +165,16 @@ function seedIfEmpty(db: Database.Database) {
   const ins = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
   for (const [k, v] of Object.entries(defaults)) ins.run(k, v);
 
+  // ── One-shot upgrade: replace the legacy generic Google Maps search URL with
+  // the real share.google link the photographer provided. Idempotent — only
+  // triggers on rows still holding the old placeholder value.
+  db.prepare(
+    "UPDATE settings SET value = ? WHERE key = 'google_reviews_url' AND value = ?"
+  ).run(
+    "https://share.google/ckAXNbRvvnfKv1o1T",
+    "https://www.google.com/maps/search/?api=1&query=Romero+Photography+Nice"
+  );
+
   const galleryCount = (db.prepare("SELECT COUNT(*) as c FROM galleries").get() as { c: number }).c;
   if (galleryCount === 0) {
     const insGal = db.prepare(`
