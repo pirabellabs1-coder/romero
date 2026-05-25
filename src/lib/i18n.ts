@@ -52,7 +52,7 @@ export type Strings = {
     };
     coordsEyebrow: string; coordsTitle: string;
     coords: [string, string, string][];
-    socialEyebrow: string; followInstagram: string; followPinterest: string;
+    socialEyebrow: string; followInstagram: string;
   };
   cta: { question: string; line1: string; line2: string };
   footer: {
@@ -68,8 +68,8 @@ export const STRINGS: Record<Lang, Strings> = {
     tagline: "L'art de capturer vos émotions",
 
     home: {
-      eyebrow: "PHOTOGRAPHE DE MARIAGE — NICE & AU-DELÀ",
-      locale: "Nice · Côte d'Azur · Worldwide",
+      eyebrow: "PHOTOGRAPHE DE MARIAGE — NICE & À L'INTERNATIONAL",
+      locale: "Nice · Côte d'Azur · International",
       title1: "Chaque instant raconte",
       title2: "votre histoire",
       sub: "Romero Photography immortalise vos plus beaux moments avec sensibilité, élégance et une touche intemporelle.",
@@ -220,7 +220,7 @@ export const STRINGS: Record<Lang, Strings> = {
       ],
       socialEyebrow: "SUR LES RÉSEAUX",
       followInstagram: "@romeromomentsphoto",
-      followPinterest: "Romero Photography"
+
     },
 
     cta: {
@@ -398,7 +398,7 @@ export const STRINGS: Record<Lang, Strings> = {
       ],
       socialEyebrow: "ON SOCIAL",
       followInstagram: "@romeromomentsphoto",
-      followPinterest: "Romero Photography"
+
     },
 
     cta: {
