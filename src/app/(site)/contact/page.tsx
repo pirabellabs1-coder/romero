@@ -35,7 +35,7 @@ export default function ContactPage() {
     <main>
       <PageEyebrow eyebrow={t.contact.eyebrow} title={t.contact.title} accent={t.contact.titleAccent} lead={t.contact.lead} />
 
-      <section style={{ background: "#fff", padding: "40px 0 120px" }}>
+      <section className="contact-section" style={{ background: "#fff" }}>
         <div className="container-wide responsive-2col start">
           <Rise>
             <ContactForm t={t} lang={lang} />
@@ -48,10 +48,11 @@ export default function ContactPage() {
                 {t.contact.coordsTitle}
               </h2>
               <OrnamentDivider />
-              <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 26 }}>
+              <div className="contact-coords-stack" style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 26 }}>
                 {coords.map(([icon, primary, secondary], i) => (
                   <div
                     key={i}
+                    className="contact-coords-row"
                     style={{
                       display: "grid",
                       gridTemplateColumns: "36px 1fr",
@@ -72,7 +73,7 @@ export default function ContactPage() {
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop: 40 }}>
+              <div className="contact-coords-extra" style={{ marginTop: 40 }}>
                 <div className="cap-tracked-sm gold">{t.contact.socialEyebrow}</div>
                 <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
                   <a

@@ -106,7 +106,7 @@ export default function ContactForm({ t, lang }: Props) {
               <input className="input" placeholder="Nice, Èze, Cap Ferrat..." value={form.place} onChange={onChange("place")} />
             </Field>
           </div>
-          <div style={{ marginTop: 36 }}>
+          <div className="contact-message-block">
             <Field label={t.contact.form.message}>
               <textarea
                 className="input textarea"
@@ -119,7 +119,12 @@ export default function ContactForm({ t, lang }: Props) {
               />
             </Field>
           </div>
-          <button type="submit" disabled={pending} className="btn btn-sage" style={{ marginTop: 40, width: "100%", opacity: pending ? 0.6 : 1 }}>
+          <button
+            type="submit"
+            disabled={pending}
+            className="btn btn-sage contact-submit-btn"
+            style={{ width: "100%", opacity: pending ? 0.6 : 1 }}
+          >
             {pending ? "…" : t.contact.form.submit}
           </button>
         </>

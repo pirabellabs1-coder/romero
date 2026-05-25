@@ -444,6 +444,25 @@ section { position: relative; }
 .body { color: var(--ink); }
 .muted { color: var(--muted); }
 
+/* Contact page: section spacing + tighter coords on mobile */
+.contact-section { padding: 40px 0 120px; }
+@media (max-width: 1024px) {
+  .contact-section { padding: 24px 0 64px; }
+  /* Tighter gap between the form column and the coords column when stacked. */
+  .contact-section .responsive-2col { gap: 36px; }
+}
+@media (max-width: 640px) {
+  .contact-section { padding: 16px 0 48px; }
+  .contact-section .responsive-2col { gap: 28px; }
+}
+
+/* Tighten the right-column gap on mobile (coord rows + IG block) */
+@media (max-width: 1024px) {
+  .contact-coords-stack { gap: 18px !important; margin-top: 18px !important; }
+  .contact-coords-row { padding-bottom: 16px !important; }
+  .contact-coords-extra { margin-top: 28px !important; }
+}
+
 /* Contact form */
 .contact-form {
   background: var(--cream);
@@ -456,12 +475,21 @@ section { position: relative; }
   grid-template-columns: 1fr 1fr;
   gap: 28px;
 }
-@media (max-width: 720px) {
-  .contact-form { padding: 28px 18px; }
-  .contact-form-grid { grid-template-columns: 1fr; gap: 22px; }
-}
-@media (max-width: 420px) {
-  .contact-form { padding: 22px 14px; }
+.contact-message-block { margin-top: 36px; }
+.contact-submit-btn { margin-top: 40px; }
+
+@media (max-width: 1024px) {
+  /* On mobile/tablet, drop the boxed look so the form fields align flush
+     with the right-column text (coords + Instagram). Avoids the 18-30px
+     visual indent the bordered card creates vs flat content. */
+  .contact-form {
+    background: transparent;
+    padding: 0;
+    border: 0;
+  }
+  .contact-form-grid { grid-template-columns: 1fr; gap: 20px; }
+  .contact-message-block { margin-top: 24px; }
+  .contact-submit-btn { margin-top: 28px; }
 }
 .rise { max-width: 100%; }
 
