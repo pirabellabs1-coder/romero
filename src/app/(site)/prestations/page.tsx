@@ -27,9 +27,13 @@ export default function ServicesPage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
   // 1 hero + 3 card images + 1 zoom image + 4 gallery tiles = 9 distinct photos
-  const allShots = pickShowcasePhotos(9, "prestations-v1");
+  const allShots = pickShowcasePhotos(9, "prestations-v2");
   const heroImg = allShots[0];
   const cardPhotos = allShots.slice(1, 4);
+  // Pin a dedicated "event" photo on the 3rd card (Événement privé) — different
+  // wedding pool so it visually contrasts with the bride-focused cards 1 & 2.
+  const eventCardPhoto = pickShowcasePhotos(1, "event-card-v1")[0];
+  if (eventCardPhoto) cardPhotos[2] = eventCardPhoto;
   const zoomImg = allShots[4];
   const galleryPhotos = allShots.slice(5, 9);
 
