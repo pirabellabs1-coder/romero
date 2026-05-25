@@ -15,12 +15,20 @@ type Props = {
 export default function PortfolioGrid({ filters, galleries }: Props) {
   const [filter, setFilter] = useState(filters[0]);
 
+  // Filter by gallery.kind (MARIAGE / ENGAGEMENT / PORTRAIT / LIFESTYLE)
+  // The filter labels in i18n map 1:1 to these kind values (uppercase).
+  const FILTER_TO_KIND: Record<number, string> = {
+    0: "MARIAGE",
+    1: "ENGAGEMENT",
+    2: "PORTRAIT",
+    3: "LIFESTYLE",
+  };
+
   const filtered = useMemo(() => {
-    if (filter === filters[0]) return galleries;
-    if (filter === filters[1]) return galleries.filter((g) => g.region === "FRANCE");
-    if (filter === filters[2]) return galleries.filter((g) => g.region === "INTERNATIONAL");
-    if (filter === filters[3]) return galleries.filter((g) => g.kind === "INTIMISTE");
-    return galleries;
+    const idx = filters.indexOf(filter);
+    const kind = FILTER_TO_KIND[idx];
+    if (!kind) return galleries;
+    return galleries.filter((g) => g.kind === kind);
   }, [filter, filters, galleries]);
 
   return (
@@ -46,38 +54,52 @@ export default function PortfolioGrid({ filters, galleries }: Props) {
       </section>
 
       <section style={{ background: "var(--cream)", paddingBottom: 120 }}>
-        <div className="container-wide portfolio-grid">
-          {filtered.map((g, i) => (
-            <Rise key={g.id} delay={(i % 3) * 80}>
-              <Link href={`/portfolio/${g.slug}`}>
-                <div style={{ cursor: "pointer" }}>
-                  <div style={{ position: "relative", overflow: "hidden" }}>
-                    <div style={{ aspectRatio: i % 4 === 0 ? "3 / 4" : "4 / 5", overflow: "hidden" }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={g.coverUrl}
-                        alt={g.names}
-                        loading={i < 3 ? "eager" : "lazy"}
-                        fetchPriority={i < 3 ? "high" : "low"}
-                        decoding="async"
-                        style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 1.2s ease" }}
-                      />
+        {filtered.length === 0 ? (
+          <div
+            className="container"
+            style={{ textAlign: "center", padding: "60px 20px 40px", maxWidth: 580, color: "var(--muted)" }}
+          >
+            <div className="serif" style={{ fontSize: 24, color: "var(--forest)", fontStyle: "italic", marginBottom: 14 }}>
+              Bientôt en ligne
+            </div>
+            <p style={{ fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+              Cette catégorie sera enrichie prochainement. En attendant, parcourez les autres reportages ou contactez-moi pour en discuter.
+            </p>
+          </div>
+        ) : (
+          <div className="container-wide portfolio-grid">
+            {filtered.map((g, i) => (
+              <Rise key={g.id} delay={(i % 3) * 80}>
+                <Link href={`/portfolio/${g.slug}`}>
+                  <div style={{ cursor: "pointer" }}>
+                    <div style={{ position: "relative", overflow: "hidden" }}>
+                      <div style={{ aspectRatio: i % 4 === 0 ? "3 / 4" : "4 / 5", overflow: "hidden" }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={g.coverUrl}
+                          alt={g.names}
+                          loading={i < 3 ? "eager" : "lazy"}
+                          fetchPriority={i < 3 ? "high" : "low"}
+                          decoding="async"
+                          style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 1.2s ease" }}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 22, textAlign: "center" }}>
+                      <div className="cap-tracked-sm gold">
+                        {g.region} — {g.place.toUpperCase().split(",")[0]}
+                      </div>
+                      <div className="serif" style={{ fontSize: 26, color: "var(--forest)", marginTop: 8, fontStyle: "italic" }}>
+                        {g.names}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, letterSpacing: "0.04em" }}>{g.date_label}</div>
                     </div>
                   </div>
-                  <div style={{ marginTop: 22, textAlign: "center" }}>
-                    <div className="cap-tracked-sm gold">
-                      {g.region} — {g.place.toUpperCase().split(",")[0]}
-                    </div>
-                    <div className="serif" style={{ fontSize: 26, color: "var(--forest)", marginTop: 8, fontStyle: "italic" }}>
-                      {g.names}
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, letterSpacing: "0.04em" }}>{g.date_label}</div>
-                  </div>
-                </div>
-              </Link>
-            </Rise>
-          ))}
-        </div>
+                </Link>
+              </Rise>
+            ))}
+          </div>
+        )}
       </section>
     </>
   );

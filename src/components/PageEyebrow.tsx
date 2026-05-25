@@ -16,16 +16,10 @@ export default function PageEyebrow({ eyebrow, title, accent, lead, image }: Pro
     <section style={{ position: "relative", paddingTop: 160, paddingBottom: 80, background: "var(--cream)", overflow: "hidden" }}>
       <div className="watercolor" />
       <div
-        className="container-wide"
-        style={{
-          position: "relative",
-          display: "grid",
-          gridTemplateColumns: image ? "1fr 1fr" : "1fr",
-          gap: 80,
-          alignItems: "center",
-        }}
+        className={`container-wide page-eyebrow-grid${image ? " with-image" : ""}`}
+        style={{ position: "relative" }}
       >
-        <div className="page-enter">
+        <div className="page-enter page-eyebrow-text">
           <div className="cap-tracked gold" style={{ marginBottom: 28 }}>
             {eyebrow}
           </div>
@@ -36,13 +30,13 @@ export default function PageEyebrow({ eyebrow, title, accent, lead, image }: Pro
           </h1>
           <OrnamentDivider />
           {lead && (
-            <p className="lead muted" style={{ marginTop: 28 }}>
+            <p className="lead muted page-eyebrow-lead" style={{ marginTop: 28 }}>
               {lead}
             </p>
           )}
         </div>
         {image && (
-          <div className="page-enter">
+          <div className="page-enter page-eyebrow-photo">
             <Photo src={image.src ?? null} label={image.label} ratio="4 / 5" objectPosition={image.objectPosition ?? "center center"} />
           </div>
         )}

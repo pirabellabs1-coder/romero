@@ -87,9 +87,25 @@ export default function Footer({ t, lang, settings }: Props) {
               href={instagramUrl}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: "#D9D4C8", display: "inline-flex", alignItems: "center", gap: 8 }}
+              aria-label="Suivre sur Instagram"
+              style={{ color: "#D9D4C8", display: "inline-flex", alignItems: "center", gap: 10 }}
             >
-              <span aria-hidden style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, border: "1px solid rgba(212,185,122,.4)", borderRadius: 4, fontSize: 10, letterSpacing: ".04em", color: "var(--gold-light)" }}>IG</span>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+                style={{ color: "var(--gold-light)" }}
+              >
+                <rect x="3" y="3" width="18" height="18" rx="5" ry="5" />
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+              </svg>
               Instagram
             </a>
           </div>

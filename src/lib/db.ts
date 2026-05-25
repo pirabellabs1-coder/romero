@@ -175,6 +175,16 @@ function seedIfEmpty(db: Database.Database) {
     "https://www.google.com/maps/search/?api=1&query=Romero+Photography+Nice"
   );
 
+  // ── One-shot upgrade: portfolio filter taxonomy moved from
+  // INTIMISTE/INTERNATIONAL to MARIAGE/ENGAGEMENT/PORTRAIT/LIFESTYLE.
+  // Map all existing legacy kinds to MARIAGE (all current galleries are weddings).
+  db.prepare(
+    "UPDATE galleries SET kind = 'MARIAGE' WHERE kind IN ('INTIMISTE', 'INTERNATIONAL')"
+  ).run();
+  // Remove the legacy Léa & Thomas placeholder gallery (no real photos).
+  db.prepare("DELETE FROM photos WHERE gallery_id IN (SELECT id FROM galleries WHERE slug = 'lea-thomas')").run();
+  db.prepare("DELETE FROM galleries WHERE slug = 'lea-thomas'").run();
+
   const galleryCount = (db.prepare("SELECT COUNT(*) as c FROM galleries").get() as { c: number }).c;
   if (galleryCount === 0) {
     const insGal = db.prepare(`
@@ -182,30 +192,26 @@ function seedIfEmpty(db: Database.Database) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const seedGals: Array<[string, string, string, string, string, string, string, string, number, number]> = [
-      ["anastasia-jordan", "Anastasia & Jordan", "Èze, France", "Septembre 2025", "FRANCE", "INTIMISTE",
+      ["anastasia-jordan", "Anastasia & Jordan", "Èze, France", "Septembre 2025", "FRANCE", "MARIAGE",
         "Un mariage suspendu au-dessus de la Méditerranée. Anastasia portait un voile que le mistral n'arrêtait pas de soulever — et Jordan, lui, ne regardait qu'elle. La cérémonie laïque s'est tenue au coucher du soleil, dans le jardin d'une villa privée taillée dans la pierre claire d'Èze.",
         "A wedding suspended above the Mediterranean. Anastasia wore a veil the mistral kept lifting — and Jordan only had eyes for her. The civil ceremony took place at sunset, in the garden of a private villa carved into the pale stone of Èze.",
         1, 0],
-      ["manon-kevin", "Manon & Kevin", "Saint-Paul-de-Vence", "Juin 2025", "FRANCE", "INTIMISTE",
+      ["manon-kevin", "Manon & Kevin", "Saint-Paul-de-Vence", "Juin 2025", "FRANCE", "MARIAGE",
         "Un mariage en petit comité dans les ruelles ocres de Saint-Paul. Cinquante invités, des tables longues sous les tilleuls, et une mariée qui a dansé pieds nus jusqu'au dernier morceau.",
         "An intimate wedding in the ochre alleys of Saint-Paul. Fifty guests, long tables under the lime trees, and a bride who danced barefoot till the last song.",
         1, 1],
-      ["sonia-sebastien", "Sonia & Sébastien", "Cap Ferrat", "Mai 2025", "FRANCE", "INTIMISTE",
+      ["sonia-sebastien", "Sonia & Sébastien", "Cap Ferrat", "Mai 2025", "FRANCE", "MARIAGE",
         "Cap Ferrat, un matin de mai. La mer plate comme une plaque d'argent, un déjeuner sur la terrasse d'une villa Belle Époque, et le rire de Sonia qui résonnait jusqu'aux pins.",
         "Cap Ferrat, a May morning. The sea flat as a silver plate, lunch on the terrace of a Belle Époque villa, and Sonia's laughter echoing all the way to the pines.",
         1, 2],
-      ["sandy-alain", "Sandy & Alain", "Marrakech, Maroc", "Octobre 2024", "INTERNATIONAL", "INTERNATIONAL",
+      ["sandy-alain", "Sandy & Alain", "Marrakech, Maroc", "Octobre 2024", "INTERNATIONAL", "MARIAGE",
         "Quatre jours de fête dans un riad de la palmeraie. Lanternes en cuivre, tapis berbères, henné dansé jusqu'à l'aube — un mariage chaleureux et joyeusement bruyant.",
         "Four days of celebration in a riad in the palm grove. Copper lanterns, Berber rugs, henna danced till dawn — a warm, joyfully loud wedding.",
         0, 3],
-      ["victoria-patrick", "Victoria & Patrick", "Lac de Côme, Italie", "Juillet 2024", "INTERNATIONAL", "INTERNATIONAL",
+      ["victoria-patrick", "Victoria & Patrick", "Lac de Côme, Italie", "Juillet 2024", "INTERNATIONAL", "MARIAGE",
         "Une cérémonie sur le ponton d'une villa du XVIIIᵉ siècle, et un dîner à la lueur de centaines de bougies. Victoria portait la robe de sa grand-mère, restaurée fil à fil.",
         "A ceremony on the jetty of an 18th-century villa, and a dinner lit by hundreds of candles. Victoria wore her grandmother's gown, restored thread by thread.",
         0, 4],
-      ["lea-thomas", "Léa & Thomas", "Mougins, France", "Avril 2024", "FRANCE", "INTIMISTE",
-        "Trente invités, un domaine viticole, et une cérémonie sous les oliviers. Le genre de jour qu'on n'oublie pas.",
-        "Thirty guests, a wine estate, and a ceremony under the olive trees. The kind of day you don't forget.",
-        0, 5],
     ];
     const insPhoto = db.prepare("INSERT INTO photos (gallery_id, filename, alt, span, sort_order) VALUES (?, ?, ?, ?, ?)");
     const setCover = db.prepare("UPDATE galleries SET cover_photo_id = ? WHERE id = ?");

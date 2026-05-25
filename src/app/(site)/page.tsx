@@ -29,7 +29,9 @@ export default function HomePage() {
       <section style={{ position: "relative", overflow: "hidden", background: "var(--cream)", paddingTop: 120 }}>
         <div className="watercolor" />
         <div className="hero-shell">
-          <div className="hero-text">
+          {/* On mobile: title block above photo, description+CTAs below. On
+              desktop both blocks live in the same left column via CSS grid. */}
+          <div className="hero-text hero-text-top">
             <div className="cap-tracked gold" style={{ marginBottom: 32 }}>
               {t.home.eyebrow}
             </div>
@@ -39,11 +41,14 @@ export default function HomePage() {
               <br />
               <span style={{ fontStyle: "italic", color: "var(--gold)" }}>{t.home.title2}</span>
             </h1>
-            <p className="lead" style={{ marginTop: 36, color: "var(--ink)", maxWidth: 480 }}>
+          </div>
+
+          <div className="hero-text hero-text-bottom">
+            <p className="lead" style={{ color: "var(--ink)", maxWidth: 480 }}>
               {t.home.sub}
             </p>
 
-            <div className="hero-cta-row" style={{ marginTop: 48, display: "flex", gap: 18, flexWrap: "wrap" }}>
+            <div className="hero-cta-row" style={{ marginTop: 36, display: "flex", gap: 18, flexWrap: "wrap" }}>
               <Link href="/portfolio" className="btn btn-sage">
                 {t.home.cta}
               </Link>
@@ -52,7 +57,7 @@ export default function HomePage() {
               </Link>
             </div>
 
-            <div className="hero-cta-row" style={{ marginTop: 60, display: "flex", alignItems: "center", gap: 14, color: "var(--muted)", flexWrap: "wrap" }}>
+            <div className="hero-cta-row" style={{ marginTop: 44, display: "flex", alignItems: "center", gap: 14, color: "var(--muted)", flexWrap: "wrap" }}>
               <span className="diamond" />
               <span style={{ fontSize: 11, letterSpacing: "0.32em", textTransform: "uppercase" }}>{t.home.locale}</span>
               <span className="diamond" />
