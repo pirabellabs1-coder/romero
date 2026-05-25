@@ -15,10 +15,12 @@ export default function Monogram({ size = 60, label = true, sublabel = true }: P
         <rect x="6" y="6" width="88" height="93" stroke="#B8975A" strokeWidth="0.6" fill="none" />
         <rect x="9" y="9" width="82" height="87" stroke="#B8975A" strokeWidth="0.4" fill="none" opacity="0.6" />
         <g fill="#B8975A">
-          <rect x="48" y="2.5" width="4" height="4" transform="rotate(45 50 4.5)" />
+          {/* Top diamond — center exactly on the line at y=6 */}
+          <rect x="48" y="4" width="4" height="4" transform="rotate(45 50 6)" />
           <line x1="20" y1="6" x2="40" y2="6" stroke="#B8975A" strokeWidth="0.4" />
           <line x1="60" y1="6" x2="80" y2="6" stroke="#B8975A" strokeWidth="0.4" />
-          <rect x="48" y="98.5" width="4" height="4" transform="rotate(45 50 100.5)" />
+          {/* Bottom diamond — center exactly on the line at y=99 */}
+          <rect x="48" y="97" width="4" height="4" transform="rotate(45 50 99)" />
           <line x1="20" y1="99" x2="40" y2="99" stroke="#B8975A" strokeWidth="0.4" />
           <line x1="60" y1="99" x2="80" y2="99" stroke="#B8975A" strokeWidth="0.4" />
         </g>

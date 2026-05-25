@@ -26,16 +26,17 @@ const HERO_PHOTO = "/uploads/hero.jpg";
 export default function ServicesPage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
-  // 1 hero + 3 card images + 1 zoom image + 4 gallery tiles = 9 distinct photos
-  const allShots = pickShowcasePhotos(9, "prestations-v2");
+  // 1 hero + 4 card images + 1 zoom image + 4 gallery tiles = 10 distinct photos
+  const allShots = pickShowcasePhotos(10, "prestations-v3");
   const heroImg = allShots[0];
-  const cardPhotos = allShots.slice(1, 4);
-  // Pin a dedicated "event" photo on the 3rd card (Événement privé) — different
-  // wedding pool so it visually contrasts with the bride-focused cards 1 & 2.
-  const eventCardPhoto = pickShowcasePhotos(1, "event-card-v1")[0];
-  if (eventCardPhoto) cardPhotos[2] = eventCardPhoto;
-  const zoomImg = allShots[4];
-  const galleryPhotos = allShots.slice(5, 9);
+  const cardPhotos = allShots.slice(1, 5);
+  const zoomImg = allShots[5];
+  const galleryPhotos = allShots.slice(6, 10);
+
+  // Labels for the 4 service categories (matches t.services.cards order)
+  const CATEGORY_LABELS_FR = ["Mariage", "Séance d'engagement", "Portrait", "Lifestyle"];
+  const CATEGORY_LABELS_EN = ["Wedding", "Engagement session", "Portrait", "Lifestyle"];
+  const labels = lang === "en" ? CATEGORY_LABELS_EN : CATEGORY_LABELS_FR;
 
   return (
     <main>
@@ -47,24 +48,24 @@ export default function ServicesPage() {
         image={{ src: photoUrl(heroImg), label: "bouquet de pivoines", objectPosition: "center 30%" }}
       />
 
-      {/* CARDS */}
+      {/* CARDS — 4 catégories clairement séparées */}
       <section className="section-pad" style={{ background: "#fff" }}>
         <div className="container-wide">
-          <div className="responsive-3col">
+          <div className="services-cards-grid">
             {t.services.cards.map(([title, sub, price, body], i) => (
-              <Rise key={i} delay={i * 80}>
-                <div className="card" style={{ display: "flex", flexDirection: "column", height: "100%", padding: 0, overflow: "hidden" }}>
+              <Rise key={i} delay={i * 60}>
+                <div className="card service-card" style={{ display: "flex", flexDirection: "column", height: "100%", padding: 0, overflow: "hidden" }}>
                   <div style={{ aspectRatio: "4 / 3" }}>
                     <Photo
                       src={photoUrl(cardPhotos[i])}
-                      label={["Reportage mariage", "Séance couple", "Événement privé"][i]}
+                      label={labels[i]}
                       rounded={false}
                       ratio="4 / 3"
                     />
                   </div>
-                  <div style={{ padding: "36px 30px 32px", flex: 1, display: "flex", flexDirection: "column" }}>
+                  <div className="service-card-body">
                     <div className="cap-tracked-sm gold" style={{ marginBottom: 12 }}>
-                      FORMULE 0{i + 1}
+                      {`0${i + 1} · ${labels[i].toUpperCase()}`}
                     </div>
                     <h3 className="h-card" style={{ margin: 0 }}>
                       {title}
@@ -81,9 +82,11 @@ export default function ServicesPage() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
+                        gap: 12,
+                        flexWrap: "wrap",
                       }}
                     >
-                      <span className="serif" style={{ fontSize: 18, color: "var(--forest)" }}>
+                      <span className="serif" style={{ fontSize: 17, color: "var(--forest)" }}>
                         {price}
                       </span>
                       <Link href="/contact" className="cap-tracked-sm gold">

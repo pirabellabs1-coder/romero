@@ -97,9 +97,9 @@ export const STRINGS: Record<Lang, Strings> = {
       bodyEyebrow: "MON HISTOIRE",
       bodyTitle: "L'authenticité d'un regard sincère",
       body: [
-        "Je m'appelle Mickael Romero, j'ai 31 ans et je suis le fondateur de Romero Photography. Passionné par la photographie depuis l'enfance, j'ai toujours été attiré par l'émotion qu'une image peut transmettre&nbsp;: un regard, une expression, un moment sincère figé dans le temps.",
+        "Je m'appelle Mickael Romero, j'ai 31 ans et je suis le fondateur de Romero Photography. Passionné par la photographie depuis l'enfance, j'ai toujours été attiré par l'émotion qu'une image peut transmettre : un regard, une expression, un moment sincère figé dans le temps.",
         "Il y a environ quatre ans, lors d'un roadtrip de plusieurs mois en Asie, j'ai décidé de transformer cette passion en métier et de créer Romero Photography. C'est là-bas que tout a réellement commencé. À travers mes voyages et mes rencontres, je me suis naturellement tourné vers la photographie de portrait et de mannequin, fasciné par les visages, les émotions et les histoires que chaque personne dégage devant l'objectif.",
-        "Depuis maintenant trois ans, je me suis spécialisé dans le reportage de mariage, un univers dans lequel je m'épanouis pleinement. J'aime capturer l'authenticité de cette journée unique&nbsp;: les regards complices, les éclats de rire, les larmes de joie et tous ces instants précieux qui racontent une histoire vraie.",
+        "Depuis maintenant trois ans, je me suis spécialisé dans le reportage de mariage, un univers dans lequel je m'épanouis pleinement. J'aime capturer l'authenticité de cette journée unique : les regards complices, les éclats de rire, les larmes de joie et tous ces instants précieux qui racontent une histoire vraie.",
         "Mon approche est avant tout humaine et naturelle. Mon objectif est de créer des images élégantes, sincères et intemporelles, afin que chaque couple puisse revivre les émotions de son mariage encore et encore à travers mes photos."
       ],
       valuesEyebrow: "MES VALEURS",
@@ -139,22 +139,21 @@ export const STRINGS: Record<Lang, Strings> = {
       eyebrow: "PRESTATIONS",
       title: "Des images pensées dans les",
       titleAccent: "moindres détails",
-      lead: "Trois formules, une exigence : que chaque image vous ressemble, et que chaque souvenir vous accompagne longtemps.",
+      lead: "Quatre univers, une exigence : que chaque image vous ressemble, et que chaque souvenir vous accompagne longtemps.",
       cards: [
-        ["REPORTAGE COMPLET MARIAGE", "De la préparation à l'ouverture de bal", "Sur devis", "Couverture intégrale de votre journée, des préparatifs jusqu'à la première danse. Galerie privée en ligne, retouches professionnelles, album papier en option."],
-        ["SÉANCE COUPLE / ENGAGEMENT", "Une parenthèse intime avant le grand jour", "À partir de 299 €", "Une heure et demie en duo, en bord de mer ou dans un lieu qui vous est cher. Idéal pour apprivoiser l'objectif avant le mariage."],
-        ["ÉVÉNEMENTS PRIVÉS", "Anniversaires, baptêmes, fiançailles", "Sur devis", "Une présence sensible pour vos célébrations familiales — fêtes intimistes, vins d'honneur, anniversaires marquants."]
+        ["MARIAGE", "Reportage adapté à votre journée", "Sur devis", "Plusieurs formules sur-mesure selon votre journée — demi-journée, journée complète, multi-jours, mariage destination. Chaque devis est construit avec vous, autour de votre projet et de votre budget."],
+        ["SÉANCE D'ENGAGEMENT", "Une parenthèse intime avant le grand jour", "À partir de 299 €", "Une heure et demie en duo, en bord de mer ou dans un lieu qui vous est cher. Idéal pour apprivoiser l'objectif avant le mariage."],
+        ["PORTRAIT", "Individuel, couple ou famille", "Sur devis", "Une séance dédiée à votre image — portrait artistique, photo de famille, shooting professionnel. Lumière naturelle, direction bienveillante, retouches haut de gamme."],
+        ["LIFESTYLE", "Moments de vie, ambiance naturelle", "Sur devis", "Reportage authentique d'un moment ou d'un projet de vie — grossesse, naissance, anniversaire, escapade en couple. Une approche douce, sincère et intemporelle."]
       ],
-      zoomEyebrow: "ZOOM SUR",
-      zoomTitle: "Le reportage complet, en détail",
-      zoomIntro: "Une journée, une histoire, un livre d'images. Voici ce qui est inclus dans chaque reportage complet.",
+      zoomEyebrow: "FORMULES MARIAGE",
+      zoomTitle: "Du sur-mesure, à votre image",
+      zoomIntro: "Chaque mariage est unique. Voici les grandes formules — toutes adaptables à votre journée, votre lieu et votre budget. Un devis détaillé vous est remis après un premier échange.",
       includes: [
-        ["Préparatifs des mariés", "Robe, costume, derniers regards — l'attente, la tendresse, les fous rires."],
-        ["Cérémonie civile et/ou religieuse", "Tous les regards, toutes les mains, tous les serments."],
-        ["Cocktail & vin d'honneur", "Vos proches, leurs sourires, l'ambiance qui s'installe."],
-        ["Repas & soirée", "Discours, premières danses, fous rires sur la piste — jusqu'au bout de la nuit."],
-        ["Galerie privée en ligne", "Vos images livrées sous 4 semaines, accessibles à vie, partageables."],
-        ["Retouches professionnelles", "Chaque cliché sélectionné, retravaillé en couleur et en lumière."]
+        ["Demi-journée", "Idéal pour les cérémonies intimistes — couverture de la cérémonie + cocktail (4 h environ)."],
+        ["Journée complète", "De la préparation à l'ouverture de bal — la formule la plus demandée pour ne rien manquer."],
+        ["Multi-jours", "Pour les mariages destination ou week-end de festivités — couverture sur deux ou trois jours."],
+        ["Sur-mesure", "Votre projet ne rentre dans aucune case ? Parlons-en — chaque devis est unique et construit avec vous."]
       ],
       galleryEyebrow: "QUELQUES IMAGES",
       cta: "PARLONS DE VOTRE PROJET"
@@ -317,22 +316,21 @@ export const STRINGS: Record<Lang, Strings> = {
       eyebrow: "SERVICES",
       title: "Images crafted with",
       titleAccent: "every detail in mind",
-      lead: "Three offerings, one promise: every image looks like you, and every memory stays with you.",
+      lead: "Four worlds, one promise: every image looks like you, and every memory stays with you.",
       cards: [
-        ["FULL WEDDING COVERAGE", "From getting ready to the first dance", "On request", "Full-day coverage from preparations to the first dance. Private online gallery, professional retouching, optional printed album."],
-        ["COUPLE / ENGAGEMENT SHOOT", "An intimate moment before the big day", "From €299", "An hour and a half together, by the sea or in a place dear to you. Perfect for getting comfortable in front of the lens."],
-        ["PRIVATE EVENTS", "Birthdays, christenings, engagements", "On request", "A sensitive presence for your family celebrations — intimate parties, receptions, milestone birthdays."]
+        ["WEDDING", "Coverage tailored to your day", "On request", "Several bespoke formulas to suit your day — half-day, full day, multi-day, destination wedding. Every quote is built with you, around your project and your budget."],
+        ["ENGAGEMENT SESSION", "An intimate moment before the big day", "From €299", "An hour and a half together, by the sea or in a place dear to you. Perfect for getting comfortable in front of the lens."],
+        ["PORTRAIT", "Individual, couple or family", "On request", "A session devoted to your image — artistic portrait, family photo, professional shoot. Natural light, gentle direction, high-end retouching."],
+        ["LIFESTYLE", "Life moments, natural mood", "On request", "Authentic reportage of a moment or life project — pregnancy, newborn, birthday, couple's getaway. A soft, sincere and timeless approach."]
       ],
-      zoomEyebrow: "ZOOM ON",
-      zoomTitle: "Full coverage, in detail",
-      zoomIntro: "One day, one story, one book of images. Here's what's included in every full reportage.",
+      zoomEyebrow: "WEDDING FORMULAS",
+      zoomTitle: "Bespoke, your way",
+      zoomIntro: "Every wedding is unique. Here are the main formulas — all adaptable to your day, your venue and your budget. A detailed quote is provided after a first conversation.",
       includes: [
-        ["Getting ready", "Dress, suit, last glances — the wait, the tenderness, the laughter."],
-        ["Civil & religious ceremony", "Every gaze, every joined hand, every vow."],
-        ["Cocktail & reception", "Your loved ones, their smiles, the atmosphere settling in."],
-        ["Dinner & evening", "Speeches, first dances, dancefloor laughter — until the night ends."],
-        ["Private online gallery", "Delivered within 4 weeks, accessible for life, easy to share."],
-        ["Professional retouching", "Every selected frame, refined in colour and light."]
+        ["Half-day", "Perfect for intimate ceremonies — ceremony + cocktail coverage (around 4 hours)."],
+        ["Full day", "From getting ready to the first dance — the most-requested formula to miss nothing."],
+        ["Multi-day", "For destination weddings or weekend celebrations — coverage across two or three days."],
+        ["Bespoke", "Your project doesn't fit a box? Let's talk — every quote is unique and built with you."]
       ],
       galleryEyebrow: "A FEW IMAGES",
       cta: "LET'S TALK ABOUT YOUR DAY"

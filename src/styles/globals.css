@@ -266,6 +266,24 @@ section { position: relative; }
   .hero-photo-wrap { padding: 16px 16px 16px; min-height: 380px; height: 70vh; }
 }
 
+/* Prestations: 4 service cards grid — 4-col on wide desktop, 2-col on
+   tablet/laptop, 1-col on mobile. Clear visual separation by category. */
+.services-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+@media (max-width: 1180px) {
+  .services-cards-grid { grid-template-columns: repeat(2, 1fr); gap: 22px; }
+}
+@media (max-width: 600px) {
+  .services-cards-grid { grid-template-columns: 1fr; gap: 24px; }
+}
+.service-card-body { padding: 30px 26px 28px; flex: 1; display: flex; flex-direction: column; }
+@media (max-width: 600px) {
+  .service-card-body { padding: 26px 22px 24px; }
+}
+
 /* Page eyebrow (À propos, Portfolio, Avis, etc.) — responsive 2-col layout */
 .page-eyebrow-grid {
   display: grid;
@@ -669,6 +687,12 @@ section { position: relative; }
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
   }
+  /* Hide the ROMERO + PHOTOGRAPHY caption inside the header monogram on
+     mobile — the SVG alone fits the 78px-tall bar, while showing the full
+     stack would crop the top of the RP letters. Footer monogram keeps the
+     caption since the footer is taller. */
+  .site-mono .serif,
+  .site-mono div + div { display: none; }
   .mobile-burger {
     display: inline-flex !important;
     position: absolute !important;
