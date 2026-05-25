@@ -62,8 +62,8 @@ export default function ContactPage() {
                     }}
                   >
                     <span style={{ color: "var(--gold)", fontSize: 18 }}>{icon}</span>
-                    <div>
-                      <div className="serif" style={{ fontSize: 18, color: "var(--forest)" }}>
+                    <div style={{ minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                      <div className="serif" style={{ fontSize: 18, color: "var(--forest)", overflowWrap: "anywhere" }}>
                         {primary}
                       </div>
                       <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>

@@ -203,34 +203,39 @@ section { position: relative; }
 .section-pad-sm { padding: 80px 0; }
 @media (max-width: 720px) { .section-pad { padding: 70px 0; } .section-pad-sm { padding: 48px 0; } }
 
-/* Generic responsive grids */
+/* Generic responsive grids — use minmax(0, 1fr) instead of 1fr to allow
+   grid items to shrink below their intrinsic min content size. Without
+   this, a wide child (e.g. a textarea with default cols=20, a long word,
+   an SVG) can force the column wider than its track and overflow the
+   viewport. minmax(0, 1fr) tells the grid: "this column can be as small
+   as 0", fixing horizontal overflow on narrow screens. */
 .responsive-2col {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 80px;
   align-items: center;
 }
-.responsive-2col.flip { grid-template-columns: 1.1fr 1fr; }
+.responsive-2col.flip { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
 .responsive-2col.tight { gap: 50px; }
 .responsive-2col.wide-gap { gap: 80px; }
 .responsive-2col.start { align-items: flex-start; }
 .responsive-3col {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 28px;
 }
 .responsive-4col {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 24px;
 }
 @media (max-width: 1024px) {
-  .responsive-2col, .responsive-2col.flip { grid-template-columns: 1fr; gap: 48px; }
-  .responsive-3col { grid-template-columns: repeat(2, 1fr); gap: 24px; }
-  .responsive-4col { grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .responsive-2col, .responsive-2col.flip { grid-template-columns: minmax(0, 1fr); gap: 48px; }
+  .responsive-3col { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .responsive-4col { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 }
 @media (max-width: 640px) {
-  .responsive-3col, .responsive-4col { grid-template-columns: 1fr; gap: 18px; }
+  .responsive-3col, .responsive-4col { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .responsive-2col { gap: 36px; }
 }
 
@@ -472,9 +477,13 @@ section { position: relative; }
 }
 .contact-form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 28px;
 }
+/* Force form + all fields to shrink to container width — prevents the
+   textarea's default cols=20 from pushing the layout wider than viewport. */
+.contact-form, .contact-form-grid > *, .contact-message-block { min-width: 0; max-width: 100%; }
+.contact-form .input, .contact-form .textarea { min-width: 0; max-width: 100%; box-sizing: border-box; }
 .contact-message-block { margin-top: 36px; }
 .contact-submit-btn { margin-top: 40px; }
 

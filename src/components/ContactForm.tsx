@@ -111,10 +111,11 @@ export default function ContactForm({ t, lang }: Props) {
               <textarea
                 className="input textarea"
                 rows={5}
+                cols={1}
                 placeholder={t.contact.form.messagePh}
                 value={form.message}
                 onChange={onChange("message")}
-                style={{ resize: "none", minHeight: 120, paddingTop: 12 }}
+                style={{ resize: "none", minHeight: 120, paddingTop: 12, width: "100%" }}
                 required
               />
             </Field>
