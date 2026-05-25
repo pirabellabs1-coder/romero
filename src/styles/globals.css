@@ -756,8 +756,15 @@ section { position: relative; }
   transition: grid-template-columns .3s ease;
   max-width: 100vw;
   overflow-x: hidden;
+  /* Fake-extend the forest sidebar background to the full page height so
+     scrolling past the sidebar's 100vh doesn't reveal a cream void on the
+     left. The aside itself stays sticky 100vh — this is purely visual. */
+  background: linear-gradient(to right, var(--forest) 0%, var(--forest) 220px, var(--cream) 220px, var(--cream) 100%);
 }
-.admin-shell.is-collapsed { grid-template-columns: 64px minmax(0, 1fr); }
+.admin-shell.is-collapsed {
+  grid-template-columns: 64px minmax(0, 1fr);
+  background: linear-gradient(to right, var(--forest) 0%, var(--forest) 64px, var(--cream) 64px, var(--cream) 100%);
+}
 .admin-side-header {
   display: flex;
   align-items: center;
@@ -868,12 +875,15 @@ section { position: relative; }
 }
 .admin-side form button:hover { background: rgba(255,255,255,.05); color: var(--gold-light); }
 .admin-main {
-  padding: 40px 48px;
+  padding: 32px 36px;
   min-width: 0;
   max-width: 100%;
   overflow-x: hidden;
   /* Don't let any child force the column wider than the grid track. */
   contain: layout;
+}
+@media (max-width: 1400px) {
+  .admin-main { padding: 28px 28px; }
 }
 .admin-main > * { max-width: 100%; min-width: 0; }
 /* Prevent any rogue element (img, video) from blowing out the layout on
@@ -992,9 +1002,15 @@ section { position: relative; }
 .admin-grid { display: grid; gap: 22px; }
 .admin-grid.cols-2 { grid-template-columns: 1fr 1fr; }
 .admin-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-@media (max-width: 1180px) {
+@media (max-width: 1280px) {
   .admin-shell,
-  .admin-shell.is-collapsed { grid-template-columns: 1fr; display: block; }
+  .admin-shell.is-collapsed {
+    grid-template-columns: 1fr;
+    display: block;
+    /* In drawer mode the sidebar is fixed-positioned, so no need for the
+       fake-extended forest background — cream all the way. */
+    background: var(--cream);
+  }
   .admin-topbar { display: flex; }
   .admin-collapse-btn { display: none; }
   .admin-side {
@@ -1010,14 +1026,14 @@ section { position: relative; }
   }
   .admin-side.open { transform: translateX(0); }
   .admin-grid.cols-2, .admin-grid.cols-3 { grid-template-columns: 1fr; }
-  .admin-main { padding: 24px 14px; }
+  .admin-main { padding: 24px 16px; }
   .admin-h1 { font-size: 26px; }
   .admin-card { padding: 22px 18px; }
   /* Always expanded look on mobile drawer */
   .is-collapsed .admin-side h1 { font-size: 22px; }
   .is-collapsed .admin-side a { justify-content: flex-start; padding: 10px 12px; font-size: 12.5px; letter-spacing: 0.18em; }
 }
-@media (min-width: 1181px) {
+@media (min-width: 1281px) {
   .admin-topbar { display: none; }
   .admin-drawer-scrim { display: none; }
 }
