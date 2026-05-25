@@ -18,7 +18,9 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
       title: `${g.names} — ${g.place}`,
       description: desc,
       url: `/portfolio/${g.slug}`,
-      images: g.cover_filename ? [{ url: `/uploads/${g.cover_filename}` }] : undefined,
+      images: g.cover_filename
+        ? [{ url: g.cover_filename.startsWith("http") ? g.cover_filename : `/uploads/${g.cover_filename}` }]
+        : undefined,
     },
   };
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import Rise from "@/components/Rise";
 import Photo from "@/components/Photo";
 import OrnamentDivider from "@/components/OrnamentDivider";
+import { photoUrl } from "@/lib/photo-url";
 import type { PostRow } from "@/lib/content";
 import type { Lang, Strings } from "@/lib/i18n";
 
@@ -62,7 +63,7 @@ export default function BlogList({ posts, t, lang }: Props) {
           <div className="container-wide">
             <Rise>
               <Link href={`/blog/${featured.slug}`} className="responsive-2col tight" style={{ display: "grid" }}>
-                <Photo src={featured.cover_filename ? `/uploads/${featured.cover_filename}` : null} label={title(featured)} ratio="4 / 3" />
+                <Photo src={photoUrl(featured.cover_filename)} label={title(featured)} ratio="4 / 3" />
                 <div>
                   <div className="cap-tracked gold" style={{ marginBottom: 12 }}>
                     {t.blog.featured} · {featured.category}
@@ -99,7 +100,7 @@ export default function BlogList({ posts, t, lang }: Props) {
               <Link href={`/blog/${p.slug}`}>
                 <article className="card" style={{ padding: 0, overflow: "hidden", height: "100%" }}>
                   <Photo
-                    src={p.cover_filename ? `/uploads/${p.cover_filename}` : null}
+                    src={photoUrl(p.cover_filename)}
                     label={title(p).slice(0, 36)}
                     ratio="4 / 3"
                     rounded={false}

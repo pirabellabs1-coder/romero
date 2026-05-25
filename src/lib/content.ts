@@ -70,6 +70,12 @@ export function listPhotosForGallery(galleryId: number): PhotoRow[] {
     .all(galleryId) as PhotoRow[];
 }
 
+// Re-export the pure helper so server-side callers can keep importing it
+// from "@/lib/content". Client components must import from "@/lib/photo-url"
+// directly to avoid pulling in DB/fs dependencies.
+export { photoUrl } from "@/lib/photo-url";
+import { photoUrl } from "@/lib/photo-url";
+
 /**
  * For grid/teaser views: return a usable cover URL for the gallery.
  * If the stored cover is the seed placeholder (hero.jpg), substitute it with
@@ -78,10 +84,10 @@ export function listPhotosForGallery(galleryId: number): PhotoRow[] {
  */
 export function coverFor(g: GalleryRow, seed: string): string {
   if (g.cover_filename && g.cover_filename !== "hero.jpg") {
-    return `/uploads/${g.cover_filename}`;
+    return photoUrl(g.cover_filename)!;
   }
   const pool = pickShowcasePhotos(1, seed);
-  return pool[0] ? `/uploads/${pool[0]}` : "/uploads/hero.jpg";
+  return pool[0] ? photoUrl(pool[0])! : "/uploads/hero.jpg";
 }
 
 /**

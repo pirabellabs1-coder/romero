@@ -6,7 +6,7 @@ import Photo from "@/components/Photo";
 import Monogram from "@/components/Monogram";
 import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
-import { listGalleries, pickShowcasePhotos, coverFor } from "@/lib/content";
+import { listGalleries, pickShowcasePhotos, coverFor, photoUrl } from "@/lib/content";
 
 const HERO_PHOTO = "/uploads/hero.jpg";
 
@@ -242,10 +242,10 @@ export default function HomePage() {
             </Rise>
             <Rise delay={120}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <Photo src={teaserPhotos[0] ? `/uploads/${teaserPhotos[0]}` : null} label="préparatifs" ratio="3 / 4" />
-                <Photo src={teaserPhotos[1] ? `/uploads/${teaserPhotos[1]}` : null} label="cérémonie" ratio="3 / 4" style={{ marginTop: 40 }} />
-                <Photo src={teaserPhotos[2] ? `/uploads/${teaserPhotos[2]}` : null} label="cocktail" ratio="3 / 4" style={{ marginTop: -20 }} />
-                <Photo src={teaserPhotos[3] ? `/uploads/${teaserPhotos[3]}` : null} label="première danse" ratio="3 / 4" style={{ marginTop: 20 }} />
+                <Photo src={photoUrl(teaserPhotos[0])} label="préparatifs" ratio="3 / 4" />
+                <Photo src={photoUrl(teaserPhotos[1])} label="cérémonie" ratio="3 / 4" style={{ marginTop: 40 }} />
+                <Photo src={photoUrl(teaserPhotos[2])} label="cocktail" ratio="3 / 4" style={{ marginTop: -20 }} />
+                <Photo src={photoUrl(teaserPhotos[3])} label="première danse" ratio="3 / 4" style={{ marginTop: 20 }} />
               </div>
             </Rise>
           </div>

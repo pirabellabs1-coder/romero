@@ -67,7 +67,7 @@ export function imageGallerySchema(g: {
     author: { "@type": "Person", name: "Mickael Romero" },
     image: g.images.slice(0, 12).map((img) => ({
       "@type": "ImageObject",
-      contentUrl: `${siteUrl}/uploads/${img.filename}`,
+      contentUrl: img.filename.startsWith("http") ? img.filename : `${siteUrl}/uploads/${img.filename}`,
       caption: img.alt || `${g.names} - ${g.place}`,
     })),
   };

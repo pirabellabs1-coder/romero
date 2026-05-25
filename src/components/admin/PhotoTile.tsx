@@ -40,7 +40,10 @@ export default function PhotoTile({
   return (
     <div className="admin-photo-tile" style={{ opacity: pending ? 0.55 : 1, transition: "opacity .2s" }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/uploads/${filename}`} alt={alt || `Photo ${id}`} />
+      <img
+        src={filename.startsWith("http") ? filename : `/uploads/${filename}`}
+        alt={alt || `Photo ${id}`}
+      />
 
       <div className="actions">
         {isCover ? (

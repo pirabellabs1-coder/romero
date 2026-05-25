@@ -3,6 +3,7 @@ import { useRef } from "react";
 import Link from "next/link";
 import OrnamentDivider from "@/components/OrnamentDivider";
 import type { Strings } from "@/lib/i18n";
+import { photoUrl } from "@/lib/photo-url";
 import type { GalleryRow, PhotoRow } from "@/lib/content";
 
 type Props = {
@@ -44,7 +45,7 @@ export default function CoupleGallery({ t, gallery, photos, intro }: Props) {
         {gallery.cover_filename ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={`/uploads/${gallery.cover_filename}`}
+            src={photoUrl(gallery.cover_filename) || ""}
             alt={gallery.names}
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }}
           />
@@ -106,7 +107,7 @@ export default function CoupleGallery({ t, gallery, photos, intro }: Props) {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`/uploads/${p.filename}`}
+                  src={photoUrl(p.filename) || ""}
                   alt={p.alt || p.filename}
                   loading={eager ? "eager" : "lazy"}
                   fetchPriority={eager ? "high" : "low"}

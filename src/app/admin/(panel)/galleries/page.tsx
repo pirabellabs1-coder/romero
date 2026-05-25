@@ -82,7 +82,7 @@ export default function GalleriesAdmin({ searchParams }: { searchParams: { ok?: 
                     <div style={{ width: 56, height: 56, background: "var(--cream-deep)", overflow: "hidden", borderRadius: 4 }}>
                       {g.cover_filename ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={`/uploads/${g.cover_filename}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <img src={g.cover_filename.startsWith("http") ? g.cover_filename : `/uploads/${g.cover_filename}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : null}
                     </div>
                   </td>

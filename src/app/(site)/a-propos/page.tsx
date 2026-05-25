@@ -20,7 +20,7 @@ import Photo from "@/components/Photo";
 import CTABlock from "@/components/CTABlock";
 import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
-import { pickShowcasePhotos } from "@/lib/content";
+import { pickShowcasePhotos, photoUrl } from "@/lib/content";
 
 export default function AboutPage() {
   const lang = getLangFromCookies();
@@ -36,7 +36,7 @@ export default function AboutPage() {
         title={t.about.title}
         accent={t.about.titleAccent}
         lead={t.about.lead}
-        image={{ src: eyebrowImg ? `/uploads/${eyebrowImg}` : null, label: "Mickael en plein reportage" }}
+        image={{ src: photoUrl(eyebrowImg), label: "Mickael en plein reportage" }}
       />
 
       {/* STORY */}
@@ -45,7 +45,7 @@ export default function AboutPage() {
           <div className="responsive-2col start">
             <Rise>
               <div style={{ position: "relative" }}>
-                <Photo src={storyImg ? `/uploads/${storyImg}` : null} label="Mickael, atelier de retouche" ratio="3 / 4" />
+                <Photo src={photoUrl(storyImg)} label="Mickael, atelier de retouche" ratio="3 / 4" />
                 <div
                   style={{
                     position: "absolute",

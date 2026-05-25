@@ -80,7 +80,7 @@ export default function PostEdit({ params, searchParams }: { params: { id: strin
               {p.cover_filename && (
                 <div style={{ width: 160, height: 100, marginBottom: 8, background: "var(--cream-deep)", overflow: "hidden", borderRadius: 4 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/uploads/${p.cover_filename}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <img src={p.cover_filename!.startsWith("http") ? p.cover_filename! : `/uploads/${p.cover_filename}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 </div>
               )}
               <input type="file" name="cover" accept="image/jpeg,image/png,image/webp" />

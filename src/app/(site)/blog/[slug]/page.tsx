@@ -5,7 +5,7 @@ import OrnamentDivider from "@/components/OrnamentDivider";
 import CTABlock from "@/components/CTABlock";
 import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
-import { getPost, listPosts, postExcerpt, postTitle, pickShowcasePhotos } from "@/lib/content";
+import { getPost, listPosts, postExcerpt, postTitle, pickShowcasePhotos, photoUrl } from "@/lib/content";
 import { articleSchema, breadcrumbList, jsonLdScript } from "@/lib/jsonld";
 
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
@@ -24,7 +24,7 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
       url: `/blog/${p.slug}`,
       type: "article",
       publishedTime: p.published_at,
-      images: p.cover_filename ? [{ url: `/uploads/${p.cover_filename}` }] : undefined,
+      images: p.cover_filename ? [{ url: photoUrl(p.cover_filename)! }] : undefined,
     },
   };
 }
@@ -49,7 +49,7 @@ export default function PostDetail({ params }: { params: { slug: string } }) {
     title,
     description: postExcerpt(post, lang) || title,
     publishedAt: post.published_at,
-    image: cover ? `/uploads/${cover}` : undefined,
+    image: cover ? photoUrl(cover)! : undefined,
     author: "Mickael Romero",
     category: post.category,
   });
@@ -91,7 +91,7 @@ export default function PostDetail({ params }: { params: { slug: string } }) {
             <div style={{ aspectRatio: "16 / 9", overflow: "hidden", borderRadius: 4, maxHeight: 560 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`/uploads/${cover}`}
+                src={photoUrl(cover)!}
                 alt={title}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
@@ -128,7 +128,7 @@ export default function PostDetail({ params }: { params: { slug: string } }) {
                     {p.cover_filename && (
                       <div style={{ aspectRatio: "4 / 3", overflow: "hidden" }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={`/uploads/${p.cover_filename}`} alt={postTitle(p, lang)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <img src={photoUrl(p.cover_filename)!} alt={postTitle(p, lang)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       </div>
                     )}
                     <div style={{ padding: "24px 26px 28px" }}>

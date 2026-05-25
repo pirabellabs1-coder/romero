@@ -19,7 +19,7 @@ import Photo from "@/components/Photo";
 import CTABlock from "@/components/CTABlock";
 import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
-import { pickShowcasePhotos } from "@/lib/content";
+import { pickShowcasePhotos, photoUrl } from "@/lib/content";
 
 const HERO_PHOTO = "/uploads/hero.jpg";
 
@@ -44,7 +44,7 @@ export default function ServicesPage() {
         title={t.services.title}
         accent={t.services.titleAccent}
         lead={t.services.lead}
-        image={{ src: heroImg ? `/uploads/${heroImg}` : null, label: "bouquet de pivoines", objectPosition: "center 30%" }}
+        image={{ src: photoUrl(heroImg), label: "bouquet de pivoines", objectPosition: "center 30%" }}
       />
 
       {/* CARDS */}
@@ -56,7 +56,7 @@ export default function ServicesPage() {
                 <div className="card" style={{ display: "flex", flexDirection: "column", height: "100%", padding: 0, overflow: "hidden" }}>
                   <div style={{ aspectRatio: "4 / 3" }}>
                     <Photo
-                      src={cardPhotos[i] ? `/uploads/${cardPhotos[i]}` : null}
+                      src={photoUrl(cardPhotos[i])}
                       label={["Reportage mariage", "Séance couple", "Événement privé"][i]}
                       rounded={false}
                       ratio="4 / 3"
@@ -112,7 +112,7 @@ export default function ServicesPage() {
                 <p className="lead muted" style={{ marginTop: 16, marginBottom: 36 }}>
                   {t.services.zoomIntro}
                 </p>
-                <Photo src={zoomImg ? `/uploads/${zoomImg}` : HERO_PHOTO} ratio="3 / 2" alt="Reportage" />
+                <Photo src={photoUrl(zoomImg) ?? HERO_PHOTO} ratio="3 / 2" alt="Reportage" />
               </div>
             </Rise>
             <Rise delay={120}>
@@ -156,7 +156,7 @@ export default function ServicesPage() {
             {[0, 1, 2, 3].map((i) => (
               <Rise key={i} delay={i * 60}>
                 <Photo
-                  src={galleryPhotos[i] ? `/uploads/${galleryPhotos[i]}` : null}
+                  src={photoUrl(galleryPhotos[i])}
                   label={["cérémonie", "détails", "préparatifs", "soirée"][i]}
                   ratio="3 / 4"
                 />
