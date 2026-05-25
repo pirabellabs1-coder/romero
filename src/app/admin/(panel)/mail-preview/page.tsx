@@ -138,28 +138,38 @@ export default function MailPreview({ searchParams }: { searchParams: { source?:
           </div>
         </div>
 
-        <div
-          style={{
-            width: "100%",
-            maxWidth: "100%",
-            overflow: "hidden",
-            borderRadius: 6,
-            border: "1px solid var(--rule)",
-          }}
-        >
-          <iframe
-            srcDoc={html}
-            title="Aperçu de l'email"
+        <details className="mail-preview-details">
+          <summary className="mail-preview-summary">
+            <span>Afficher l&apos;aperçu visuel</span>
+            <span className="cap-tracked-sm gold" style={{ fontSize: 10 }}>CLIQUER POUR DÉPLIER</span>
+          </summary>
+          <div
             style={{
               width: "100%",
               maxWidth: "100%",
-              height: 820,
-              border: 0,
-              background: "#fff",
-              display: "block",
+              overflow: "hidden",
+              borderRadius: 6,
+              border: "1px solid var(--rule)",
+              marginTop: 14,
             }}
-          />
-        </div>
+          >
+            <iframe
+              srcDoc={html}
+              title="Aperçu de l'email"
+              style={{
+                width: "100%",
+                maxWidth: "100%",
+                height: 520,
+                border: 0,
+                background: "#fff",
+                display: "block",
+              }}
+            />
+          </div>
+          <p className="muted" style={{ fontSize: 12, margin: "10px 0 0", textAlign: "right" }}>
+            Aperçu visuel — pour tester le rendu réel, cliquez sur <b>ENVOYER UN TEST</b> ci-dessus.
+          </p>
+        </details>
       </div>
     </>
   );
