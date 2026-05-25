@@ -46,7 +46,8 @@ export const metadata: Metadata = {
     images: ["/uploads/hero.jpg"],
   },
   alternates: { canonical: "/" },
-  icons: { icon: "/favicon.ico" },
+  // icon.tsx + apple-icon.tsx auto-generate the icons via next/og — Next adds
+  // <link rel="icon" href="/icon"> automatically; no /favicon.ico needed.
   robots: { index: true, follow: true },
 };
 
