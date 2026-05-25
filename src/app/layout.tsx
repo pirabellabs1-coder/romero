@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: "Romero Photography",
     title: "Romero Photography — Photographe de mariage à Nice",
-    description: "Reportages de mariage élégants à Nice, sur la Côte d'Azur et au-delà.",
+    description: "Reportages de mariage élégants à Nice, sur la Côte d'Azur et à l'international.",
     images: [{ url: "/uploads/hero.jpg", width: 1200, height: 1500, alt: "Romero Photography" }],
   },
   twitter: {

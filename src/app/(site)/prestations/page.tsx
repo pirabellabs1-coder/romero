@@ -5,7 +5,7 @@ import PageEyebrow from "@/components/PageEyebrow";
 export const metadata: Metadata = {
   title: "Prestations & tarifs",
   description:
-    "Reportage complet de mariage, séances couple, événements privés. Tarifs à partir de 2 400 € sur la Côte d'Azur et au-delà.",
+    "Reportage complet de mariage, séances couple, événements privés. Reportages sur la Côte d'Azur et à l'international.",
   alternates: { canonical: "/prestations" },
   openGraph: {
     title: "Prestations & tarifs — Romero Photography",
