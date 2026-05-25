@@ -178,7 +178,7 @@ export const STRINGS: Record<Lang, Strings> = {
       titleAccent: "confiance",
       lead: "Chaque mariage est une rencontre. Voici ce que mes mariés en ont retenu.",
       googleCta: "VOIR TOUS LES AVIS SUR GOOGLE",
-      stats: [["5,0", "NOTE GOOGLE"], ["49", "AVIS CLIENTS"], ["100%", "RECOMMANDATIONS"]],
+      stats: [["5,0", "NOTE GOOGLE"], ["+50", "AVIS CLIENTS"], ["100%", "RECOMMANDATIONS"]],
       live: "EN DIRECT DE GOOGLE",
       liveTitle: "Ils ont vécu l'expérience"
     },
@@ -356,7 +356,7 @@ export const STRINGS: Record<Lang, Strings> = {
       titleAccent: "trust in me",
       lead: "Every wedding is an encounter. Here's what my couples remembered.",
       googleCta: "READ ALL REVIEWS ON GOOGLE",
-      stats: [["5.0", "GOOGLE RATING"], ["49", "CLIENT REVIEWS"], ["100%", "RECOMMEND"]],
+      stats: [["5.0", "GOOGLE RATING"], ["+50", "CLIENT REVIEWS"], ["100%", "RECOMMEND"]],
       live: "LIVE FROM GOOGLE",
       liveTitle: "They lived the experience"
     },
