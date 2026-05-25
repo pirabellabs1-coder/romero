@@ -78,11 +78,12 @@ export default function GalleryEdit({
               </select>
             </div>
             <div>
-              <label className="admin-label">Type</label>
+              <label className="admin-label">Type (filtre portfolio)</label>
               <select className="admin-select" name="kind" defaultValue={g.kind}>
-                <option>INTIMISTE</option>
-                <option>INTERNATIONAL</option>
-                <option>GRAND</option>
+                <option value="MARIAGE">Mariages</option>
+                <option value="ENGAGEMENT">Séance d&apos;engagement</option>
+                <option value="PORTRAIT">Portraits</option>
+                <option value="LIFESTYLE">LifeStyle</option>
               </select>
             </div>
             <div>

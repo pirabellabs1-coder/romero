@@ -51,7 +51,7 @@ export async function createGallery(formData: FormData) {
       place,
       String(formData.get("date_label") || ""),
       String(formData.get("region") || "FRANCE"),
-      String(formData.get("kind") || "INTIMISTE")
+      String(formData.get("kind") || "MARIAGE")
     );
   revalidatePath("/portfolio");
   revalidatePath("/");
@@ -72,7 +72,7 @@ export async function updateGallery(id: number, formData: FormData) {
     String(formData.get("place") || "").trim(),
     String(formData.get("date_label") || ""),
     String(formData.get("region") || "FRANCE"),
-    String(formData.get("kind") || "INTIMISTE"),
+    String(formData.get("kind") || "MARIAGE"),
     String(formData.get("intro_fr") || ""),
     String(formData.get("intro_en") || ""),
     featured,
