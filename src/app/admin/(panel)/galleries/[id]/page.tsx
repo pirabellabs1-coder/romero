@@ -123,7 +123,7 @@ export default function GalleryEdit({
         <UploadDropzone action={onUpload} />
 
         {photos.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 14, marginTop: 26 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12, marginTop: 26 }}>
             {photos.map((p, i) => (
               <PhotoTile
                 key={p.id}

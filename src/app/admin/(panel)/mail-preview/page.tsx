@@ -138,17 +138,21 @@ export default function MailPreview({ searchParams }: { searchParams: { source?:
           </div>
         </div>
 
-        <iframe
-          srcDoc={html}
-          title="Aperçu de l'email"
-          style={{
-            width: "100%",
-            height: 920,
-            border: "1px solid var(--rule)",
-            borderRadius: 6,
-            background: "#fff",
-          }}
-        />
+        <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: 6 }}>
+          <iframe
+            srcDoc={html}
+            title="Aperçu de l'email"
+            style={{
+              width: "100%",
+              minWidth: 320,
+              height: 920,
+              border: "1px solid var(--rule)",
+              borderRadius: 6,
+              background: "#fff",
+              display: "block",
+            }}
+          />
+        </div>
       </div>
     </>
   );

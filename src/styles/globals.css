@@ -366,7 +366,8 @@ section { position: relative; }
   grid-auto-flow: dense;
 }
 @media (max-width: 1024px) { .couple-masonry { grid-template-columns: repeat(3, 1fr); gap: 14px; } }
-@media (max-width: 720px) { .couple-masonry { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+@media (max-width: 720px) { .couple-masonry { grid-template-columns: repeat(2, 1fr); gap: 8px; } }
+@media (max-width: 480px) { .couple-masonry { grid-template-columns: repeat(2, 1fr); gap: 6px; } }
 .couple-masonry .masonry-cell img { width: 100%; height: 100%; object-fit: cover; min-height: 0; }
 .couple-masonry .masonry-cell { overflow: hidden; cursor: pointer; }
 .couple-masonry .masonry-cell.span-wide { grid-column: span 2; }
@@ -432,8 +433,17 @@ section { position: relative; }
   border: 1px solid var(--rule);
   max-width: 100%;
 }
+.contact-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+}
 @media (max-width: 720px) {
-  .contact-form { padding: 32px 22px; }
+  .contact-form { padding: 28px 18px; }
+  .contact-form-grid { grid-template-columns: 1fr; gap: 22px; }
+}
+@media (max-width: 420px) {
+  .contact-form { padding: 22px 14px; }
 }
 .rise { max-width: 100%; }
 
@@ -794,8 +804,14 @@ section { position: relative; }
   text-align: left;
 }
 .admin-side form button:hover { background: rgba(255,255,255,.05); color: var(--gold-light); }
-.admin-main { padding: 40px 50px; min-width: 0; }
+.admin-main { padding: 40px 50px; min-width: 0; max-width: 100%; overflow-x: hidden; }
 .admin-main > * { max-width: 100%; }
+/* Prevent any rogue element (iframe, wide table, code block) from blowing
+   out the layout on narrow viewports. Tables and iframes opt back in via
+   .admin-table-wrap / explicit overflow containers. */
+.admin-main img,
+.admin-main video,
+.admin-main iframe { max-width: 100%; height: auto; }
 
 /* Mobile-only topbar */
 .admin-topbar {
@@ -923,8 +939,9 @@ section { position: relative; }
   }
   .admin-side.open { transform: translateX(0); }
   .admin-grid.cols-2, .admin-grid.cols-3 { grid-template-columns: 1fr; }
-  .admin-main { padding: 26px 18px; }
+  .admin-main { padding: 24px 14px; }
   .admin-h1 { font-size: 26px; }
+  .admin-card { padding: 22px 18px; }
   /* Always expanded look on mobile drawer */
   .is-collapsed .admin-side h1 { font-size: 22px; }
   .is-collapsed .admin-side a { justify-content: flex-start; padding: 10px 12px; font-size: 12.5px; letter-spacing: 0.18em; }

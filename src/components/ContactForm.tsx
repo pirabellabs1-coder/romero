@@ -86,7 +86,7 @@ export default function ContactForm({ t, lang }: Props) {
               onChange={(e) => setHoneypot(e.target.value)}
             />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
+          <div className="contact-form-grid">
             <Field label={t.contact.form.firstName}>
               <input className="input" required value={form.firstName} onChange={onChange("firstName")} />
             </Field>

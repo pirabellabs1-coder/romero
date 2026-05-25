@@ -75,23 +75,31 @@ export default function ContactPage() {
               <div style={{ marginTop: 40 }}>
                 <div className="cap-tracked-sm gold">{t.contact.socialEyebrow}</div>
                 <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--forest)" }}>
-                    <span
-                      style={{
-                        width: 28,
-                        height: 28,
-                        border: "1px solid var(--rule)",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 12,
-                      }}
+                  <a
+                    href={settings.instagram_url || `https://www.instagram.com/${(settings.instagram_handle || "").replace(/^@/, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Suivre Romero Photography sur Instagram"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 12, color: "var(--forest)", flexWrap: "wrap" }}
+                  >
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                      style={{ color: "var(--gold)", flexShrink: 0 }}
                     >
-                      IG
-                    </span>
+                      <rect x="3" y="3" width="18" height="18" rx="5" ry="5" />
+                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                    </svg>
                     Instagram : {settings.instagram_handle}
-                  </div>
+                  </a>
                 </div>
               </div>
             </div>
