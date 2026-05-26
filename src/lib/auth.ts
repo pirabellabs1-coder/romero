@@ -38,7 +38,14 @@ function verify(token: string): Payload | null {
 export type User = { id: number; email: string };
 
 export async function login(email: string, password: string): Promise<User | null> {
-  const row = getDb()
+  // CRITICAL: use the async getter so cold-start Blob restore runs before
+  // we look up the user. /api/auth/login is an API route that doesn't go
+  // through the root layout (which is where getDbAsync was being called),
+  // so without this, login would consult the bundled seed DB and reject
+  // the photographer's real credentials.
+  const { getDbAsync } = await import("@/lib/db");
+  const db = await getDbAsync();
+  const row = db
     .prepare("SELECT id, email, password_hash FROM users WHERE email = ?")
     .get(email.toLowerCase().trim()) as { id: number; email: string; password_hash: string } | undefined;
   if (!row) return null;
@@ -75,26 +82,30 @@ export function requireUser(): User {
 }
 
 export async function changePassword(userId: number, oldPassword: string, newPassword: string): Promise<boolean> {
-  const row = getDb()
+  const { getDbAsync } = await import("@/lib/db");
+  const db = await getDbAsync();
+  const row = db
     .prepare("SELECT password_hash FROM users WHERE id = ?")
     .get(userId) as { password_hash: string } | undefined;
   if (!row) return false;
   const ok = await bcrypt.compare(oldPassword, row.password_hash);
   if (!ok) return false;
   const hash = await bcrypt.hash(newPassword, 10);
-  getDb().prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, userId);
+  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, userId);
   return true;
 }
 
 export async function changeEmail(userId: number, password: string, newEmail: string): Promise<boolean> {
-  const row = getDb()
+  const { getDbAsync } = await import("@/lib/db");
+  const db = await getDbAsync();
+  const row = db
     .prepare("SELECT password_hash FROM users WHERE id = ?")
     .get(userId) as { password_hash: string } | undefined;
   if (!row) return false;
   const ok = await bcrypt.compare(password, row.password_hash);
   if (!ok) return false;
   try {
-    getDb().prepare("UPDATE users SET email = ? WHERE id = ?").run(newEmail.toLowerCase().trim(), userId);
+    db.prepare("UPDATE users SET email = ? WHERE id = ?").run(newEmail.toLowerCase().trim(), userId);
     return true;
   } catch {
     return false;
