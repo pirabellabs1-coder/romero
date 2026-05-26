@@ -11,6 +11,11 @@ import { requireUser } from "@/lib/auth";
 
 const MAX_DIM = 2200;
 const WEBP_QUALITY = 80;
+// Hard cap on individual file size — DoS protection. 25 MB is more than
+// enough for any reasonable photo coming off a modern camera once
+// resized to MAX_DIM. Anything bigger is rejected before we even pipe
+// it through sharp.
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 const GALS_DIR = path.join(UPLOADS_DIR, "galleries");
@@ -149,6 +154,7 @@ export async function uploadPhoto(galleryId: number, formData: FormData) {
 
   for (const file of files) {
     if (!(file instanceof File) || file.size === 0) continue;
+    if (file.size > MAX_FILE_SIZE_BYTES) continue; // reject oversized
     const ext = path.extname(file.name).toLowerCase();
     if (![".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext)) continue;
 

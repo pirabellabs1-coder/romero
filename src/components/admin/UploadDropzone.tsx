@@ -11,9 +11,24 @@ export default function UploadDropzone({ action }: Props) {
   const [progress, setProgress] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Hard cap on individual file size — must match the server-side check
+  // in galleries/actions.ts uploadPhoto. Rejecting client-side gives
+  // the user instant feedback instead of a silent skip.
+  const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MB
+
   const submit = (files: FileList | File[]) => {
-    const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const all = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const oversized = all.filter((f) => f.size > MAX_FILE_BYTES);
+    const arr = all.filter((f) => f.size <= MAX_FILE_BYTES);
+
+    if (oversized.length > 0) {
+      const names = oversized.map((f) => f.name).join(", ");
+      setProgress(`✗ Fichier(s) trop volumineux (>25 Mo) : ${names}`);
+      setTimeout(() => setProgress(null), 5000);
+      if (arr.length === 0) return;
+    }
     if (arr.length === 0) return;
+
     const fd = new FormData();
     for (const f of arr) fd.append("files", f);
     setProgress(`Envoi de ${arr.length} photo${arr.length > 1 ? "s" : ""}…`);

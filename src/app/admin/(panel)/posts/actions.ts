@@ -11,6 +11,7 @@ import { requireUser } from "@/lib/auth";
 
 const MAX_DIM = 2000;
 const WEBP_QUALITY = 80;
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB cap, anti-DoS
 const USE_BLOB = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
@@ -58,7 +59,7 @@ export async function updatePost(id: number, formData: FormData) {
   const db = getDb();
   let coverFilename: string | null = null;
   const coverFile = formData.get("cover") as File | null;
-  if (coverFile && coverFile.size > 0) {
+  if (coverFile && coverFile.size > 0 && coverFile.size <= MAX_FILE_SIZE_BYTES) {
     const ext = path.extname(coverFile.name).toLowerCase();
     if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
       const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);

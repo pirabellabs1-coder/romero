@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import DOMPurify from "isomorphic-dompurify";
 import OrnamentDivider from "@/components/OrnamentDivider";
 import CTABlock from "@/components/CTABlock";
 import { getStrings } from "@/lib/i18n";
@@ -104,7 +105,18 @@ export default function PostDetail({ params }: { params: { slug: string } }) {
       <section style={{ background: "var(--cream)", padding: "40px 0 90px" }}>
         <div className="container" style={{ maxWidth: 760 }}>
           {body ? (
-            <div className="rich-prose" dangerouslySetInnerHTML={{ __html: body }} />
+            // Sanitize the TipTap-produced HTML before render. Even though only
+            // an authenticated admin can write it, defense-in-depth blocks any
+            // <script>, <iframe>, on* handlers, etc. that might slip in.
+            <div
+              className="rich-prose"
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(body, {
+                  USE_PROFILES: { html: true },
+                  ADD_ATTR: ["target", "rel"],
+                }),
+              }}
+            />
           ) : (
             <p className="muted" style={{ fontStyle: "italic", textAlign: "center" }}>
               {lang === "en" ? "This article hasn't been written yet." : "Cet article n'est pas encore rédigé."}

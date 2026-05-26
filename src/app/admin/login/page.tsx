@@ -4,6 +4,7 @@ import Monogram from "@/components/Monogram";
 
 export default function LoginPage({ searchParams }: { searchParams: { error?: string; from?: string } }) {
   const error = searchParams.error === "1";
+  const ratelimited = searchParams.error === "ratelimit";
   const from = searchParams.from ?? "/admin";
   return (
     <div className="login-shell">
@@ -30,6 +31,11 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
         {error && (
           <div className="admin-flash error" style={{ marginBottom: 14 }}>
             Identifiants invalides.
+          </div>
+        )}
+        {ratelimited && (
+          <div className="admin-flash error" style={{ marginBottom: 14 }}>
+            Trop de tentatives. Réessayez dans quelques minutes.
           </div>
         )}
         <form method="post" action="/api/auth/login">
