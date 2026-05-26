@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 import OrnamentDivider from "@/components/OrnamentDivider";
 import CTABlock from "@/components/CTABlock";
 import { getStrings } from "@/lib/i18n";
@@ -108,12 +108,21 @@ export default function PostDetail({ params }: { params: { slug: string } }) {
             // Sanitize the TipTap-produced HTML before render. Even though only
             // an authenticated admin can write it, defense-in-depth blocks any
             // <script>, <iframe>, on* handlers, etc. that might slip in.
+            // sanitize-html runs natively in Node — no jsdom dependency so it
+            // works fine in Vercel's serverless runtime.
             <div
               className="rich-prose"
               dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(body, {
-                  USE_PROFILES: { html: true },
-                  ADD_ATTR: ["target", "rel"],
+                __html: sanitizeHtml(body, {
+                  allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+                    "img", "h1", "h2", "figure", "figcaption",
+                  ]),
+                  allowedAttributes: {
+                    ...sanitizeHtml.defaults.allowedAttributes,
+                    a: ["href", "name", "target", "rel"],
+                    img: ["src", "alt", "title", "width", "height", "loading"],
+                  },
+                  allowedSchemes: ["http", "https", "mailto", "tel"],
                 }),
               }}
             />
