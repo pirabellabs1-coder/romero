@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
 import bcrypt from "bcryptjs";
+import { tryRestoreDbFromBlob } from "@/lib/db-persist";
 
 // On Vercel/Lambda the deployment bundle (process.cwd()) is read-only.
 // Detect that, copy the seed DB to /tmp (the only writable area) on first use.
@@ -27,6 +28,29 @@ function ensureWritableDb(): string {
 }
 
 let _db: Database.Database | null = null;
+
+/**
+ * Async getter that, on cold start in serverless, first tries to restore
+ * the latest DB snapshot from Vercel Blob (admin edits made on previous
+ * lambdas survive). Falls back to the bundled seed only if Blob has no
+ * saved copy yet. Server actions should `await getDbAsync()` whenever
+ * possible. The sync `getDb()` below is kept for backwards compatibility
+ * but won't see persisted edits on the first call of a cold start.
+ */
+export async function getDbAsync(): Promise<Database.Database> {
+  if (_db) return _db;
+  if (IS_SERVERLESS) {
+    // Try Blob restore BEFORE we open the DB handle. If we already opened
+    // the seed-copy synchronously above, opening again over the restored
+    // file would be a no-op anyway, but doing it pre-open is cleaner.
+    if (!fs.existsSync(RUNTIME_DB_DIR)) fs.mkdirSync(RUNTIME_DB_DIR, { recursive: true });
+    const restored = await tryRestoreDbFromBlob(RUNTIME_DB);
+    if (!restored && !fs.existsSync(RUNTIME_DB) && fs.existsSync(SOURCE_DB)) {
+      fs.copyFileSync(SOURCE_DB, RUNTIME_DB);
+    }
+  }
+  return getDb();
+}
 
 export function getDb(): Database.Database {
   if (_db) return _db;

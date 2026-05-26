@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/lib/db";
+import { syncDb } from "@/lib/db-persist";
 import { requireUser } from "@/lib/auth";
 
 export async function markRead(id: number) {
@@ -25,5 +26,6 @@ export async function deleteMessage(id: number) {
   getDb().prepare("DELETE FROM messages WHERE id = ?").run(id);
   revalidatePath("/admin/messages");
   revalidatePath("/admin");
+  await syncDb();
   redirect("/admin/messages");
 }

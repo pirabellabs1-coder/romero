@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { setSettings } from "@/lib/settings";
+import { syncDb } from "@/lib/db-persist";
 import { requireUser } from "@/lib/auth";
 
 const ALLOWED = new Set([
@@ -42,6 +43,7 @@ export async function updateDesign(formData: FormData) {
     if (v === "on" || v === "1") updates[k] = "1";
   }
   setSettings(updates);
+  await syncDb();
   revalidatePath("/", "layout");
   redirect("/admin/design?ok=1");
 }
@@ -73,6 +75,7 @@ export async function applyPreset(name: string) {
   const p = presets[name];
   if (!p) return;
   setSettings(p);
+  await syncDb();
   revalidatePath("/", "layout");
   redirect(`/admin/design?ok=preset`);
 }

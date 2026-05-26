@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
+import { syncDb } from "@/lib/db-persist";
 import { requireUser } from "@/lib/auth";
 
 export async function createReview(formData: FormData) {
@@ -20,6 +21,7 @@ export async function createReview(formData: FormData) {
       text_fr,
       String(formData.get("text_en") || "")
     );
+  await syncDb();
   revalidatePath("/avis");
 }
 
@@ -39,11 +41,13 @@ export async function updateReview(id: number, formData: FormData) {
       formData.get("published") ? 1 : 0,
       id
     );
+  await syncDb();
   revalidatePath("/avis");
 }
 
 export async function deleteReview(id: number) {
   requireUser();
   getDb().prepare("DELETE FROM reviews WHERE id = ?").run(id);
+  await syncDb();
   revalidatePath("/avis");
 }

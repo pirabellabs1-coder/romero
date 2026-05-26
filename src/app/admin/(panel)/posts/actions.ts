@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { getDb } from "@/lib/db";
+import { syncDb } from "@/lib/db-persist";
 import { requireUser } from "@/lib/auth";
 
 const MAX_DIM = 2000;
@@ -46,6 +47,7 @@ export async function createPost(formData: FormData) {
       Number(formData.get("read_minutes") || 5)
     );
   revalidatePath("/blog");
+  await syncDb();
   redirect(`/admin/posts/${r.lastInsertRowid}`);
 }
 
@@ -119,6 +121,7 @@ export async function updatePost(id: number, formData: FormData) {
         ])
   );
   revalidatePath("/blog");
+  await syncDb();
   redirect(`/admin/posts/${id}?ok=saved`);
 }
 
@@ -126,5 +129,6 @@ export async function deletePost(id: number) {
   requireUser();
   getDb().prepare("DELETE FROM posts WHERE id = ?").run(id);
   revalidatePath("/blog");
+  await syncDb();
   redirect("/admin/posts?ok=deleted");
 }

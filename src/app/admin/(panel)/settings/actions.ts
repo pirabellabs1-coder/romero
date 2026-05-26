@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { setSettings } from "@/lib/settings";
+import { syncDb } from "@/lib/db-persist";
 import { requireUser } from "@/lib/auth";
 
 const ALLOWED = new Set([
@@ -21,6 +22,7 @@ export async function updateContactSettings(formData: FormData) {
     if (typeof v === "string") updates[key] = v.trim();
   }
   setSettings(updates);
+  await syncDb();
   revalidatePath("/", "layout");
   redirect("/admin/settings?ok=1");
 }
