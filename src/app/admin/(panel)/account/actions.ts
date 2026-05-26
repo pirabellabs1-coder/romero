@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { changeEmail, changePassword, requireUser } from "@/lib/auth";
+import { syncDb } from "@/lib/db-persist";
 
 export type AccountResult = { ok: true } | { ok: false; error: string };
 
@@ -13,6 +14,10 @@ export async function changeEmailAction(formData: FormData): Promise<void> {
   }
   const ok = await changeEmail(u.id, password, newEmail);
   if (!ok) redirect("/admin/account?error=bad_email");
+  // CRITICAL: persist immediately. Without this, a cold start would
+  // revert to the seed credentials and lock the user out of their own
+  // admin panel.
+  await syncDb();
   redirect("/admin/account?ok=email");
 }
 
@@ -25,5 +30,7 @@ export async function changePasswordAction(formData: FormData): Promise<void> {
   if (newPassword !== confirm) redirect("/admin/account?error=mismatch");
   const ok = await changePassword(u.id, oldPassword, newPassword);
   if (!ok) redirect("/admin/account?error=bad_password");
+  // CRITICAL: persist immediately, see changeEmailAction comment above.
+  await syncDb();
   redirect("/admin/account?ok=password");
 }

@@ -4,12 +4,14 @@ import { redirect } from "next/navigation";
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
+import { put } from "@vercel/blob";
 import { getDb } from "@/lib/db";
 import { syncDb } from "@/lib/db-persist";
 import { requireUser } from "@/lib/auth";
 
 const MAX_DIM = 2000;
 const WEBP_QUALITY = 80;
+const USE_BLOB = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 
@@ -60,11 +62,12 @@ export async function updatePost(id: number, formData: FormData) {
     const ext = path.extname(coverFile.name).toLowerCase();
     if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
       const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
-      const fn = `posts/post${id}-${ts}.webp`;
-      const fullPath = path.join(UPLOADS_DIR, fn);
-      const dir = path.dirname(fullPath);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      const fnKey = `posts/post${id}-${ts}.webp`;
       const buf = Buffer.from(await coverFile.arrayBuffer());
+
+      // Pipe via sharp once, producing the optimized WebP buffer; then either
+      // write to disk (dev) or upload to Vercel Blob (prod read-only fs).
+      let webpBuf: Buffer;
       try {
         const img = sharp(buf).rotate();
         const meta = await img.metadata();
@@ -75,11 +78,26 @@ export async function updatePost(id: number, formData: FormData) {
           const h = (meta.height || 0) > (meta.width || 0) ? MAX_DIM : undefined;
           pipeline = pipeline.resize({ width: w, height: h, fit: "inside", withoutEnlargement: true });
         }
-        await pipeline.webp({ quality: WEBP_QUALITY, effort: 5 }).toFile(fullPath);
+        webpBuf = await pipeline.webp({ quality: WEBP_QUALITY, effort: 5 }).toBuffer();
       } catch {
-        fs.writeFileSync(fullPath, buf);
+        webpBuf = buf;
       }
-      coverFilename = fn;
+
+      if (USE_BLOB) {
+        const blob = await put(fnKey, webpBuf, {
+          access: "public",
+          contentType: "image/webp",
+          addRandomSuffix: false,
+          allowOverwrite: true,
+        });
+        coverFilename = blob.url;
+      } else {
+        const fullPath = path.join(UPLOADS_DIR, fnKey);
+        const dir = path.dirname(fullPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(fullPath, webpBuf);
+        coverFilename = fnKey;
+      }
     }
   }
   db.prepare(

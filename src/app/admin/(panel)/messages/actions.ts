@@ -10,6 +10,7 @@ export async function markRead(id: number) {
   getDb()
     .prepare("UPDATE messages SET read_at = datetime('now') WHERE id = ?")
     .run(id);
+  await syncDb();
   revalidatePath("/admin/messages");
   revalidatePath("/admin");
 }
@@ -17,6 +18,7 @@ export async function markRead(id: number) {
 export async function markUnread(id: number) {
   requireUser();
   getDb().prepare("UPDATE messages SET read_at = NULL WHERE id = ?").run(id);
+  await syncDb();
   revalidatePath("/admin/messages");
   revalidatePath("/admin");
 }
@@ -24,8 +26,8 @@ export async function markUnread(id: number) {
 export async function deleteMessage(id: number) {
   requireUser();
   getDb().prepare("DELETE FROM messages WHERE id = ?").run(id);
+  await syncDb();
   revalidatePath("/admin/messages");
   revalidatePath("/admin");
-  await syncDb();
   redirect("/admin/messages");
 }

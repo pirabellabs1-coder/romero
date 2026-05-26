@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, getDbAsync } from "@/lib/db";
+import { syncDb } from "@/lib/db-persist";
 import { sendContactNotification } from "@/lib/mailer";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
@@ -73,18 +74,21 @@ export async function POST(req: Request) {
   const place = clean(body.place, 200);
   const lang = body.lang === "en" ? "en" : "fr";
 
-  // 4. Persist to DB (best-effort: on serverless read-only FS, this throws — we still want to send the mail).
+  // 4. Persist to DB. Uses async getter so cold-start Blob restore runs first,
+  //    then syncs the new message back to Blob so the photographer's inbox
+  //    survives the next cold start.
   let saved = false;
   try {
-    getDb()
-      .prepare(
-        `INSERT INTO messages (first_name, last_name, email, phone, wedding_date, place, message, lang)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(first_name, last_name, email, phone, wedding_date, place, message, lang);
+    const db = await getDbAsync();
+    db.prepare(
+      `INSERT INTO messages (first_name, last_name, email, phone, wedding_date, place, message, lang)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(first_name, last_name, email, phone, wedding_date, place, message, lang);
     saved = true;
+    // Best-effort sync. If Blob is down we still got the email out below.
+    await syncDb();
   } catch (e) {
-    console.error("[contact] DB save failed (serverless? read-only fs?):", e);
+    console.error("[contact] DB save failed:", e);
   }
 
   // 5. Always try to send the email — that's the most important guarantee for the photographer.
