@@ -2,6 +2,12 @@ node_modules/
 .next/
 out/
 
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
 # Secrets — NEVER commit these
 .env.local
 .env

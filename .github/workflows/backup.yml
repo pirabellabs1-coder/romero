@@ -1,0 +1,76 @@
+name: Weekly Blob backup
+
+# Backs up the latest snapshot of the SQLite DB from Vercel Blob into
+# this repo's `data/romero.db` file every Sunday at 02:00 UTC. The
+# backup is committed automatically, giving us:
+#   1. Disaster recovery — if Vercel Blob is wiped, the seed in /data
+#      becomes the source of truth on the next deploy.
+#   2. Versioned history — every weekly commit is a snapshot we can
+#      diff and roll back to via git.
+#   3. No manual maintenance — fully automated.
+#
+# Can also be run manually from the Actions tab via workflow_dispatch.
+on:
+  schedule:
+    # Sunday 02:00 UTC = good time, low admin activity expected.
+    - cron: "0 2 * * 0"
+  workflow_dispatch: # manual trigger button in GitHub UI
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    permissions:
+      # Need write access to push the backup commit.
+      contents: write
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          # We need a real commit identity below, plus pushing back to
+          # main needs the default GITHUB_TOKEN.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download DB snapshot from Vercel Blob
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BLOB_READ_WRITE_TOKEN:-}" ]; then
+            echo "::warning::BLOB_READ_WRITE_TOKEN not set, skipping backup"
+            exit 0
+          fi
+
+          # The Blob URL pattern is deterministic from the store name +
+          # key. We hit the public read URL directly using the token to
+          # locate it via the metadata endpoint.
+          npm install -g @vercel/blob 2>/dev/null || true
+          node -e "
+            const { head } = require('@vercel/blob');
+            head('system/romero.db').then(m => {
+              if (!m || !m.url) { console.error('No backup found in Blob'); process.exit(1); }
+              console.log(m.url);
+            }).catch(e => { console.error(e); process.exit(1); });
+          " > /tmp/blob_url.txt
+
+          BLOB_URL=$(cat /tmp/blob_url.txt)
+          if [ -z "$BLOB_URL" ]; then
+            echo "::warning::No DB snapshot to back up yet"
+            exit 0
+          fi
+
+          curl -sSL -o data/romero.db "$BLOB_URL"
+          echo "Downloaded $(wc -c < data/romero.db) bytes"
+
+      - name: Commit backup if changed
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/romero.db
+          if git diff --cached --quiet; then
+            echo "DB unchanged since last backup, nothing to commit"
+          else
+            git commit -m "chore(backup): weekly DB snapshot from Blob"
+            git push origin HEAD:main
+          fi
