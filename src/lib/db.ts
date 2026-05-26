@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
 import bcrypt from "bcryptjs";
-import { tryRestoreDbFromBlob } from "@/lib/db-persist";
+import { tryRestoreDbFromBlob, getBlobDbLastModifiedMs } from "@/lib/db-persist";
 
 // On Vercel/Lambda the deployment bundle (process.cwd()) is read-only.
 // Detect that, copy the seed DB to /tmp (the only writable area) on first use.
@@ -28,28 +28,69 @@ function ensureWritableDb(): string {
 }
 
 let _db: Database.Database | null = null;
+// Timestamp of the Blob snapshot currently loaded into _db. Used to
+// detect when another lambda has pushed a newer snapshot — at which
+// point this lambda re-downloads. Initial value 0 means "we have no
+// idea what's in Blob yet, treat as stale".
+let _dbLoadedBlobTs = 0;
+// How often we poll Blob's HEAD to check for staleness. 10 seconds
+// trades cost (1 HEAD request per request, batched within window) for
+// freshness (changes propagate within 10s across lambdas).
+let _lastFreshnessCheck = 0;
+const FRESHNESS_CHECK_INTERVAL_MS = 10_000;
 
 /**
- * Async getter that, on cold start in serverless, first tries to restore
- * the latest DB snapshot from Vercel Blob (admin edits made on previous
- * lambdas survive). Falls back to the bundled seed only if Blob has no
- * saved copy yet. Server actions should `await getDbAsync()` whenever
- * possible. The sync `getDb()` below is kept for backwards compatibility
- * but won't see persisted edits on the first call of a cold start.
+ * Async getter that handles three serverless edge cases:
+ *
+ * 1. Cold start: /tmp DB is empty → download from Blob, fall back to
+ *    bundled seed if Blob is also empty.
+ * 2. Another lambda has pushed a newer snapshot → re-download Blob so
+ *    public pages don't serve stale data after the photographer edits
+ *    from /admin on a different lambda.
+ * 3. Warm and fresh: return cached handle, no Blob fetch.
+ *
+ * Public page handlers AND admin server actions should both use this.
  */
 export async function getDbAsync(): Promise<Database.Database> {
-  if (_db) return _db;
-  if (IS_SERVERLESS) {
-    // Try Blob restore BEFORE we open the DB handle. If we already opened
-    // the seed-copy synchronously above, opening again over the restored
-    // file would be a no-op anyway, but doing it pre-open is cleaner.
-    if (!fs.existsSync(RUNTIME_DB_DIR)) fs.mkdirSync(RUNTIME_DB_DIR, { recursive: true });
+  if (!IS_SERVERLESS) return getDb();
+
+  if (!fs.existsSync(RUNTIME_DB_DIR)) fs.mkdirSync(RUNTIME_DB_DIR, { recursive: true });
+
+  // Cold start: no DB handle yet, restore from Blob (or seed if Blob empty).
+  if (!_db) {
     const restored = await tryRestoreDbFromBlob(RUNTIME_DB);
     if (!restored && !fs.existsSync(RUNTIME_DB) && fs.existsSync(SOURCE_DB)) {
       fs.copyFileSync(SOURCE_DB, RUNTIME_DB);
     }
+    const blobTs = await getBlobDbLastModifiedMs();
+    _dbLoadedBlobTs = blobTs ?? Date.now();
+    _lastFreshnessCheck = Date.now();
+    return getDb();
   }
-  return getDb();
+
+  // Warm path: periodic check that our cached DB is still the latest.
+  const now = Date.now();
+  if (now - _lastFreshnessCheck >= FRESHNESS_CHECK_INTERVAL_MS) {
+    _lastFreshnessCheck = now;
+    const blobTs = await getBlobDbLastModifiedMs();
+    if (blobTs && blobTs > _dbLoadedBlobTs) {
+      // Another lambda pushed a newer snapshot — re-download.
+      try { _db.close(); } catch {}
+      _db = null;
+      const restored = await tryRestoreDbFromBlob(RUNTIME_DB);
+      if (restored) _dbLoadedBlobTs = blobTs;
+      // Drop the in-memory settings cache too — otherwise a freshly
+      // downloaded DB with new settings would still serve stale data
+      // for up to 15s. Avoids circular import via dynamic require.
+      try {
+        const { invalidateSettingsCache } = await import("@/lib/settings");
+        invalidateSettingsCache();
+      } catch {}
+      return getDb();
+    }
+  }
+
+  return _db;
 }
 
 export function getDb(): Database.Database {

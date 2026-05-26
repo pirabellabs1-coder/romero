@@ -50,6 +50,25 @@ export async function tryRestoreDbFromBlob(destPath: string): Promise<boolean> {
 }
 
 /**
+ * Get the Blob's last-modified timestamp (ms since epoch) without
+ * downloading the file. Used to detect whether another lambda has
+ * pushed a newer snapshot than what we have locally. Returns null on
+ * error or if no Blob copy exists yet.
+ *
+ * Cost: ~50ms HEAD request. Acceptable on every public page request.
+ */
+export async function getBlobDbLastModifiedMs(): Promise<number | null> {
+  if (!USE_BLOB) return null;
+  try {
+    const meta = await head(BLOB_DB_KEY);
+    if (!meta || !meta.uploadedAt) return null;
+    return new Date(meta.uploadedAt).getTime();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Ship the current /tmp/...romero.db to Blob.
  * Call after every write/mutation server action so edits survive cold starts.
  * Silently swallows errors — DB write already succeeded locally, the Blob
@@ -86,6 +105,10 @@ export function runtimeDbPath(): string {
  * Convenience wrapper: sync the runtime DB to Blob. Call from server
  * actions after any write to persist the change across cold starts.
  * No-op on local dev (no BLOB_READ_WRITE_TOKEN) or if Blob is unavailable.
+ *
+ * Also nudges the in-memory revalidate tag so this same lambda doesn't
+ * waste a HEAD check on its next read — the data we just wrote is fresh
+ * by definition.
  */
 export async function syncDb(): Promise<void> {
   await syncDbToBlob(runtimeDbPath());
