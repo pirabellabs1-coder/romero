@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { getDbAsync } from "@/lib/db";
 import { syncDb } from "@/lib/db-persist";
+import { requireUser } from "@/lib/auth";
 import { head, list } from "@vercel/blob";
 import fs from "node:fs";
 import path from "node:path";
@@ -14,6 +15,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  // Protected — only the logged-in photographer can inspect.
+  try {
+    requireUser();
+  } catch {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   const url = new URL(req.url);
   const out: Record<string, unknown> = {};
 
