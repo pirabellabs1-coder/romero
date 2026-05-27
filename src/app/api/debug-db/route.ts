@@ -4,7 +4,7 @@
 // previous bug overwrote it with seed state).
 import { NextResponse } from "next/server";
 import { getDbAsync } from "@/lib/db";
-import { head } from "@vercel/blob";
+import { head, list } from "@vercel/blob";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -77,6 +77,36 @@ export async function GET() {
     }
   } catch (e) {
     out.seedDbError = e instanceof Error ? e.message : String(e);
+  }
+
+  // 4b. What photo files are in Blob?
+  try {
+    const all = await list({ prefix: "galleries/", limit: 500 });
+    const grouped: Record<string, { count: number; first: string }> = {};
+    for (const b of all.blobs) {
+      const parts = b.pathname.split("/");
+      const folder = parts.length >= 2 ? `${parts[0]}/${parts[1]}` : parts[0];
+      if (!grouped[folder]) grouped[folder] = { count: 0, first: b.pathname };
+      grouped[folder].count++;
+    }
+    out.blobPhotos = { totalBlobs: all.blobs.length, byFolder: grouped, hasMore: all.hasMore };
+  } catch (e) {
+    out.blobPhotosError = e instanceof Error ? e.message : String(e);
+  }
+
+  // 4c. Per-gallery photo detail from the DB
+  try {
+    const db = await getDbAsync();
+    const perGallery: Record<string, unknown> = {};
+    for (const g of (db.prepare("SELECT id, slug FROM galleries").all() as { id: number; slug: string }[])) {
+      const photos = db
+        .prepare("SELECT id, filename FROM photos WHERE gallery_id = ? ORDER BY sort_order, id")
+        .all(g.id) as { id: number; filename: string }[];
+      perGallery[g.slug] = { id: g.id, count: photos.length, photos: photos.slice(0, 3) };
+    }
+    out.perGalleryDetail = perGallery;
+  } catch (e) {
+    out.perGalleryError = e instanceof Error ? e.message : String(e);
   }
 
   // 5. Env diagnostics
