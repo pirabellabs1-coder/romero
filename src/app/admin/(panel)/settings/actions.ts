@@ -21,7 +21,7 @@ export async function updateContactSettings(formData: FormData) {
     const v = formData.get(key);
     if (typeof v === "string") updates[key] = v.trim();
   }
-  setSettings(updates);
+  await setSettings(updates);
   await syncDb();
   revalidatePath("/", "layout");
   redirect("/admin/settings?ok=1");

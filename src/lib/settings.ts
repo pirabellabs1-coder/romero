@@ -1,5 +1,5 @@
 import { unstable_noStore as noStore } from "next/cache";
-import { getDb } from "@/lib/db";
+import { getDb, getDbAsync } from "@/lib/db";
 
 export type Settings = {
   contact_city: string;
@@ -49,15 +49,20 @@ export function invalidateSettingsCache() {
   _cache = null;
 }
 
-export function setSetting(key: string, value: string) {
-  getDb()
+// CRITICAL: writes use the async getter so a cold-start lambda restores from
+// Blob first. The sync getDb() opens the bundled seed DB on a cold lambda,
+// which would then be re-uploaded over the real persisted data by syncDb()
+// on the next call — wiping every prior admin edit.
+export async function setSetting(key: string, value: string) {
+  const db = await getDbAsync();
+  db
     .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     .run(key, value);
   invalidateSettingsCache();
 }
 
-export function setSettings(updates: Record<string, string>) {
-  const db = getDb();
+export async function setSettings(updates: Record<string, string>) {
+  const db = await getDbAsync();
   const stmt = db.prepare(
     "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
   );

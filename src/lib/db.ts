@@ -93,6 +93,21 @@ export async function getDbAsync(): Promise<Database.Database> {
   return _db;
 }
 
+/**
+ * Called by db-persist.ts after a successful Blob upload to mark our
+ * cached `_db` handle as "up to date with Blob as of timestamp X".
+ * Without this, the next freshness check on this lambda would see
+ * Blob's new uploadedAt > _dbLoadedBlobTs and re-download — potentially
+ * pulling a stale CDN copy that overwrites the local change we just made.
+ *
+ * Also bumps _lastFreshnessCheck so the very next read on this lambda
+ * skips the HEAD round-trip entirely (we already know we're current).
+ */
+export function markDbSyncedAt(uploadedAtMs: number): void {
+  _dbLoadedBlobTs = Math.max(_dbLoadedBlobTs, uploadedAtMs);
+  _lastFreshnessCheck = Date.now();
+}
+
 export function getDb(): Database.Database {
   if (_db) return _db;
   const dbPath = ensureWritableDb();

@@ -42,7 +42,7 @@ export async function updateDesign(formData: FormData) {
     const v = formData.get(k);
     if (v === "on" || v === "1") updates[k] = "1";
   }
-  setSettings(updates);
+  await setSettings(updates);
   await syncDb();
   revalidatePath("/", "layout");
   redirect("/admin/design?ok=1");
@@ -74,7 +74,7 @@ export async function applyPreset(name: string) {
   };
   const p = presets[name];
   if (!p) return;
-  setSettings(p);
+  await setSettings(p);
   await syncDb();
   revalidatePath("/", "layout");
   redirect(`/admin/design?ok=preset`);

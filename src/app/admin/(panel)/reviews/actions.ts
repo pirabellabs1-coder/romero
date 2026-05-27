@@ -1,15 +1,22 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { getDb } from "@/lib/db";
+import { getDbAsync } from "@/lib/db";
 import { syncDb } from "@/lib/db-persist";
 import { requireUser } from "@/lib/auth";
+
+// CRITICAL: all writes go through getDbAsync(). Using the sync getDb() on a
+// cold-start lambda would open the bundled seed DB (not the latest snapshot
+// restored from Blob), then syncDb() would push seed+1edit back to Blob —
+// silently wiping every prior admin edit. See lib/db.ts for the cold-start
+// restore logic.
 
 export async function createReview(formData: FormData) {
   requireUser();
   const name = String(formData.get("name") || "").trim();
   const text_fr = String(formData.get("text_fr") || "").trim();
   if (!name || !text_fr) return;
-  getDb()
+  const db = await getDbAsync();
+  db
     .prepare(
       `INSERT INTO reviews (name, date_label, rating, text_fr, text_en, sort_order, published)
        VALUES (?, ?, ?, ?, ?, COALESCE((SELECT MAX(sort_order)+1 FROM reviews), 0), 1)`
@@ -27,7 +34,8 @@ export async function createReview(formData: FormData) {
 
 export async function updateReview(id: number, formData: FormData) {
   requireUser();
-  getDb()
+  const db = await getDbAsync();
+  db
     .prepare(
       `UPDATE reviews SET name = ?, date_label = ?, rating = ?, text_fr = ?, text_en = ?, sort_order = ?, published = ? WHERE id = ?`
     )
@@ -47,7 +55,8 @@ export async function updateReview(id: number, formData: FormData) {
 
 export async function deleteReview(id: number) {
   requireUser();
-  getDb().prepare("DELETE FROM reviews WHERE id = ?").run(id);
+  const db = await getDbAsync();
+  db.prepare("DELETE FROM reviews WHERE id = ?").run(id);
   await syncDb();
   revalidatePath("/avis");
 }

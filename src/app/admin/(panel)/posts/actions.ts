@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { put } from "@vercel/blob";
-import { getDb } from "@/lib/db";
+import { getDbAsync } from "@/lib/db";
 import { syncDb } from "@/lib/db-persist";
 import { requireUser } from "@/lib/auth";
 
@@ -30,7 +30,7 @@ export async function createPost(formData: FormData) {
   requireUser();
   const title = String(formData.get("title_fr") || "").trim();
   if (!title) return;
-  const db = getDb();
+  const db = await getDbAsync();
   let slug = slugify(title) || "article";
   let i = 1;
   const baseSlug = slug;
@@ -56,7 +56,7 @@ export async function createPost(formData: FormData) {
 
 export async function updatePost(id: number, formData: FormData) {
   requireUser();
-  const db = getDb();
+  const db = await getDbAsync();
   let coverFilename: string | null = null;
   const coverFile = formData.get("cover") as File | null;
   if (coverFile && coverFile.size > 0 && coverFile.size <= MAX_FILE_SIZE_BYTES) {
@@ -146,7 +146,8 @@ export async function updatePost(id: number, formData: FormData) {
 
 export async function deletePost(id: number) {
   requireUser();
-  getDb().prepare("DELETE FROM posts WHERE id = ?").run(id);
+  const db = await getDbAsync();
+  db.prepare("DELETE FROM posts WHERE id = ?").run(id);
   revalidatePath("/blog");
   await syncDb();
   redirect("/admin/posts?ok=deleted");

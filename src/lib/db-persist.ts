@@ -32,13 +32,21 @@ const USE_BLOB = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
  * If a saved DB exists in Blob, download it and write to `destPath`.
  * Returns true if a Blob copy was restored, false otherwise (caller
  * should then fall back to the bundled seed).
+ *
+ * Note: Vercel Blob serves files via a CDN that aggressively caches.
+ * Even with `cache: "no-store"` on the fetch, the edge cache may still
+ * return a stale copy. We append the blob's own uploadedAt timestamp
+ * as a query parameter so each new version has a unique URL — the CDN
+ * treats it as a cache miss and fetches fresh from origin.
  */
 export async function tryRestoreDbFromBlob(destPath: string): Promise<boolean> {
   if (!USE_BLOB) return false;
   try {
     const meta = await head(BLOB_DB_KEY);
     if (!meta || !meta.url) return false;
-    const res = await fetch(meta.url, { cache: "no-store" });
+    const ts = meta.uploadedAt ? new Date(meta.uploadedAt).getTime() : Date.now();
+    const url = meta.url.includes("?") ? `${meta.url}&v=${ts}` : `${meta.url}?v=${ts}`;
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return false;
     const buf = Buffer.from(await res.arrayBuffer());
     fs.writeFileSync(destPath, buf);
@@ -73,10 +81,20 @@ export async function getBlobDbLastModifiedMs(): Promise<number | null> {
  * Call after every write/mutation server action so edits survive cold starts.
  * Silently swallows errors — DB write already succeeded locally, the Blob
  * sync is "best-effort" durability.
+ *
+ * `cacheControlMaxAge: 60` is the minimum Vercel Blob accepts. Default of
+ * one month is unacceptable here: the same path is overwritten on every
+ * admin edit, and a stale CDN response would clobber a freshly-written
+ * local DB the next time a freshness check fires in db.ts.
+ *
+ * Returns the upload timestamp (ms since epoch) on success, or null on
+ * failure / when Blob is not configured. Callers in db.ts use this to
+ * bump the in-memory "we have the latest" marker so the next freshness
+ * check on the same lambda doesn't re-download the file we just wrote.
  */
-export async function syncDbToBlob(srcPath: string): Promise<void> {
-  if (!USE_BLOB) return;
-  if (!fs.existsSync(srcPath)) return;
+export async function syncDbToBlob(srcPath: string): Promise<number | null> {
+  if (!USE_BLOB) return null;
+  if (!fs.existsSync(srcPath)) return null;
   try {
     const buf = fs.readFileSync(srcPath);
     await put(BLOB_DB_KEY, buf, {
@@ -84,9 +102,12 @@ export async function syncDbToBlob(srcPath: string): Promise<void> {
       contentType: "application/x-sqlite3",
       addRandomSuffix: false,
       allowOverwrite: true,
+      cacheControlMaxAge: 60,
     });
+    return Date.now();
   } catch {
     // Best-effort; don't crash the admin action if Blob sync hiccups.
+    return null;
   }
 }
 
@@ -106,10 +127,19 @@ export function runtimeDbPath(): string {
  * actions after any write to persist the change across cold starts.
  * No-op on local dev (no BLOB_READ_WRITE_TOKEN) or if Blob is unavailable.
  *
- * Also nudges the in-memory revalidate tag so this same lambda doesn't
- * waste a HEAD check on its next read — the data we just wrote is fresh
- * by definition.
+ * On success, hands the upload timestamp to db.ts so its in-memory
+ * freshness marker matches what we just put in Blob. Without that hand-off
+ * the next freshness check on this lambda would see Blob's new timestamp,
+ * decide our local copy is stale, and re-download — pulling whatever the
+ * CDN happens to be serving (which can be the previous version for up to
+ * `cacheControlMaxAge` seconds), silently reverting the write.
+ *
+ * Dynamic import breaks the otherwise-circular db.ts ↔ db-persist.ts edge.
  */
 export async function syncDb(): Promise<void> {
-  await syncDbToBlob(runtimeDbPath());
+  const uploadedAt = await syncDbToBlob(runtimeDbPath());
+  if (uploadedAt != null) {
+    const { markDbSyncedAt } = await import("@/lib/db");
+    markDbSyncedAt(uploadedAt);
+  }
 }
