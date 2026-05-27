@@ -108,6 +108,35 @@ export function markDbSyncedAt(uploadedAtMs: number): void {
   _lastFreshnessCheck = Date.now();
 }
 
+/**
+ * Testing helper: tears down the in-memory cache so the next getDbAsync()
+ * call has to restore from Blob. Also wipes /tmp so the restore path is
+ * fully exercised. Used exclusively by /api/debug-db?selfTest=1 to prove
+ * that writes survive a cold start. Do NOT call from production code.
+ */
+export function _simulateColdStartForTesting(): void {
+  if (_db) {
+    try { _db.close(); } catch {}
+  }
+  _db = null;
+  _dbLoadedBlobTs = 0;
+  _lastFreshnessCheck = 0;
+  try {
+    if (fs.existsSync(RUNTIME_DB)) fs.unlinkSync(RUNTIME_DB);
+  } catch {}
+}
+
+/** Read-only view of the in-memory cache state, for diagnostics. */
+export function _internalState() {
+  return {
+    dbHandleAlive: _db !== null,
+    dbLoadedBlobTs: _dbLoadedBlobTs,
+    dbLoadedBlobTsIso: _dbLoadedBlobTs ? new Date(_dbLoadedBlobTs).toISOString() : null,
+    lastFreshnessCheck: _lastFreshnessCheck,
+    lastFreshnessCheckIso: _lastFreshnessCheck ? new Date(_lastFreshnessCheck).toISOString() : null,
+  };
+}
+
 export function getDb(): Database.Database {
   if (_db) return _db;
   const dbPath = ensureWritableDb();

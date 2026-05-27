@@ -3,7 +3,7 @@
 // restored DB matches the bundled seed (which would mean Blob is empty or the
 // previous bug overwrote it with seed state).
 import { NextResponse } from "next/server";
-import { getDbAsync } from "@/lib/db";
+import { getDb, getDbAsync, _simulateColdStartForTesting, _internalState } from "@/lib/db";
 import { syncDb } from "@/lib/db-persist";
 import { requireUser } from "@/lib/auth";
 import { head, list } from "@vercel/blob";
@@ -35,6 +35,98 @@ export async function GET(req: Request) {
       out.forceSync = "ok";
     } catch (e) {
       out.forceSync = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  // ?selfTest=1 runs the full persistence cycle: write a unique marker to
+  // settings, sync to Blob, simulate a cold lambda (tear down _db + /tmp),
+  // re-read via the public read path (getDb sync, same as portfolio pages),
+  // verify the marker survived, then clean up. This is the exact scenario
+  // that was broken before the getDbAsync fix: writes were applied on top
+  // of a fresh seed copy and pushed to Blob, wiping all prior state.
+  if (url.searchParams.get("selfTest") === "1") {
+    const steps: Record<string, unknown>[] = [];
+    const TEST_KEY = "_verify_marker";
+    const marker = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      // Step 1 — write the marker through the same path admin actions use.
+      const writeDb = await getDbAsync();
+      writeDb
+        .prepare(
+          "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+        )
+        .run(TEST_KEY, marker);
+      await syncDb();
+      steps.push({
+        step: 1,
+        action: "write+sync",
+        marker,
+        state: _internalState(),
+      });
+
+      // Step 2 — read back from the SAME lambda (warm path).
+      const warmRead = (writeDb.prepare("SELECT value FROM settings WHERE key = ?").get(TEST_KEY) as { value: string } | undefined)?.value;
+      steps.push({
+        step: 2,
+        action: "warm-read (same lambda)",
+        readValue: warmRead,
+        matches: warmRead === marker,
+      });
+
+      // Step 3 — simulate a cold lambda by tearing down the in-memory handle
+      // AND /tmp. Next read MUST come from Blob.
+      _simulateColdStartForTesting();
+      steps.push({
+        step: 3,
+        action: "simulate cold start",
+        state: _internalState(),
+      });
+
+      // Step 4 — restore + read via getDbAsync (what the layout does on a
+      // fresh lambda).
+      const coldDb = await getDbAsync();
+      const coldRead = (coldDb.prepare("SELECT value FROM settings WHERE key = ?").get(TEST_KEY) as { value: string } | undefined)?.value;
+      steps.push({
+        step: 4,
+        action: "cold-read via getDbAsync (restored from Blob)",
+        readValue: coldRead,
+        matches: coldRead === marker,
+        state: _internalState(),
+      });
+
+      // Step 5 — read via getDb() sync (the public portfolio read path).
+      const syncRead = (getDb().prepare("SELECT value FROM settings WHERE key = ?").get(TEST_KEY) as { value: string } | undefined)?.value;
+      steps.push({
+        step: 5,
+        action: "sync-read via getDb (same path public portfolio uses)",
+        readValue: syncRead,
+        matches: syncRead === marker,
+      });
+
+      // Step 6 — clean up the test marker.
+      coldDb.prepare("DELETE FROM settings WHERE key = ?").run(TEST_KEY);
+      await syncDb();
+      steps.push({
+        step: 6,
+        action: "cleanup + final sync",
+      });
+
+      const allPassed =
+        steps[1] && (steps[1] as { matches?: boolean }).matches === true &&
+        steps[3] && (steps[3] as { matches?: boolean }).matches === true &&
+        steps[4] && (steps[4] as { matches?: boolean }).matches === true;
+
+      out.selfTest = {
+        verdict: allPassed ? "PASS ✅ persistence works across cold starts" : "FAIL ❌ marker lost somewhere — see steps",
+        marker,
+        steps,
+      };
+    } catch (e) {
+      out.selfTest = {
+        verdict: "ERROR",
+        error: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+        steps,
+      };
     }
   }
 
