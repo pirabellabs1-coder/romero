@@ -4,6 +4,7 @@
 // previous bug overwrote it with seed state).
 import { NextResponse } from "next/server";
 import { getDbAsync } from "@/lib/db";
+import { syncDb } from "@/lib/db-persist";
 import { head, list } from "@vercel/blob";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,8 +13,23 @@ import crypto from "node:crypto";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const url = new URL(req.url);
   const out: Record<string, unknown> = {};
+
+  // ?forceSync=1 triggers a syncDb() to overwrite Blob with current /tmp content
+  // and apply the new cacheControlMaxAge: 60. Use after any deployment that
+  // changes cache headers — otherwise the old 30-day cache lingers until the
+  // photographer's next admin write.
+  if (url.searchParams.get("forceSync") === "1") {
+    try {
+      await getDbAsync(); // make sure /tmp is initialized with current Blob state
+      await syncDb();
+      out.forceSync = "ok";
+    } catch (e) {
+      out.forceSync = e instanceof Error ? e.message : String(e);
+    }
+  }
 
   // 1. What does Blob head say?
   try {
