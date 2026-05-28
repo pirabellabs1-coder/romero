@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
+import { upload } from "@vercel/blob/client";
 
 type UploadResult = {
   inserted: number;
@@ -8,12 +9,12 @@ type UploadResult = {
 };
 
 type Props = {
-  // Returns a structured report from the server so we can show the user
-  // exactly what was uploaded, what was skipped, and why. Without this,
-  // the dropzone used to flash "photos ajoutées" even when zero photos
-  // actually made it to the DB (e.g. when each file exceeded the Server
-  // Action body limit and was silently dropped).
-  action: (formData: FormData) => Promise<UploadResult>;
+  galleryId: number;
+  // Server Action that registers freshly-uploaded Blob URLs into the DB.
+  registerAction: (
+    galleryId: number,
+    uploads: { url: string; name: string }[]
+  ) => Promise<UploadResult>;
 };
 
 type Feedback =
@@ -22,27 +23,26 @@ type Feedback =
   | { kind: "warn"; text: string; details?: string[] }
   | { kind: "error"; text: string; details?: string[] };
 
-export default function UploadDropzone({ action }: Props) {
+export default function UploadDropzone({ galleryId, registerAction }: Props) {
   const [pending, start] = useTransition();
   const [dragOver, setDragOver] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Hard cap on individual file size — must match the server-side check
-  // in galleries/actions.ts uploadPhoto. Rejecting client-side gives
-  // the user instant feedback instead of a silent skip.
-  const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MB
+  // Hard cap per file, mirrors the server-side limit in the upload-token route.
+  const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
   const submit = (files: FileList | File[]) => {
-    const all = Array.from(files).filter((f) => f.type.startsWith("image/"));
-    const oversizedClient = all.filter((f) => f.size > MAX_FILE_BYTES);
+    const all = Array.from(files).filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.name));
+    const oversized = all.filter((f) => f.size > MAX_FILE_BYTES);
     const arr = all.filter((f) => f.size <= MAX_FILE_BYTES);
 
-    if (oversizedClient.length > 0 && arr.length === 0) {
+    if (oversized.length > 0 && arr.length === 0) {
       setFeedback({
         kind: "error",
-        text: `Tous les fichiers dépassent 25 Mo.`,
-        details: oversizedClient.map((f) => `${f.name} (${Math.round(f.size / 1024 / 1024)} Mo)`),
+        text: "Tous les fichiers dépassent 25 Mo.",
+        details: oversized.map((f) => `${f.name} (${Math.round(f.size / 1024 / 1024)} Mo)`),
       });
       return;
     }
@@ -51,79 +51,103 @@ export default function UploadDropzone({ action }: Props) {
       return;
     }
 
-    const fd = new FormData();
-    for (const f of arr) fd.append("files", f);
-    setFeedback({ kind: "info", text: `Envoi de ${arr.length} photo${arr.length > 1 ? "s" : ""}…` });
+    setFeedback(null);
+    setProgress({ done: 0, total: arr.length });
 
     start(async () => {
-      try {
-        const res = await action(fd);
-        const { inserted, skipped, errors } = res;
+      const uploaded: { url: string; name: string }[] = [];
+      const errors: { name: string; message: string }[] = [];
 
-        if (inserted === 0 && skipped.length === 0 && errors.length === 0) {
-          // Nothing reached the server at all — most likely the Server Action
-          // body limit silently dropped everything.
-          setFeedback({
-            kind: "error",
-            text: "Aucune photo n'a été reçue par le serveur.",
-            details: ["Vérifiez votre connexion ou réduisez la taille des fichiers."],
+      // Client → Blob direct, one file at a time so progress is reportable.
+      // Sequential keeps the photographer's bandwidth from being saturated
+      // and avoids hammering Blob with 50 concurrent uploads from a phone.
+      for (let i = 0; i < arr.length; i++) {
+        const f = arr[i];
+        try {
+          const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+          const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 60);
+          const pathname = `galleries/g${galleryId}/p${ts}-${safeName}`;
+          const blob = await upload(pathname, f, {
+            access: "public",
+            handleUploadUrl: "/api/blob/upload-token",
           });
-          return;
-        }
-
-        // Build a combined details list (errors + skipped)
-        const issues = [
-          ...errors.map((e) => `❌ ${e.name} — ${e.message}`),
-          ...skipped.map((s) => `⚠ ${s.name} — ${s.reason}`),
-        ];
-
-        if (inserted > 0 && issues.length === 0) {
-          setFeedback({
-            kind: "ok",
-            text: `✓ ${inserted} photo${inserted > 1 ? "s ajoutées" : " ajoutée"} avec succès.`,
-          });
-          // Force a refresh so the new tiles appear without a manual reload.
-          setTimeout(() => window.location.reload(), 800);
-        } else if (inserted > 0 && issues.length > 0) {
-          setFeedback({
-            kind: "warn",
-            text: `${inserted} photo${inserted > 1 ? "s ajoutées" : " ajoutée"}, ${issues.length} ignorée${issues.length > 1 ? "s" : ""}.`,
-            details: issues,
-          });
-          setTimeout(() => window.location.reload(), 2400);
-        } else {
-          setFeedback({
-            kind: "error",
-            text: `Aucune photo ajoutée — ${issues.length} problème${issues.length > 1 ? "s" : ""} détecté${issues.length > 1 ? "s" : ""}.`,
-            details: issues,
+          uploaded.push({ url: blob.url, name: f.name });
+        } catch (e) {
+          errors.push({
+            name: f.name,
+            message: e instanceof Error ? e.message : String(e),
           });
         }
-      } catch (e) {
+        setProgress({ done: i + 1, total: arr.length });
+      }
+
+      // All client-direct uploads done — now register them in the DB in
+      // a single round trip.
+      let registered: UploadResult = { inserted: 0, skipped: [], errors: [] };
+      if (uploaded.length > 0) {
+        try {
+          registered = await registerAction(galleryId, uploaded);
+        } catch (e) {
+          errors.push({
+            name: "(enregistrement)",
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+
+      setProgress(null);
+
+      const allIssues = [
+        ...oversized.map((f) => ({ name: f.name, reason: `Trop volumineux (${Math.round(f.size / 1024 / 1024)} Mo > 25 Mo)` })),
+        ...registered.skipped,
+      ];
+      const allErrors = [...errors, ...registered.errors];
+
+      const issueLines = [
+        ...allErrors.map((e) => `❌ ${e.name} — ${e.message}`),
+        ...allIssues.map((s) => `⚠ ${s.name} — ${s.reason}`),
+      ];
+
+      if (registered.inserted > 0 && issueLines.length === 0) {
+        setFeedback({
+          kind: "ok",
+          text: `✓ ${registered.inserted} photo${registered.inserted > 1 ? "s ajoutées" : " ajoutée"} avec succès.`,
+        });
+        setTimeout(() => window.location.reload(), 700);
+      } else if (registered.inserted > 0 && issueLines.length > 0) {
+        setFeedback({
+          kind: "warn",
+          text: `${registered.inserted} ajoutée${registered.inserted > 1 ? "s" : ""}, ${issueLines.length} ignorée${issueLines.length > 1 ? "s" : ""}.`,
+          details: issueLines,
+        });
+        setTimeout(() => window.location.reload(), 2400);
+      } else {
         setFeedback({
           kind: "error",
-          text: "Erreur pendant l'upload.",
-          details: [e instanceof Error ? e.message : String(e)],
+          text: "Aucune photo ajoutée.",
+          details: issueLines.length > 0 ? issueLines : ["Le serveur n'a renvoyé aucune erreur précise — réessayez."],
         });
       }
     });
   };
 
-  const feedbackColor: Record<Feedback["kind"], { bg: string; fg: string; border: string }> = {
-    info:  { bg: "rgba(184,151,90,.06)", fg: "var(--forest)",  border: "var(--rule)" },
-    ok:    { bg: "rgba(157,178,154,.12)", fg: "var(--forest)", border: "var(--sage-deep)" },
-    warn:  { bg: "rgba(184,151,90,.10)", fg: "var(--gold-deep)", border: "var(--gold)" },
-    error: { bg: "rgba(139,46,46,.07)", fg: "#8B2E2E",         border: "#C09595" },
+  const colors: Record<Feedback["kind"], { bg: string; fg: string; border: string }> = {
+    info:  { bg: "rgba(184,151,90,.06)", fg: "var(--forest)",     border: "var(--rule)" },
+    ok:    { bg: "rgba(157,178,154,.12)", fg: "var(--forest)",     border: "var(--sage-deep)" },
+    warn:  { bg: "rgba(184,151,90,.10)", fg: "var(--gold-deep)",  border: "var(--gold)" },
+    error: { bg: "rgba(139,46,46,.07)",  fg: "#8B2E2E",             border: "#C09595" },
   };
 
   return (
     <div>
       <div
-        onClick={() => inputRef.current?.click()}
+        onClick={() => !pending && inputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
+          if (pending) return;
           if (e.dataTransfer.files.length > 0) submit(e.dataTransfer.files);
         }}
         className="upload-dropzone"
@@ -137,18 +161,30 @@ export default function UploadDropzone({ action }: Props) {
         <input
           ref={inputRef}
           type="file"
-          name="files"
-          accept="image/jpeg,image/png,image/webp,image/gif"
+          accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif"
           multiple
           style={{ display: "none" }}
           onChange={(e) => {
             if (e.target.files && e.target.files.length > 0) submit(e.target.files);
+            // Reset so the same file selected twice re-triggers onChange.
+            e.target.value = "";
           }}
         />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
           <div style={{ fontSize: 32, color: "var(--gold)" }}>⤓</div>
-          <div className="cap-tracked gold">{pending ? "Envoi en cours…" : "Cliquer ou déposer vos photos"}</div>
-          <div className="muted" style={{ fontSize: 12 }}>JPG, PNG, WebP — jusqu&apos;à 25 Mo par fichier</div>
+          <div className="cap-tracked gold">
+            {pending
+              ? progress
+                ? `Envoi ${progress.done}/${progress.total}…`
+                : "Envoi en cours…"
+              : "Cliquer ou déposer vos photos"}
+          </div>
+          <div className="muted" style={{ fontSize: 12 }}>JPG, PNG, WebP, HEIC — jusqu&apos;à 25 Mo par fichier</div>
+          {pending && progress && (
+            <div style={{ width: "60%", maxWidth: 280, height: 4, background: "var(--rule)", borderRadius: 2, overflow: "hidden", marginTop: 6 }}>
+              <div style={{ height: "100%", width: `${(progress.done / progress.total) * 100}%`, background: "var(--gold)", transition: "width .25s ease" }} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -158,9 +194,9 @@ export default function UploadDropzone({ action }: Props) {
           style={{
             marginTop: 14,
             padding: "12px 16px",
-            background: feedbackColor[feedback.kind].bg,
-            color: feedbackColor[feedback.kind].fg,
-            border: `1px solid ${feedbackColor[feedback.kind].border}`,
+            background: colors[feedback.kind].bg,
+            color: colors[feedback.kind].fg,
+            border: `1px solid ${colors[feedback.kind].border}`,
             borderRadius: 4,
             fontSize: 13,
             lineHeight: 1.6,

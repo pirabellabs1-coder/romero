@@ -1,6 +1,14 @@
 "use client";
 import { useState } from "react";
+import { upload } from "@vercel/blob/client";
 import { photoUrl } from "@/lib/photo-url";
+
+type Props = {
+  postId: number;
+  currentCover: string | null;
+  currentPosition: string;
+  galleries: GalleryWithPhotos[];
+};
 
 type GalleryPhoto = { id: number; gallery_id: number; filename: string };
 type GalleryWithPhotos = {
@@ -10,14 +18,6 @@ type GalleryWithPhotos = {
   photos: GalleryPhoto[];
 };
 
-type Props = {
-  /** Current cover filename (URL or relative path). May be null if none set yet. */
-  currentCover: string | null;
-  /** Current object-position CSS value (e.g. "center top"). */
-  currentPosition: string;
-  /** All published galleries with their photos — fetched server-side. */
-  galleries: GalleryWithPhotos[];
-};
 
 const POSITION_OPTIONS = [
   { value: "left top",       label: "Haut g." },
@@ -31,21 +31,47 @@ const POSITION_OPTIONS = [
   { value: "right bottom",   label: "Bas d." },
 ];
 
-export default function CoverPicker({ currentCover, currentPosition, galleries }: Props) {
+export default function CoverPicker({ postId, currentCover, currentPosition, galleries }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  // selectedFile is whatever URL/filename will be saved as the cover. It can
+  // come from picking in a gallery OR from a freshly-finished client→Blob
+  // upload. Either way the final submit only needs the URL.
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [position, setPosition] = useState(currentPosition || "center center");
   const [uploadName, setUploadName] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // The displayed cover is either: a freshly-picked filename, or the existing
-  // one. (We never preview a freshly-uploaded file URL — that requires
-  // FileReader and adds complexity for negligible UX gain.)
   const effectiveCover = selectedFile ?? currentCover;
   const previewSrc = effectiveCover ? photoUrl(effectiveCover) : null;
 
+  async function handleFileUpload(file: File) {
+    setUploadError(null);
+    setUploadName(file.name);
+    setUploading(true);
+    try {
+      const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 60);
+      const pathname = `posts/post${postId}-${ts}-${safeName}`;
+      // Client → Blob direct, bypasses Vercel's 4.5 MB serverless body cap.
+      const blob = await upload(pathname, file, {
+        access: "public",
+        handleUploadUrl: "/api/blob/upload-token",
+      });
+      setSelectedFile(blob.url);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : String(e));
+      setUploadName(null);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div className="cover-picker">
-      {/* Hidden inputs that the parent <form> reads on submit. */}
+      {/* Hidden inputs the parent <form> reads on submit. The actual file
+          bytes never travel through the form — they go client → Blob first,
+          then we submit only the resulting URL via cover_pick. */}
       <input type="hidden" name="cover_pick" value={selectedFile ?? ""} />
       <input type="hidden" name="cover_position" value={position} />
 
@@ -80,25 +106,31 @@ export default function CoverPicker({ currentCover, currentPosition, galleries }
         >
           📷 Choisir depuis une galerie
         </button>
-        <label className="cover-picker__btn cover-picker__btn--ghost">
-          ⬆ Téléverser une nouvelle image
+        <label className={`cover-picker__btn cover-picker__btn--ghost${uploading ? " is-disabled" : ""}`}>
+          {uploading ? "⏳ Téléversement en cours…" : "⬆ Téléverser une nouvelle image"}
           <input
             type="file"
-            name="cover"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+            disabled={uploading}
             style={{ display: "none" }}
             onChange={(e) => {
               const f = e.target.files?.[0];
-              setUploadName(f ? f.name : null);
-              // Clear any gallery selection — upload takes precedence.
-              if (f) setSelectedFile(null);
+              e.target.value = "";
+              if (f) handleFileUpload(f);
             }}
           />
         </label>
       </div>
-      {uploadName && (
+      {uploadName && !uploadError && (
         <p className="cover-picker__upload-note">
-          ✓ Nouvelle image sélectionnée : <b>{uploadName}</b> — elle remplacera la couverture à l&apos;enregistrement.
+          {uploading
+            ? <>⏳ Téléversement de <b>{uploadName}</b>…</>
+            : <>✓ <b>{uploadName}</b> téléversée — cliquez sur ENREGISTRER pour l&apos;appliquer comme couverture.</>}
+        </p>
+      )}
+      {uploadError && (
+        <p className="cover-picker__upload-note" style={{ background: "rgba(139,46,46,.07)", borderColor: "#C09595", color: "#8B2E2E" }}>
+          ❌ Erreur pendant le téléversement : <b>{uploadError}</b>
         </p>
       )}
 

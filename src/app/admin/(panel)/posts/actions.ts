@@ -1,19 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import fs from "node:fs";
-import path from "node:path";
-import sharp from "sharp";
-import { put } from "@vercel/blob";
 import { execute, queryOne } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-
-const MAX_DIM = 2000;
-const WEBP_QUALITY = 80;
-const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
-const USE_BLOB = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
-
-const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 
 function slugify(s: string): string {
   return s
@@ -56,57 +45,12 @@ export async function createPost(formData: FormData) {
 export async function updatePost(id: number, formData: FormData) {
   requireUser();
 
-  // Cover source priority (highest first):
-  //   1. New file upload via <input type="file" name="cover">  → re-encode + store
-  //   2. Pick from existing gallery via <input name="cover_pick"> → store filename as-is
-  //   3. No change → keep whatever's already in the DB
-  let coverFilename: string | null = null;
+  // Cover is now always set via the cover_pick hidden input — the CoverPicker
+  // does any client → Blob upload before submit, so by the time we get here
+  // we just have a URL or relative path string. No file bytes pass through
+  // this Server Action (which would have been capped at 4.5 MB on Vercel).
   const coverPick = String(formData.get("cover_pick") || "").trim();
-  const coverFile = formData.get("cover") as File | null;
-
-  if (coverFile && coverFile.size > 0 && coverFile.size <= MAX_FILE_SIZE_BYTES) {
-    const ext = path.extname(coverFile.name).toLowerCase();
-    if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
-      const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
-      const fnKey = `posts/post${id}-${ts}.webp`;
-      const buf = Buffer.from(await coverFile.arrayBuffer());
-
-      let webpBuf: Buffer;
-      try {
-        const img = sharp(buf).rotate();
-        const meta = await img.metadata();
-        const max = Math.max(meta.width || 0, meta.height || 0);
-        let pipeline = img;
-        if (max > MAX_DIM) {
-          const w = (meta.width || 0) >= (meta.height || 0) ? MAX_DIM : undefined;
-          const h = (meta.height || 0) > (meta.width || 0) ? MAX_DIM : undefined;
-          pipeline = pipeline.resize({ width: w, height: h, fit: "inside", withoutEnlargement: true });
-        }
-        webpBuf = await pipeline.webp({ quality: WEBP_QUALITY, effort: 5 }).toBuffer();
-      } catch {
-        webpBuf = buf;
-      }
-
-      if (USE_BLOB) {
-        const blob = await put(fnKey, webpBuf, {
-          access: "public",
-          contentType: "image/webp",
-          addRandomSuffix: false,
-          allowOverwrite: true,
-        });
-        coverFilename = blob.url;
-      } else {
-        const fullPath = path.join(UPLOADS_DIR, fnKey);
-        const dir = path.dirname(fullPath);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(fullPath, webpBuf);
-        coverFilename = fnKey;
-      }
-    }
-  } else if (coverPick) {
-    // Reuse a photo that's already in Blob/uploads — no re-encoding needed.
-    coverFilename = coverPick;
-  }
+  const coverFilename: string | null = coverPick || null;
 
   // Validate cover_position against an allowlist — defence against an admin
   // pasting arbitrary CSS into the hidden input.

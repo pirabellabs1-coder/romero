@@ -103,6 +103,7 @@ export default async function PostEdit({ params, searchParams }: { params: { id:
               Image de couverture
             </label>
             <CoverPicker
+              postId={id}
               currentCover={p.cover_filename}
               currentPosition={p.cover_position || "center center"}
               galleries={galleriesWithPhotos}

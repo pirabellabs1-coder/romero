@@ -137,6 +137,71 @@ export type UploadResult = {
   errors: { name: string; message: string }[];
 };
 
+/**
+ * Called by UploadDropzone after the client has uploaded each file directly
+ * to Vercel Blob via `@vercel/blob/client`. The payload is just a list of
+ * Blob URLs — no file bytes flow through this Server Action, so the 4.5 MB
+ * Vercel serverless body cap is irrelevant. This is the modern, scalable
+ * pattern for media uploads on Vercel.
+ */
+export async function registerUploadedPhotos(
+  galleryId: number,
+  uploads: { url: string; name: string }[]
+): Promise<UploadResult> {
+  requireUser();
+  const result: UploadResult = { inserted: 0, skipped: [], errors: [] };
+  if (!uploads || uploads.length === 0) return result;
+
+  const insertedIds: number[] = [];
+  for (const u of uploads) {
+    try {
+      if (!u.url || !/^https?:\/\/.+/i.test(u.url)) {
+        result.errors.push({ name: u.name || u.url, message: "URL Blob invalide." });
+        continue;
+      }
+      const row = await queryOne<{ id: number }>(
+        `INSERT INTO photos (gallery_id, filename, alt, span, sort_order)
+         VALUES ($1, $2, '', '', COALESCE((SELECT MAX(sort_order)+1 FROM photos WHERE gallery_id = $1), 0))
+         RETURNING id`,
+        [galleryId, u.url]
+      );
+      if (row?.id) {
+        insertedIds.push(row.id);
+        result.inserted += 1;
+      }
+    } catch (e) {
+      result.errors.push({
+        name: u.name || u.url,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  // Same auto-cover replacement logic as the legacy uploadPhoto path.
+  const current = await queryOne<{ cover_photo_id: number | null; cover_filename: string | null }>(
+    `SELECT g.cover_photo_id, p.filename AS cover_filename
+     FROM galleries g LEFT JOIN photos p ON p.id = g.cover_photo_id
+     WHERE g.id = $1`,
+    [galleryId]
+  );
+  const coverIsMissingOrSeed =
+    current && (current.cover_photo_id == null || current.cover_filename === "hero.jpg");
+  if (coverIsMissingOrSeed && insertedIds.length > 0) {
+    await execute("UPDATE galleries SET cover_photo_id = $1 WHERE id = $2", [
+      insertedIds[0],
+      galleryId,
+    ]);
+  }
+
+  const slug = (await queryOne<{ slug: string }>("SELECT slug FROM galleries WHERE id = $1", [galleryId]))?.slug;
+  if (slug) revalidatePath(`/portfolio/${slug}`);
+  revalidatePath(`/admin/galleries/${galleryId}`);
+  revalidatePath("/portfolio");
+  revalidatePath("/");
+
+  return result;
+}
+
 export async function uploadPhoto(galleryId: number, formData: FormData): Promise<UploadResult> {
   requireUser();
   const files = formData.getAll("files") as File[];

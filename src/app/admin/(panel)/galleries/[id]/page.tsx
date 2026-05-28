@@ -5,7 +5,7 @@ import PhotoTile from "@/components/admin/PhotoTile";
 import UploadDropzone from "@/components/admin/UploadDropzone";
 import ConfirmDelete from "@/components/admin/ConfirmDelete";
 import {
-  updateGallery, deleteGallery, uploadPhoto,
+  updateGallery, deleteGallery, registerUploadedPhotos,
   setCover, deletePhoto, updatePhotoSpan, updatePhotoAlt, movePhoto,
 } from "../actions";
 
@@ -30,7 +30,6 @@ export default async function GalleryEdit({
 
   const onUpdate = updateGallery.bind(null, id);
   const onDelete = deleteGallery.bind(null, id);
-  const onUpload = uploadPhoto.bind(null, id);
   const flash = searchParams.ok ? FLASH[searchParams.ok] : null;
 
   return (
@@ -120,7 +119,7 @@ export default async function GalleryEdit({
           Photos <span style={{ color: "var(--muted)", fontSize: 14 }}>· {photos.length}</span>
         </h2>
 
-        <UploadDropzone action={onUpload} />
+        <UploadDropzone galleryId={id} registerAction={registerUploadedPhotos} />
 
         {photos.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 20, marginTop: 28 }}>
