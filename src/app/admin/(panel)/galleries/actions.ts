@@ -131,10 +131,20 @@ export async function deleteGallery(id: number) {
   redirect("/admin/galleries?ok=deleted");
 }
 
-export async function uploadPhoto(galleryId: number, formData: FormData) {
+export type UploadResult = {
+  inserted: number;
+  skipped: { name: string; reason: string }[];
+  errors: { name: string; message: string }[];
+};
+
+export async function uploadPhoto(galleryId: number, formData: FormData): Promise<UploadResult> {
   requireUser();
   const files = formData.getAll("files") as File[];
-  if (files.length === 0) return;
+  const result: UploadResult = { inserted: 0, skipped: [], errors: [] };
+  if (files.length === 0) {
+    result.skipped.push({ name: "(aucun)", reason: "Aucun fichier reçu par le serveur." });
+    return result;
+  }
   const insertedIds: number[] = [];
 
   const galleryFolder = `galleries/g${galleryId}`;
@@ -145,59 +155,88 @@ export async function uploadPhoto(galleryId: number, formData: FormData) {
   }
 
   for (const file of files) {
-    if (!(file instanceof File) || file.size === 0) continue;
-    if (file.size > MAX_FILE_SIZE_BYTES) continue;
+    const name = file instanceof File ? file.name : "(inconnu)";
+    if (!(file instanceof File) || file.size === 0) {
+      result.skipped.push({ name, reason: "Fichier vide." });
+      continue;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      result.skipped.push({ name, reason: `Trop volumineux (${Math.round(file.size / 1024 / 1024)} Mo > 25 Mo).` });
+      continue;
+    }
     const ext = path.extname(file.name).toLowerCase();
-    if (![".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext)) continue;
+    if (![".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext)) {
+      result.skipped.push({ name, reason: `Format non pris en charge (${ext || "inconnu"}).` });
+      continue;
+    }
 
-    const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
-    const buf = Buffer.from(await file.arrayBuffer());
-
-    let webpBuf: Buffer;
     try {
-      const img = sharp(buf).rotate();
-      const meta = await img.metadata();
-      const max = Math.max(meta.width || 0, meta.height || 0);
-      let pipeline = img;
-      if (max > MAX_DIM) {
-        const w = (meta.width || 0) >= (meta.height || 0) ? MAX_DIM : undefined;
-        const h = (meta.height || 0) > (meta.width || 0) ? MAX_DIM : undefined;
-        pipeline = pipeline.resize({ width: w, height: h, fit: "inside", withoutEnlargement: true });
+      const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+      const buf = Buffer.from(await file.arrayBuffer());
+
+      let webpBuf: Buffer;
+      try {
+        const img = sharp(buf).rotate();
+        const meta = await img.metadata();
+        const max = Math.max(meta.width || 0, meta.height || 0);
+        let pipeline = img;
+        if (max > MAX_DIM) {
+          const w = (meta.width || 0) >= (meta.height || 0) ? MAX_DIM : undefined;
+          const h = (meta.height || 0) > (meta.width || 0) ? MAX_DIM : undefined;
+          pipeline = pipeline.resize({ width: w, height: h, fit: "inside", withoutEnlargement: true });
+        }
+        webpBuf = await pipeline.webp({ quality: WEBP_QUALITY, effort: 5 }).toBuffer();
+      } catch {
+        // Sharp failed (corrupt file, unsupported codec, etc.) — store raw.
+        webpBuf = buf;
       }
-      webpBuf = await pipeline.webp({ quality: WEBP_QUALITY, effort: 5 }).toBuffer();
-    } catch {
-      webpBuf = buf;
-    }
 
-    let storedFilename: string;
-    if (USE_BLOB) {
-      const blob = await put(`${galleryFolder}/p${ts}.webp`, webpBuf, {
-        access: "public",
-        contentType: "image/webp",
-        addRandomSuffix: false,
+      let storedFilename: string;
+      if (USE_BLOB) {
+        const blob = await put(`${galleryFolder}/p${ts}.webp`, webpBuf, {
+          access: "public",
+          contentType: "image/webp",
+          addRandomSuffix: false,
+        });
+        storedFilename = blob.url;
+      } else {
+        const filename = `${galleryFolder}/p${ts}.webp`;
+        fs.writeFileSync(path.join(UPLOADS_DIR, filename), webpBuf);
+        storedFilename = filename;
+      }
+
+      const row = await queryOne<{ id: number }>(
+        `INSERT INTO photos (gallery_id, filename, alt, span, sort_order)
+         VALUES ($1, $2, '', '', COALESCE((SELECT MAX(sort_order)+1 FROM photos WHERE gallery_id = $1), 0))
+         RETURNING id`,
+        [galleryId, storedFilename]
+      );
+      if (row?.id) {
+        insertedIds.push(row.id);
+        result.inserted += 1;
+      }
+    } catch (e) {
+      result.errors.push({
+        name,
+        message: e instanceof Error ? e.message : String(e),
       });
-      storedFilename = blob.url;
-    } else {
-      const filename = `${galleryFolder}/p${ts}.webp`;
-      fs.writeFileSync(path.join(UPLOADS_DIR, filename), webpBuf);
-      storedFilename = filename;
     }
-
-    const row = await queryOne<{ id: number }>(
-      `INSERT INTO photos (gallery_id, filename, alt, span, sort_order)
-       VALUES ($1, $2, '', '', COALESCE((SELECT MAX(sort_order)+1 FROM photos WHERE gallery_id = $1), 0))
-       RETURNING id`,
-      [galleryId, storedFilename]
-    );
-    if (row?.id) insertedIds.push(row.id);
   }
 
-  // Auto-set first uploaded as cover if none yet
-  const current = await queryOne<{ cover_photo_id: number | null }>(
-    "SELECT cover_photo_id FROM galleries WHERE id = $1",
+  // Auto-set cover when:
+  //   - the gallery has no cover yet, OR
+  //   - the cover is the seed placeholder hero.jpg (so first real upload
+  //     replaces it automatically — fixes the long-standing "Anastasia &
+  //     Jordan still shows hero.jpg" issue).
+  const current = await queryOne<{ cover_photo_id: number | null; cover_filename: string | null }>(
+    `SELECT g.cover_photo_id, p.filename AS cover_filename
+     FROM galleries g LEFT JOIN photos p ON p.id = g.cover_photo_id
+     WHERE g.id = $1`,
     [galleryId]
   );
-  if (current && current.cover_photo_id == null && insertedIds.length > 0) {
+  const coverIsMissingOrSeed =
+    current && (current.cover_photo_id == null || current.cover_filename === "hero.jpg");
+  if (coverIsMissingOrSeed && insertedIds.length > 0) {
     await execute("UPDATE galleries SET cover_photo_id = $1 WHERE id = $2", [
       insertedIds[0],
       galleryId,
@@ -209,6 +248,8 @@ export async function uploadPhoto(galleryId: number, formData: FormData) {
   revalidatePath(`/admin/galleries/${galleryId}`);
   revalidatePath("/portfolio");
   revalidatePath("/");
+
+  return result;
 }
 
 export async function setCover(galleryId: number, photoId: number) {

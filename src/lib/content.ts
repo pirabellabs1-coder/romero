@@ -77,17 +77,31 @@ export { photoUrl } from "@/lib/photo-url";
 import { photoUrl } from "@/lib/photo-url";
 
 /**
- * For grid/teaser views: return a usable cover URL for the gallery.
- * If the stored cover is the seed placeholder (hero.jpg), substitute it with
- * a deterministic photo from the pool so grids look varied. The actual gallery
- * detail page should use the raw `cover_filename` to stay honest.
+ * Return a usable cover URL for the gallery.
+ *
+ * Honesty rule: the admin dashboard and the public site MUST show the same
+ * photo for a given gallery. We used to substitute hero.jpg with a random
+ * photo from another gallery for "variety" — that produced the bug where
+ * the photographer saw hero.jpg on /admin but a stranger's wedding on /.
+ *
+ * Fallback chain:
+ *   1. The admin-chosen cover_filename (if not the hero placeholder)
+ *   2. The first real photo of this same gallery (any non-hero photo)
+ *   3. The hero placeholder, as last resort
+ *
+ * `seed` is kept for API compatibility but no longer used.
  */
-export async function coverFor(g: GalleryRow, seed: string): Promise<string> {
+export async function coverFor(g: GalleryRow, _seed: string): Promise<string> {
   if (g.cover_filename && g.cover_filename !== "hero.jpg") {
     return photoUrl(g.cover_filename)!;
   }
-  const pool = await pickShowcasePhotos(1, seed);
-  return pool[0] ? photoUrl(pool[0])! : "/uploads/hero.jpg";
+  // Try the gallery's own first real photo before falling back to hero.
+  const own = await queryOne<{ filename: string }>(
+    "SELECT filename FROM photos WHERE gallery_id = $1 AND filename != 'hero.jpg' ORDER BY sort_order ASC, id ASC LIMIT 1",
+    [g.id]
+  );
+  if (own?.filename) return photoUrl(own.filename)!;
+  return "/uploads/hero.jpg";
 }
 
 /**
