@@ -3,6 +3,7 @@ import { getPageContentBilingual } from "@/lib/page-content";
 import { STRINGS } from "@/lib/i18n";
 import PageContentEditor, { type SectionSpec } from "@/components/admin/PageContentEditor";
 import { saveContentFields } from "../actions";
+import { cmsPageGuard } from "../cms-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +101,7 @@ function flatAboutDefaults(lang: "fr" | "en"): Record<string, string> {
 }
 
 export default async function AboutContentPage() {
+  cmsPageGuard("about");
   const overrides = await getPageContentBilingual("about");
   return (
     <>
