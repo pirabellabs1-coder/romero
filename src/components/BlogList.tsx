@@ -63,7 +63,12 @@ export default function BlogList({ posts, t, lang }: Props) {
           <div className="container-wide">
             <Rise>
               <Link href={`/blog/${featured.slug}`} className="responsive-2col tight" style={{ display: "grid" }}>
-                <Photo src={photoUrl(featured.cover_filename)} label={title(featured)} ratio="4 / 3" />
+                <Photo
+                  src={photoUrl(featured.cover_filename)}
+                  label={title(featured)}
+                  ratio="4 / 3"
+                  objectPosition={featured.cover_position || "center center"}
+                />
                 <div>
                   <div className="cap-tracked gold" style={{ marginBottom: 12 }}>
                     {t.blog.featured} · {featured.category}
@@ -104,6 +109,7 @@ export default function BlogList({ posts, t, lang }: Props) {
                     label={title(p).slice(0, 36)}
                     ratio="4 / 3"
                     rounded={false}
+                    objectPosition={p.cover_position || "center center"}
                   />
                   <div style={{ padding: "28px 28px 32px" }}>
                     <div className="cap-tracked-sm gold" style={{ marginBottom: 10 }}>

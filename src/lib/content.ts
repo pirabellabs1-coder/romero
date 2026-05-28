@@ -168,6 +168,7 @@ export type PostRow = {
   body_fr: string;
   body_en: string;
   cover_filename: string | null;
+  cover_position: string;
   published_at: string;
   read_minutes: number;
   sort_order: number;

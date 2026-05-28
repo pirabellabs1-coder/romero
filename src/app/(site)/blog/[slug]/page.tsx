@@ -94,7 +94,7 @@ export default async function PostDetail({ params }: { params: { slug: string } 
               <img
                 src={photoUrl(cover)!}
                 alt={title}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: post.cover_position || "center center" }}
               />
             </div>
           </div>
@@ -149,7 +149,7 @@ export default async function PostDetail({ params }: { params: { slug: string } 
                     {p.cover_filename && (
                       <div style={{ aspectRatio: "4 / 3", overflow: "hidden" }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={photoUrl(p.cover_filename)!} alt={postTitle(p, lang)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <img src={photoUrl(p.cover_filename)!} alt={postTitle(p, lang)} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: p.cover_position || "center center" }} />
                       </div>
                     )}
                     <div style={{ padding: "24px 26px 28px" }}>

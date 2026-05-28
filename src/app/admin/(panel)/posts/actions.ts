@@ -55,8 +55,15 @@ export async function createPost(formData: FormData) {
 
 export async function updatePost(id: number, formData: FormData) {
   requireUser();
+
+  // Cover source priority (highest first):
+  //   1. New file upload via <input type="file" name="cover">  → re-encode + store
+  //   2. Pick from existing gallery via <input name="cover_pick"> → store filename as-is
+  //   3. No change → keep whatever's already in the DB
   let coverFilename: string | null = null;
+  const coverPick = String(formData.get("cover_pick") || "").trim();
   const coverFile = formData.get("cover") as File | null;
+
   if (coverFile && coverFile.size > 0 && coverFile.size <= MAX_FILE_SIZE_BYTES) {
     const ext = path.extname(coverFile.name).toLowerCase();
     if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
@@ -96,10 +103,23 @@ export async function updatePost(id: number, formData: FormData) {
         coverFilename = fnKey;
       }
     }
+  } else if (coverPick) {
+    // Reuse a photo that's already in Blob/uploads — no re-encoding needed.
+    coverFilename = coverPick;
   }
 
+  // Validate cover_position against an allowlist — defence against an admin
+  // pasting arbitrary CSS into the hidden input.
+  const ALLOWED_POS = new Set([
+    "left top", "center top", "right top",
+    "left center", "center center", "right center",
+    "left bottom", "center bottom", "right bottom",
+  ]);
+  const posRaw = String(formData.get("cover_position") || "center center").trim();
+  const coverPosition = ALLOWED_POS.has(posRaw) ? posRaw : "center center";
+
   // Two query shapes — with and without cover_filename — to keep the SQL
-  // tidy. The 11-param version is the cover-less default.
+  // tidy. cover_position is updated in both.
   const baseParams = [
     String(formData.get("title_fr") || ""),
     String(formData.get("title_en") || ""),
@@ -112,19 +132,22 @@ export async function updatePost(id: number, formData: FormData) {
     Number(formData.get("read_minutes") || 5),
     formData.get("published") ? 1 : 0,
     Number(formData.get("sort_order") || 0),
+    coverPosition,
   ];
   if (coverFilename) {
     await execute(
       `UPDATE posts SET title_fr = $1, title_en = $2, category = $3, excerpt_fr = $4,
          excerpt_en = $5, body_fr = $6, body_en = $7, published_at = $8, read_minutes = $9,
-         published = $10, sort_order = $11, cover_filename = $12 WHERE id = $13`,
+         published = $10, sort_order = $11, cover_position = $12, cover_filename = $13
+       WHERE id = $14`,
       [...baseParams, coverFilename, id]
     );
   } else {
     await execute(
       `UPDATE posts SET title_fr = $1, title_en = $2, category = $3, excerpt_fr = $4,
          excerpt_en = $5, body_fr = $6, body_en = $7, published_at = $8, read_minutes = $9,
-         published = $10, sort_order = $11 WHERE id = $12`,
+         published = $10, sort_order = $11, cover_position = $12
+       WHERE id = $13`,
       [...baseParams, id]
     );
   }

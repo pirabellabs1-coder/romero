@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { queryOne } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 import { updatePost, deletePost } from "../actions";
 import ConfirmDelete from "@/components/admin/ConfirmDelete";
 import RichEditor from "@/components/admin/RichEditor";
+import CoverPicker from "@/components/admin/CoverPicker";
 import type { PostRow } from "@/lib/content";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,29 @@ export default async function PostEdit({ params, searchParams }: { params: { id:
   const id = Number(params.id);
   const p = await queryOne<PostRow>("SELECT * FROM posts WHERE id = $1", [id]);
   if (!p) notFound();
+
+  // Fetch every photo from every published gallery so the CoverPicker can
+  // offer them in a single modal. Reasonable volume (~100s of photos) for an
+  // admin-only screen — no pagination needed.
+  const photoRows = await query<{
+    id: number; gallery_id: number; filename: string;
+    gallery_names: string; gallery_place: string;
+  }>(
+    `SELECT p.id, p.gallery_id, p.filename, g.names AS gallery_names, g.place AS gallery_place
+     FROM photos p
+     JOIN galleries g ON g.id = p.gallery_id
+     WHERE g.published = 1 AND p.filename != 'hero.jpg'
+     ORDER BY g.sort_order ASC, p.sort_order ASC, p.id ASC`
+  );
+  // Group by gallery for the picker UI.
+  const galleryMap = new Map<number, { id: number; names: string; place: string; photos: Array<{ id: number; gallery_id: number; filename: string }> }>();
+  for (const r of photoRows) {
+    if (!galleryMap.has(r.gallery_id)) {
+      galleryMap.set(r.gallery_id, { id: r.gallery_id, names: r.gallery_names, place: r.gallery_place, photos: [] });
+    }
+    galleryMap.get(r.gallery_id)!.photos.push({ id: r.id, gallery_id: r.gallery_id, filename: r.filename });
+  }
+  const galleriesWithPhotos = Array.from(galleryMap.values());
 
   const onUpdate = updatePost.bind(null, id);
   const onDelete = deletePost.bind(null, id);
@@ -74,17 +98,18 @@ export default async function PostEdit({ params, searchParams }: { params: { id:
             <RichEditor name="body_en" defaultValue={p.body_en} placeholder="Write your article…" />
           </div>
 
-          <div style={{ marginTop: 22, display: "flex", gap: 30, alignItems: "center" }}>
-            <div>
-              <label className="admin-label">Image de couverture</label>
-              {p.cover_filename && (
-                <div style={{ width: 160, height: 100, marginBottom: 8, background: "var(--cream-deep)", overflow: "hidden", borderRadius: 4 }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.cover_filename!.startsWith("http") ? p.cover_filename! : `/uploads/${p.cover_filename}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                </div>
-              )}
-              <input type="file" name="cover" accept="image/jpeg,image/png,image/webp" />
-            </div>
+          <div style={{ marginTop: 28 }}>
+            <label className="admin-label" style={{ marginBottom: 12, display: "block" }}>
+              Image de couverture
+            </label>
+            <CoverPicker
+              currentCover={p.cover_filename}
+              currentPosition={p.cover_position || "center center"}
+              galleries={galleriesWithPhotos}
+            />
+          </div>
+
+          <div style={{ marginTop: 22 }}>
             <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}>
               <input type="checkbox" name="published" defaultChecked={!!p.published} /> Publié
             </label>
