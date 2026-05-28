@@ -7,21 +7,38 @@ import Monogram from "@/components/Monogram";
 import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { listGalleries, pickShowcasePhotos, coverFor, photoUrl } from "@/lib/content";
+import { getPageContent } from "@/lib/page-content";
 
 const HERO_PHOTO = "/uploads/hero.jpg";
 
 export default async function HomePage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
-  const [allFeatured, teaserPhotos] = await Promise.all([
+  const [allFeatured, teaserPhotos, ov] = await Promise.all([
     listGalleries({ featuredOnly: true }),
     pickShowcasePhotos(4, "home-teaser-v1"),
+    getPageContent("home", lang),
   ]);
   const featured = allFeatured.slice(0, 3);
   const covers = await Promise.all(featured.map((g) => coverFor(g, `home-featured-${g.slug}`)));
   const valueKinds: ValueKind[] = ["authenticity", "elegance", "closeness", "excellence"];
 
   const firstCover = (i: number) => covers[i] ?? null;
+
+  // CMS overrides for the Home page: any key set in page_content wins over
+  // the i18n default. Empty/missing keys fall through to t.home.*.
+  const home = { ...t.home };
+  for (const k of Object.keys(home) as Array<keyof typeof home>) {
+    const override = ov[k as string];
+    if (typeof override === "string" && override.length > 0 && typeof home[k] === "string") {
+      (home as Record<string, unknown>)[k as string] = override;
+    }
+  }
+  // Values array: override pair-by-pair via flat keys values_<i>_(title|body).
+  const values = (t.home.values as ReadonlyArray<[string, string]>).map(([titleDef, bodyDef], i) => [
+    ov[`values_${i}_title`] || titleDef,
+    ov[`values_${i}_body`] || bodyDef,
+  ] as [string, string]);
 
   return (
     <main className="page-enter">
@@ -33,24 +50,24 @@ export default async function HomePage() {
               desktop both blocks live in the same left column via CSS grid. */}
           <div className="hero-text hero-text-top">
             <div className="cap-tracked gold" style={{ marginBottom: 32 }}>
-              {t.home.eyebrow}
+              {home.eyebrow}
             </div>
             <OrnamentDivider />
             <h1 className="h-display" style={{ marginTop: 28 }}>
-              {t.home.title1}
+              {home.title1}
               <br />
-              <span style={{ fontStyle: "italic", color: "var(--gold)" }}>{t.home.title2}</span>
+              <span style={{ fontStyle: "italic", color: "var(--gold)" }}>{home.title2}</span>
             </h1>
           </div>
 
           <div className="hero-text hero-text-bottom">
             <p className="lead" style={{ color: "var(--ink)", maxWidth: 480 }}>
-              {t.home.sub}
+              {home.sub}
             </p>
 
             <div className="hero-cta-row" style={{ marginTop: 36, display: "flex", gap: 18, flexWrap: "wrap" }}>
               <Link href="/portfolio" className="btn btn-sage">
-                {t.home.cta}
+                {home.cta}
               </Link>
               <Link href="/contact" className="btn btn-ghost">
                 {t.book}
@@ -59,7 +76,7 @@ export default async function HomePage() {
 
             <div className="hero-cta-row" style={{ marginTop: 44, display: "flex", alignItems: "center", gap: 14, color: "var(--muted)", flexWrap: "wrap" }}>
               <span className="diamond" />
-              <span style={{ fontSize: 11, letterSpacing: "0.32em", textTransform: "uppercase" }}>{t.home.locale}</span>
+              <span style={{ fontSize: 11, letterSpacing: "0.32em", textTransform: "uppercase" }}>{home.locale}</span>
               <span className="diamond" />
             </div>
           </div>
@@ -91,14 +108,14 @@ export default async function HomePage() {
       >
         <div className="container-wide">
           <div style={{ textAlign: "center", marginBottom: 60 }}>
-            <div className="cap-tracked gold">{t.home.valuesEyebrow}</div>
+            <div className="cap-tracked gold">{home.valuesEyebrow}</div>
             <h2 className="h-section" style={{ marginTop: 18 }}>
-              {t.home.valuesTitle}
+              {home.valuesTitle}
             </h2>
             <OrnamentDivider />
           </div>
           <div className="values-band">
-            {t.home.values.map(([title, body], i) => (
+            {values.map(([title, body], i) => (
               <Rise key={i} delay={i * 60}>
                 <div>
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
@@ -122,13 +139,13 @@ export default async function HomePage() {
         <div className="container-wide">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 50, flexWrap: "wrap", gap: 24 }}>
             <div>
-              <div className="cap-tracked gold">{t.home.featuredEyebrow}</div>
+              <div className="cap-tracked gold">{home.featuredEyebrow}</div>
               <h2 className="h-section" style={{ marginTop: 14 }}>
-                {t.home.featuredTitle}
+                {home.featuredTitle}
               </h2>
             </div>
             <Link href="/portfolio" className="btn btn-gold-outline">
-              {t.home.featuredCta}
+              {home.featuredCta}
             </Link>
           </div>
 
@@ -210,10 +227,10 @@ export default async function HomePage() {
               margin: "36px auto 24px",
             }}
           >
-            {t.home.bandQuote}
+            {home.bandQuote}
           </p>
           <div className="cap-tracked-sm gold" style={{ marginTop: 18 }}>
-            {t.home.bandAttr}
+            {home.bandAttr}
           </div>
         </div>
       </section>

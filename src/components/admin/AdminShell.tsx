@@ -10,6 +10,7 @@ type Props = {
 
 const LINKS: Array<{ href: string; label: string }> = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/content", label: "Contenu" },
   { href: "/admin/galleries", label: "Galeries" },
   { href: "/admin/posts", label: "Journal" },
   { href: "/admin/reviews", label: "Avis" },

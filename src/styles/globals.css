@@ -2038,3 +2038,97 @@ section { position: relative; }
   .cover-picker__photos { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
 }
 
+
+/* ─── Page content editor (CMS) ────────────────────────────────── */
+.content-field {
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  margin-bottom: 12px;
+  transition: border-color .2s ease;
+}
+.content-field:hover { border-color: rgba(184,151,90,.3); }
+.content-field__head { margin-bottom: 8px; }
+.content-field__bilingual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 720px) {
+  .content-field__bilingual { grid-template-columns: 1fr; }
+}
+.content-field__col-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 5px;
+  min-height: 16px;
+}
+.content-field__default {
+  margin: 4px 2px 0;
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+}
+.content-field__default em { color: var(--gold-deep); }
+.content-field__hint {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-style: italic;
+}
+.content-section-head {
+  margin: 28px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+.content-section-head h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--forest);
+}
+.content-section-head p {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.content-page-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.content-page-card {
+  display: block;
+  padding: 22px 22px 24px;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+.content-page-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold);
+  box-shadow: 0 8px 24px -16px rgba(31,42,31,.2);
+}
+.content-page-card__title {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--forest);
+  margin: 0 0 4px;
+}
+.content-page-card__sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.content-page-card__count {
+  margin-top: 12px;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
