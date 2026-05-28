@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb, getDbAsync } from "@/lib/db";
-import { syncDb } from "@/lib/db-persist";
+import { execute } from "@/lib/db";
 import { sendContactNotification } from "@/lib/mailer";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
@@ -74,19 +73,15 @@ export async function POST(req: Request) {
   const place = clean(body.place, 200);
   const lang = body.lang === "en" ? "en" : "fr";
 
-  // 4. Persist to DB. Uses async getter so cold-start Blob restore runs first,
-  //    then syncs the new message back to Blob so the photographer's inbox
-  //    survives the next cold start.
+  // 4. Persist to DB. Postgres is always-on, no cold-start dance required.
   let saved = false;
   try {
-    const db = await getDbAsync();
-    db.prepare(
+    await execute(
       `INSERT INTO messages (first_name, last_name, email, phone, wedding_date, place, message, lang)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(first_name, last_name, email, phone, wedding_date, place, message, lang);
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [first_name, last_name, email, phone, wedding_date, place, message, lang]
+    );
     saved = true;
-    // Best-effort sync. If Blob is down we still got the email out below.
-    await syncDb();
   } catch (e) {
     console.error("[contact] DB save failed:", e);
   }

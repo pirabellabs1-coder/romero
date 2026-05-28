@@ -1,5 +1,5 @@
 import { unstable_noStore as noStore } from "next/cache";
-import { getDb, getDbAsync } from "@/lib/db";
+import { query, execute } from "@/lib/db";
 
 export type Settings = {
   contact_city: string;
@@ -28,48 +28,82 @@ export type Settings = {
   button_style: string;
 };
 
-// In-memory cache to avoid repeating the same SQL query on every render of the same request lifecycle.
-// TTL is short (15s) because the admin can update tokens at any moment, and revalidatePath() invalidates Next's caches anyway.
-let _cache: { value: Settings; expiresAt: number } | null = null;
-const CACHE_TTL_MS = 15_000;
+const DEFAULTS: Settings = {
+  contact_city: "Nice, Côte d'Azur",
+  contact_phone: "06 04 03 70 76",
+  contact_email: "romerophotography.contact@gmail.com",
+  instagram_handle: "@romeromomentsphoto",
+  instagram_url: "https://www.instagram.com/romeromomentsphoto",
+  google_reviews_url: "https://share.google/ckAXNbRvvnfKv1o1T",
+  accent: "#B8975A",
+  background: "cream",
+  foreground: "forest",
+  sage_tone: "sage",
+  display_font: "Cormorant Garamond",
+  body_font: "Inter",
+  image_treatment: "natural",
+  italic_titles: "1",
+  watercolor: "1",
+  ornaments: "regular",
+  section_density: "regular",
+  image_radius: "4",
+  caps_tracking: "32",
+  font_scale: "100",
+  monogram_style: "framed",
+  header_style: "transparent",
+  button_style: "sage",
+};
 
-export function getSettings(): Settings {
+// Per-request memo: getSettings can be called multiple times per render
+// (layout + multiple children). Avoid re-querying the DB on each call.
+// The previous 15s TTL trick is no longer needed — admin actions call
+// revalidatePath() which discards this module's state on next request.
+let _cache: { value: Settings; expiresAt: number } | null = null;
+const CACHE_TTL_MS = 5_000;
+
+export async function getSettings(): Promise<Settings> {
   noStore();
   const now = Date.now();
   if (_cache && _cache.expiresAt > now) return _cache.value;
-  const rows = getDb().prepare("SELECT key, value FROM settings").all() as { key: string; value: string }[];
-  const out: Record<string, string> = {};
-  for (const r of rows) out[r.key] = r.value;
-  const value = out as unknown as Settings;
+  const rows = await query<{ key: string; value: string }>(
+    "SELECT key, value FROM settings"
+  );
+  const merged: Record<string, string> = { ...DEFAULTS };
+  for (const r of rows) merged[r.key] = r.value;
+  const value = merged as unknown as Settings;
   _cache = { value, expiresAt: now + CACHE_TTL_MS };
   return value;
 }
 
-export function invalidateSettingsCache() {
+export function invalidateSettingsCache(): void {
   _cache = null;
 }
 
-// CRITICAL: writes use the async getter so a cold-start lambda restores from
-// Blob first. The sync getDb() opens the bundled seed DB on a cold lambda,
-// which would then be re-uploaded over the real persisted data by syncDb()
-// on the next call — wiping every prior admin edit.
-export async function setSetting(key: string, value: string) {
-  const db = await getDbAsync();
-  db
-    .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
-    .run(key, value);
+export async function setSetting(key: string, value: string): Promise<void> {
+  await execute(
+    `INSERT INTO settings (key, value) VALUES ($1, $2)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    [key, value]
+  );
   invalidateSettingsCache();
 }
 
-export async function setSettings(updates: Record<string, string>) {
-  const db = await getDbAsync();
-  const stmt = db.prepare(
-    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-  );
-  const tx = db.transaction((entries: [string, string][]) => {
-    for (const [k, v] of entries) stmt.run(k, v);
+export async function setSettings(updates: Record<string, string>): Promise<void> {
+  const entries = Object.entries(updates);
+  if (entries.length === 0) return;
+  // Build a single multi-row INSERT … VALUES ($1,$2),($3,$4),… ON CONFLICT.
+  // One round-trip beats N round-trips on a serverless pool.
+  const placeholders: string[] = [];
+  const params: string[] = [];
+  entries.forEach(([k, v], i) => {
+    placeholders.push(`($${i * 2 + 1}, $${i * 2 + 2})`);
+    params.push(k, v);
   });
-  tx(Object.entries(updates));
+  await execute(
+    `INSERT INTO settings (key, value) VALUES ${placeholders.join(", ")}
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    params
+  );
   invalidateSettingsCache();
 }
 

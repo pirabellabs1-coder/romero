@@ -4,8 +4,8 @@ import { createGallery } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default function GalleriesAdmin({ searchParams }: { searchParams: { ok?: string } }) {
-  const galleries = listGalleries({ includeDrafts: true });
+export default async function GalleriesAdmin({ searchParams }: { searchParams: { ok?: string } }) {
+  const galleries = await listGalleries({ includeDrafts: true });
 
   return (
     <>

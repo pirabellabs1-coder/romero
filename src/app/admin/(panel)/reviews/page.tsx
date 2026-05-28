@@ -3,8 +3,8 @@ import { createReview, updateReview, deleteReview } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default function ReviewsAdmin() {
-  const reviews = listReviews({ includeHidden: true });
+export default async function ReviewsAdmin() {
+  const reviews = await listReviews({ includeHidden: true });
 
   return (
     <>

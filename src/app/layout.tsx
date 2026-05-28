@@ -52,11 +52,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // On Vercel cold starts, the /tmp DB is empty. Restore the latest snapshot
-  // from Blob BEFORE any page/layout calls getSettings()/getDb() — otherwise
-  // the first request after a cold start serves stale seed data.
-  await (await import("@/lib/db")).getDbAsync();
-  const settings = getSettings();
+  const settings = await getSettings();
   const { css, googleFontHref } = buildTokenStyle(settings);
 
   const ldLocalBusiness = localBusinessSchema(settings);

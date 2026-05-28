@@ -18,12 +18,12 @@ import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { listPosts, pickShowcasePhotos } from "@/lib/content";
 
-export default function BlogPage() {
+export default async function BlogPage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
-  const posts = listPosts();
+  const posts = await listPosts();
   // Provide a varied photo for any post without an uploaded cover
-  const fallbackPhotos = pickShowcasePhotos(posts.length, "blog-covers-v1");
+  const fallbackPhotos = await pickShowcasePhotos(posts.length, "blog-covers-v1");
   const postsWithCover = posts.map((p, i) => ({
     ...p,
     cover_filename: p.cover_filename || fallbackPhotos[i] || null,

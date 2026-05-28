@@ -17,13 +17,12 @@ import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { listGalleries, coverFor } from "@/lib/content";
 
-export default function PortfolioPage() {
+export default async function PortfolioPage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
-  const galleries = listGalleries().map((g) => ({
-    ...g,
-    coverUrl: coverFor(g, `portfolio-cover-${g.slug}`),
-  }));
+  const raw = await listGalleries();
+  const covers = await Promise.all(raw.map((g) => coverFor(g, `portfolio-cover-${g.slug}`)));
+  const galleries = raw.map((g, i) => ({ ...g, coverUrl: covers[i] }));
 
   return (
     <main>

@@ -6,8 +6,8 @@ import { getLangFromCookies } from "@/lib/lang";
 import { getGallery, listPhotosForGallery, galleryIntro } from "@/lib/content";
 import { imageGallerySchema, breadcrumbList, jsonLdScript } from "@/lib/jsonld";
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const g = getGallery(params.slug);
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const g = await getGallery(params.slug);
   if (!g) return { title: "Galerie introuvable" };
   const desc = (g.intro_fr || "").slice(0, 200) || `Reportage du mariage de ${g.names} à ${g.place}.`;
   return {
@@ -25,12 +25,12 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   };
 }
 
-export default function CouplePage({ params }: { params: { slug: string } }) {
+export default async function CouplePage({ params }: { params: { slug: string } }) {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
-  const gallery = getGallery(params.slug);
+  const gallery = await getGallery(params.slug);
   if (!gallery) notFound();
-  const photos = listPhotosForGallery(gallery.id);
+  const photos = await listPhotosForGallery(gallery.id);
   const intro = galleryIntro(gallery, lang);
 
   const ldGallery = imageGallerySchema({

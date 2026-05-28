@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDb } from "@/lib/db";
+import { query } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +17,10 @@ type Row = {
   created_at: string;
 };
 
-export default function MessagesAdmin() {
-  const rows = getDb()
-    .prepare("SELECT * FROM messages ORDER BY created_at DESC")
-    .all() as Row[];
+export default async function MessagesAdmin() {
+  const rows = await query<Row>(
+    "SELECT * FROM messages ORDER BY created_at DESC"
+  );
 
   return (
     <>

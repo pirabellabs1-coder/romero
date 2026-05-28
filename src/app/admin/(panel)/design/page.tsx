@@ -4,8 +4,8 @@ import LiveSlider from "@/components/admin/LiveSlider";
 
 export const dynamic = "force-dynamic";
 
-export default function DesignAdmin({ searchParams }: { searchParams: { ok?: string } }) {
-  const s = getSettings();
+export default async function DesignAdmin({ searchParams }: { searchParams: { ok?: string } }) {
+  const s = await getSettings();
 
   // Key used to force-remount the form whenever settings change (e.g. after a preset).
   // Without this, React keeps uncontrolled <select> values across re-renders and the

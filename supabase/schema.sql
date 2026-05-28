@@ -1,0 +1,146 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Romero Photography — Postgres schema (Supabase)
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Run this in: Dashboard → SQL Editor → New query → paste → Run
+--
+-- Idempotent: safe to re-run. Creates tables and seeds default settings if
+-- the table is empty. Existing data is preserved on re-run.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- ── Users (admin login) ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.users (
+  id              BIGSERIAL PRIMARY KEY,
+  email           TEXT UNIQUE NOT NULL,
+  password_hash   TEXT NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Settings (key/value site config) ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.settings (
+  key    TEXT PRIMARY KEY,
+  value  TEXT NOT NULL
+);
+
+-- ── Galleries (weddings portfolio) ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.galleries (
+  id              BIGSERIAL PRIMARY KEY,
+  slug            TEXT UNIQUE NOT NULL,
+  names           TEXT NOT NULL,
+  place           TEXT NOT NULL,
+  date_label      TEXT NOT NULL DEFAULT '',
+  region          TEXT NOT NULL DEFAULT 'FRANCE',
+  kind            TEXT NOT NULL DEFAULT 'MARIAGE',
+  intro_fr        TEXT NOT NULL DEFAULT '',
+  intro_en        TEXT NOT NULL DEFAULT '',
+  cover_photo_id  BIGINT,
+  featured        SMALLINT NOT NULL DEFAULT 0,
+  sort_order      INTEGER NOT NULL DEFAULT 0,
+  published       SMALLINT NOT NULL DEFAULT 1,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Photos (gallery items) ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.photos (
+  id          BIGSERIAL PRIMARY KEY,
+  gallery_id  BIGINT REFERENCES public.galleries(id) ON DELETE CASCADE,
+  filename    TEXT NOT NULL,
+  alt         TEXT DEFAULT '',
+  span        TEXT DEFAULT '',
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS photos_gallery_id_idx ON public.photos(gallery_id, sort_order);
+
+-- ── Posts (blog) ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.posts (
+  id              BIGSERIAL PRIMARY KEY,
+  slug            TEXT UNIQUE NOT NULL,
+  title_fr        TEXT NOT NULL,
+  title_en        TEXT NOT NULL DEFAULT '',
+  category        TEXT NOT NULL,
+  excerpt_fr      TEXT NOT NULL DEFAULT '',
+  excerpt_en      TEXT NOT NULL DEFAULT '',
+  body_fr         TEXT NOT NULL DEFAULT '',
+  body_en         TEXT NOT NULL DEFAULT '',
+  cover_filename  TEXT,
+  published_at    TEXT NOT NULL,
+  read_minutes    INTEGER NOT NULL DEFAULT 5,
+  published       SMALLINT NOT NULL DEFAULT 1,
+  sort_order      INTEGER NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Reviews ──────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.reviews (
+  id          BIGSERIAL PRIMARY KEY,
+  name        TEXT NOT NULL,
+  date_label  TEXT NOT NULL,
+  rating      INTEGER NOT NULL DEFAULT 5,
+  text_fr     TEXT NOT NULL,
+  text_en     TEXT NOT NULL DEFAULT '',
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  published   SMALLINT NOT NULL DEFAULT 1,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Messages (contact form inbox) ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.messages (
+  id            BIGSERIAL PRIMARY KEY,
+  first_name    TEXT NOT NULL,
+  last_name     TEXT NOT NULL,
+  email         TEXT NOT NULL,
+  phone         TEXT DEFAULT '',
+  wedding_date  TEXT DEFAULT '',
+  place         TEXT DEFAULT '',
+  message       TEXT NOT NULL,
+  lang          TEXT NOT NULL DEFAULT 'fr',
+  read_at       TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS messages_created_at_idx ON public.messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS messages_read_at_idx ON public.messages(read_at) WHERE read_at IS NULL;
+
+-- ── Row-Level Security ───────────────────────────────────────────────────
+-- We disable RLS on these tables because all access goes through the
+-- service_role key from server-side code (Next.js server actions / API
+-- routes). The anon/publishable key is never used to hit these tables
+-- directly from the browser. Auth is handled at the application layer
+-- via the existing session cookie (lib/auth.ts).
+ALTER TABLE public.users      DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.settings   DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.galleries  DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.photos     DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.posts      DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reviews    DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.messages   DISABLE ROW LEVEL SECURITY;
+
+-- ── Default settings (idempotent insert) ────────────────────────────────
+INSERT INTO public.settings (key, value) VALUES
+  ('contact_city', 'Nice, Côte d''Azur'),
+  ('contact_phone', '06 04 03 70 76'),
+  ('contact_email', 'romerophotography.contact@gmail.com'),
+  ('instagram_handle', '@romeromomentsphoto'),
+  ('instagram_url', 'https://www.instagram.com/romeromomentsphoto'),
+  ('google_reviews_url', 'https://share.google/ckAXNbRvvnfKv1o1T'),
+  ('accent', '#B8975A'),
+  ('background', 'cream'),
+  ('foreground', 'forest'),
+  ('sage_tone', 'sage'),
+  ('display_font', 'Cormorant Garamond'),
+  ('body_font', 'Inter'),
+  ('image_treatment', 'natural'),
+  ('italic_titles', '1'),
+  ('watercolor', '1'),
+  ('ornaments', 'regular'),
+  ('section_density', 'regular'),
+  ('image_radius', '4'),
+  ('caps_tracking', '32'),
+  ('font_scale', '100'),
+  ('monogram_style', 'framed'),
+  ('header_style', 'transparent'),
+  ('button_style', 'sage')
+ON CONFLICT (key) DO NOTHING;
+
+-- ── Sanity check ─────────────────────────────────────────────────────────
+SELECT 'tables created:' AS status,
+  (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public') AS public_tables_count;

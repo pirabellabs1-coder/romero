@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   robots: { index: true, follow: false },
 };
 
-export default function PolitiqueConfidentialitePage() {
-  const s = getSettings();
+export default async function PolitiqueConfidentialitePage() {
+  const s = await getSettings();
   return (
     <main className="page-enter">
       <section style={{ paddingTop: 160, paddingBottom: 60, background: "var(--cream)" }}>

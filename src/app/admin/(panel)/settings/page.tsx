@@ -3,8 +3,8 @@ import { updateContactSettings } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default function SettingsAdmin({ searchParams }: { searchParams: { ok?: string } }) {
-  const s = getSettings();
+export default async function SettingsAdmin({ searchParams }: { searchParams: { ok?: string } }) {
+  const s = await getSettings();
   return (
     <>
       <h1 className="admin-h1">Paramètres</h1>

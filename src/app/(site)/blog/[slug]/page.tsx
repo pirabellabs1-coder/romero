@@ -9,8 +9,8 @@ import { getLangFromCookies } from "@/lib/lang";
 import { getPost, listPosts, postExcerpt, postTitle, pickShowcasePhotos, photoUrl } from "@/lib/content";
 import { articleSchema, breadcrumbList, jsonLdScript } from "@/lib/jsonld";
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const p = getPost(params.slug);
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const p = await getPost(params.slug);
   if (!p) return { title: "Article introuvable" };
   const lang = getLangFromCookies();
   const title = postTitle(p, lang);
@@ -30,19 +30,19 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   };
 }
 
-export default function PostDetail({ params }: { params: { slug: string } }) {
-  const post = getPost(params.slug);
+export default async function PostDetail({ params }: { params: { slug: string } }) {
+  const post = await getPost(params.slug);
   if (!post || !post.published) notFound();
   const lang = getLangFromCookies();
   const t = getStrings(lang);
   const title = postTitle(post, lang);
   const body = lang === "en" && post.body_en ? post.body_en : post.body_fr;
-  const cover = post.cover_filename || pickShowcasePhotos(1, `post-cover-${post.slug}`)[0];
+  const fallback = post.cover_filename ? null : (await pickShowcasePhotos(1, `post-cover-${post.slug}`))[0];
+  const cover = post.cover_filename || fallback;
 
   // Related posts (latest 3 excluding current)
-  const related = listPosts()
-    .filter((p) => p.id !== post.id)
-    .slice(0, 3);
+  const allPosts = await listPosts();
+  const related = allPosts.filter((p) => p.id !== post.id).slice(0, 3);
 
   // JSON-LD for SEO
   const ldArticle = articleSchema({

@@ -61,7 +61,7 @@ export type SendResult = {
 };
 
 export async function sendContactNotification(data: ContactMail): Promise<SendResult> {
-  const settings = getSettings();
+  const settings = await getSettings();
   const to = (process.env.MAIL_TO || settings.contact_email || "").trim();
   const from = (process.env.MAIL_FROM || "Romero Photography <onboarding@resend.dev>").trim();
   const replyTo = `${data.firstName} ${data.lastName} <${data.email}>`;

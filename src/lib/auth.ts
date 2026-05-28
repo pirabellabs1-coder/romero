@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
-import { getDb } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { execute, queryOne } from "@/lib/db";
 
 const SECRET = process.env.AUTH_SECRET || "romero-dev-secret-change-me-in-production";
 const COOKIE = "rp_session";
@@ -38,16 +38,10 @@ function verify(token: string): Payload | null {
 export type User = { id: number; email: string };
 
 export async function login(email: string, password: string): Promise<User | null> {
-  // CRITICAL: use the async getter so cold-start Blob restore runs before
-  // we look up the user. /api/auth/login is an API route that doesn't go
-  // through the root layout (which is where getDbAsync was being called),
-  // so without this, login would consult the bundled seed DB and reject
-  // the photographer's real credentials.
-  const { getDbAsync } = await import("@/lib/db");
-  const db = await getDbAsync();
-  const row = db
-    .prepare("SELECT id, email, password_hash FROM users WHERE email = ?")
-    .get(email.toLowerCase().trim()) as { id: number; email: string; password_hash: string } | undefined;
+  const row = await queryOne<{ id: number; email: string; password_hash: string }>(
+    "SELECT id, email, password_hash FROM users WHERE email = $1",
+    [email.toLowerCase().trim()]
+  );
   if (!row) return null;
   const ok = await bcrypt.compare(password, row.password_hash);
   if (!ok) return null;
@@ -81,31 +75,40 @@ export function requireUser(): User {
   return u;
 }
 
-export async function changePassword(userId: number, oldPassword: string, newPassword: string): Promise<boolean> {
-  const { getDbAsync } = await import("@/lib/db");
-  const db = await getDbAsync();
-  const row = db
-    .prepare("SELECT password_hash FROM users WHERE id = ?")
-    .get(userId) as { password_hash: string } | undefined;
+export async function changePassword(
+  userId: number,
+  oldPassword: string,
+  newPassword: string
+): Promise<boolean> {
+  const row = await queryOne<{ password_hash: string }>(
+    "SELECT password_hash FROM users WHERE id = $1",
+    [userId]
+  );
   if (!row) return false;
   const ok = await bcrypt.compare(oldPassword, row.password_hash);
   if (!ok) return false;
   const hash = await bcrypt.hash(newPassword, 10);
-  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, userId);
+  await execute("UPDATE users SET password_hash = $1 WHERE id = $2", [hash, userId]);
   return true;
 }
 
-export async function changeEmail(userId: number, password: string, newEmail: string): Promise<boolean> {
-  const { getDbAsync } = await import("@/lib/db");
-  const db = await getDbAsync();
-  const row = db
-    .prepare("SELECT password_hash FROM users WHERE id = ?")
-    .get(userId) as { password_hash: string } | undefined;
+export async function changeEmail(
+  userId: number,
+  password: string,
+  newEmail: string
+): Promise<boolean> {
+  const row = await queryOne<{ password_hash: string }>(
+    "SELECT password_hash FROM users WHERE id = $1",
+    [userId]
+  );
   if (!row) return false;
   const ok = await bcrypt.compare(password, row.password_hash);
   if (!ok) return false;
   try {
-    db.prepare("UPDATE users SET email = ? WHERE id = ?").run(newEmail.toLowerCase().trim(), userId);
+    await execute("UPDATE users SET email = $1 WHERE id = $2", [
+      newEmail.toLowerCase().trim(),
+      userId,
+    ]);
     return true;
   } catch {
     return false;

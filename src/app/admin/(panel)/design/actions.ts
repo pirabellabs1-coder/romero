@@ -2,7 +2,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { setSettings } from "@/lib/settings";
-import { syncDb } from "@/lib/db-persist";
 import { requireUser } from "@/lib/auth";
 
 const ALLOWED = new Set([
@@ -37,13 +36,11 @@ export async function updateDesign(formData: FormData) {
       updates[key] = "0";
     }
   }
-  // Coerce checkboxes that may have been sent as "on"
   for (const k of ["italic_titles", "watercolor"]) {
     const v = formData.get(k);
     if (v === "on" || v === "1") updates[k] = "1";
   }
   await setSettings(updates);
-  await syncDb();
   revalidatePath("/", "layout");
   redirect("/admin/design?ok=1");
 }
@@ -75,7 +72,6 @@ export async function applyPreset(name: string) {
   const p = presets[name];
   if (!p) return;
   await setSettings(p);
-  await syncDb();
   revalidatePath("/", "layout");
   redirect(`/admin/design?ok=preset`);
 }

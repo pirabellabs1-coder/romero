@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDb } from "@/lib/db";
+import { queryOne } from "@/lib/db";
 import { renderContactEmailHtml, type ContactMail } from "@/lib/mailer";
 import { sendTestEmail } from "./actions";
 
@@ -29,14 +29,12 @@ type RealMessage = {
   lang: string;
 };
 
-export default function MailPreview({ searchParams }: { searchParams: { source?: string; sent?: string; error?: string } }) {
+export default async function MailPreview({ searchParams }: { searchParams: { source?: string; sent?: string; error?: string } }) {
   let data: ContactMail = FAKE;
   let isReal = false;
 
   if (searchParams.source === "latest") {
-    const row = getDb()
-      .prepare("SELECT * FROM messages ORDER BY id DESC LIMIT 1")
-      .get() as RealMessage | undefined;
+    const row = await queryOne<RealMessage>("SELECT * FROM messages ORDER BY id DESC LIMIT 1");
     if (row) {
       isReal = true;
       data = {

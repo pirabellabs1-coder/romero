@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { queryOne } from "@/lib/db";
 import { markRead, markUnread, deleteMessage } from "../actions";
 import MarkReadOnView from "@/components/admin/MarkReadOnView";
 import ConfirmDelete from "@/components/admin/ConfirmDelete";
@@ -21,9 +21,9 @@ type Row = {
   created_at: string;
 };
 
-export default function MessageDetail({ params }: { params: { id: string } }) {
+export default async function MessageDetail({ params }: { params: { id: string } }) {
   const id = Number(params.id);
-  const m = getDb().prepare("SELECT * FROM messages WHERE id = ?").get(id) as Row | undefined;
+  const m = await queryOne<Row>("SELECT * FROM messages WHERE id = $1", [id]);
   if (!m) notFound();
 
   const wasUnread = !m.read_at;

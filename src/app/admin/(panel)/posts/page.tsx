@@ -4,8 +4,8 @@ import { createPost } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default function PostsAdmin({ searchParams }: { searchParams: { ok?: string } }) {
-  const posts = listPosts({ includeDrafts: true });
+export default async function PostsAdmin({ searchParams }: { searchParams: { ok?: string } }) {
+  const posts = await listPosts({ includeDrafts: true });
 
   return (
     <>

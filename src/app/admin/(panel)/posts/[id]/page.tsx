@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { queryOne } from "@/lib/db";
 import { updatePost, deletePost } from "../actions";
 import ConfirmDelete from "@/components/admin/ConfirmDelete";
 import RichEditor from "@/components/admin/RichEditor";
@@ -8,9 +8,9 @@ import type { PostRow } from "@/lib/content";
 
 export const dynamic = "force-dynamic";
 
-export default function PostEdit({ params, searchParams }: { params: { id: string }; searchParams: { ok?: string } }) {
+export default async function PostEdit({ params, searchParams }: { params: { id: string }; searchParams: { ok?: string } }) {
   const id = Number(params.id);
-  const p = getDb().prepare("SELECT * FROM posts WHERE id = ?").get(id) as PostRow | undefined;
+  const p = await queryOne<PostRow>("SELECT * FROM posts WHERE id = $1", [id]);
   if (!p) notFound();
 
   const onUpdate = updatePost.bind(null, id);

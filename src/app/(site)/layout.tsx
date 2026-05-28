@@ -4,10 +4,10 @@ import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { getSettings } from "@/lib/settings";
 
-export default function SiteLayout({ children }: { children: React.ReactNode }) {
+export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
-  const settings = getSettings();
+  const settings = await getSettings();
   return (
     <>
       <Header t={t} lang={lang} />

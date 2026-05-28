@@ -16,7 +16,7 @@ const FLASH: Record<string, { type: "ok" | "error"; text: string }> = {
   uploaded: { type: "ok", text: "Photos ajoutées avec succès." },
 };
 
-export default function GalleryEdit({
+export default async function GalleryEdit({
   params,
   searchParams,
 }: {
@@ -24,9 +24,9 @@ export default function GalleryEdit({
   searchParams: { ok?: string };
 }) {
   const id = Number(params.id);
-  const g = getGalleryById(id);
+  const g = await getGalleryById(id);
   if (!g) notFound();
-  const photos = listPhotosForGallery(id);
+  const photos = await listPhotosForGallery(id);
 
   const onUpdate = updateGallery.bind(null, id);
   const onDelete = deleteGallery.bind(null, id);

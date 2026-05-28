@@ -5,8 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { put, del } from "@vercel/blob";
-import { getDb, getDbAsync } from "@/lib/db";
-import { syncDb } from "@/lib/db-persist";
+import { query, queryOne, execute, pool } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 
 const MAX_DIM = 2200;
@@ -32,7 +31,6 @@ function ensureDirs() {
 
 // A stored filename can be either a relative local path (e.g.
 // "galleries/g2/foo.webp") or a full Blob URL ("https://...blob...webp").
-// Helper to test which one.
 function isBlobUrl(filename: string): boolean {
   return filename.startsWith("https://") || filename.startsWith("http://");
 }
@@ -53,56 +51,53 @@ export async function createGallery(formData: FormData) {
   const place = String(formData.get("place") || "").trim();
   if (!names || !place) return;
   const baseSlug = slugify(names) || "galerie";
-  const db = await getDbAsync();
   let slug = baseSlug;
   let i = 1;
-  while ((db.prepare("SELECT 1 FROM galleries WHERE slug = ?").get(slug) as unknown) !== undefined) {
+  while ((await queryOne<{ x: number }>("SELECT 1 AS x FROM galleries WHERE slug = $1", [slug])) !== null) {
     slug = `${baseSlug}-${i++}`;
   }
-  const r = db
-    .prepare(
-      `INSERT INTO galleries (slug, names, place, date_label, region, kind, intro_fr, intro_en, featured, published, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, '', '', 0, 1, COALESCE((SELECT MAX(sort_order)+1 FROM galleries), 0))`
-    )
-    .run(
+  const r = await queryOne<{ id: number }>(
+    `INSERT INTO galleries (slug, names, place, date_label, region, kind, intro_fr, intro_en, featured, published, sort_order)
+     VALUES ($1, $2, $3, $4, $5, $6, '', '', 0, 1, COALESCE((SELECT MAX(sort_order)+1 FROM galleries), 0))
+     RETURNING id`,
+    [
       slug,
       names,
       place,
       String(formData.get("date_label") || ""),
       String(formData.get("region") || "FRANCE"),
-      String(formData.get("kind") || "MARIAGE")
-    );
-  await syncDb();
+      String(formData.get("kind") || "MARIAGE"),
+    ]
+  );
   revalidatePath("/portfolio");
   revalidatePath("/");
-  redirect(`/admin/galleries/${r.lastInsertRowid}`);
+  if (r?.id) redirect(`/admin/galleries/${r.id}`);
 }
 
 export async function updateGallery(id: number, formData: FormData) {
   requireUser();
-  const db = await getDbAsync();
   const featured = formData.get("featured") ? 1 : 0;
   const published = formData.get("published") ? 1 : 0;
-  db.prepare(
-    `UPDATE galleries SET names = ?, place = ?, date_label = ?, region = ?, kind = ?,
-       intro_fr = ?, intro_en = ?, featured = ?, published = ?, sort_order = ?
-     WHERE id = ?`
-  ).run(
-    String(formData.get("names") || "").trim(),
-    String(formData.get("place") || "").trim(),
-    String(formData.get("date_label") || ""),
-    String(formData.get("region") || "FRANCE"),
-    String(formData.get("kind") || "MARIAGE"),
-    String(formData.get("intro_fr") || ""),
-    String(formData.get("intro_en") || ""),
-    featured,
-    published,
-    Number(formData.get("sort_order") || 0),
-    id
+  await execute(
+    `UPDATE galleries SET names = $1, place = $2, date_label = $3, region = $4, kind = $5,
+       intro_fr = $6, intro_en = $7, featured = $8, published = $9, sort_order = $10
+     WHERE id = $11`,
+    [
+      String(formData.get("names") || "").trim(),
+      String(formData.get("place") || "").trim(),
+      String(formData.get("date_label") || ""),
+      String(formData.get("region") || "FRANCE"),
+      String(formData.get("kind") || "MARIAGE"),
+      String(formData.get("intro_fr") || ""),
+      String(formData.get("intro_en") || ""),
+      featured,
+      published,
+      Number(formData.get("sort_order") || 0),
+      id,
+    ]
   );
-  await syncDb();
   revalidatePath("/portfolio");
-  const slug = (db.prepare("SELECT slug FROM galleries WHERE id = ?").get(id) as { slug: string } | undefined)?.slug;
+  const slug = (await queryOne<{ slug: string }>("SELECT slug FROM galleries WHERE id = $1", [id]))?.slug;
   if (slug) revalidatePath(`/portfolio/${slug}`);
   revalidatePath("/");
   redirect(`/admin/galleries/${id}?ok=saved`);
@@ -110,10 +105,12 @@ export async function updateGallery(id: number, formData: FormData) {
 
 export async function deleteGallery(id: number) {
   requireUser();
-  const db = await getDbAsync();
-  const photos = db.prepare("SELECT filename FROM photos WHERE gallery_id = ?").all(id) as { filename: string }[];
+  const photos = await query<{ filename: string }>(
+    "SELECT filename FROM photos WHERE gallery_id = $1",
+    [id]
+  );
   for (const p of photos) {
-    if (p.filename.startsWith("hero")) continue; // never delete the seed hero
+    if (p.filename.startsWith("hero")) continue;
     if (isBlobUrl(p.filename)) {
       if (USE_BLOB) {
         try { await del(p.filename); } catch {}
@@ -125,9 +122,10 @@ export async function deleteGallery(id: number) {
       }
     }
   }
-  db.prepare("DELETE FROM photos WHERE gallery_id = ?").run(id);
-  db.prepare("DELETE FROM galleries WHERE id = ?").run(id);
-  await syncDb();
+  // FK is ON DELETE CASCADE on photos.gallery_id, but we still NULL the
+  // self-reference first to be explicit about the order.
+  await execute("UPDATE galleries SET cover_photo_id = NULL WHERE id = $1", [id]);
+  await execute("DELETE FROM galleries WHERE id = $1", [id]);
   revalidatePath("/portfolio");
   revalidatePath("/");
   redirect("/admin/galleries?ok=deleted");
@@ -137,14 +135,8 @@ export async function uploadPhoto(galleryId: number, formData: FormData) {
   requireUser();
   const files = formData.getAll("files") as File[];
   if (files.length === 0) return;
-  const db = await getDbAsync();
-  const ins = db.prepare(
-    `INSERT INTO photos (gallery_id, filename, alt, span, sort_order)
-     VALUES (?, ?, '', '', COALESCE((SELECT MAX(sort_order)+1 FROM photos WHERE gallery_id = ?), 0))`
-  );
   const insertedIds: number[] = [];
 
-  // Local dev: create the public/uploads subfolder. Prod (Blob) skips this.
   const galleryFolder = `galleries/g${galleryId}`;
   if (!USE_BLOB) {
     ensureDirs();
@@ -154,15 +146,13 @@ export async function uploadPhoto(galleryId: number, formData: FormData) {
 
   for (const file of files) {
     if (!(file instanceof File) || file.size === 0) continue;
-    if (file.size > MAX_FILE_SIZE_BYTES) continue; // reject oversized
+    if (file.size > MAX_FILE_SIZE_BYTES) continue;
     const ext = path.extname(file.name).toLowerCase();
     if (![".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext)) continue;
 
     const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
     const buf = Buffer.from(await file.arrayBuffer());
 
-    // Run the sharp pipeline once, producing an optimized WebP buffer that
-    // we then either write to disk (dev) or upload to Vercel Blob (prod).
     let webpBuf: Buffer;
     try {
       const img = sharp(buf).rotate();
@@ -176,13 +166,11 @@ export async function uploadPhoto(galleryId: number, formData: FormData) {
       }
       webpBuf = await pipeline.webp({ quality: WEBP_QUALITY, effort: 5 }).toBuffer();
     } catch {
-      // Sharp failure → store the raw upload, preserving its original ext.
       webpBuf = buf;
     }
 
     let storedFilename: string;
     if (USE_BLOB) {
-      // Prod: upload to Vercel Blob, store the full URL in DB.
       const blob = await put(`${galleryFolder}/p${ts}.webp`, webpBuf, {
         access: "public",
         contentType: "image/webp",
@@ -190,26 +178,33 @@ export async function uploadPhoto(galleryId: number, formData: FormData) {
       });
       storedFilename = blob.url;
     } else {
-      // Dev: write to public/uploads, store relative path in DB.
       const filename = `${galleryFolder}/p${ts}.webp`;
       fs.writeFileSync(path.join(UPLOADS_DIR, filename), webpBuf);
       storedFilename = filename;
     }
 
-    const r = ins.run(galleryId, storedFilename, galleryId);
-    insertedIds.push(Number(r.lastInsertRowid));
+    const row = await queryOne<{ id: number }>(
+      `INSERT INTO photos (gallery_id, filename, alt, span, sort_order)
+       VALUES ($1, $2, '', '', COALESCE((SELECT MAX(sort_order)+1 FROM photos WHERE gallery_id = $1), 0))
+       RETURNING id`,
+      [galleryId, storedFilename]
+    );
+    if (row?.id) insertedIds.push(row.id);
   }
 
   // Auto-set first uploaded as cover if none yet
-  const current = db.prepare("SELECT cover_photo_id FROM galleries WHERE id = ?").get(galleryId) as
-    | { cover_photo_id: number | null }
-    | undefined;
+  const current = await queryOne<{ cover_photo_id: number | null }>(
+    "SELECT cover_photo_id FROM galleries WHERE id = $1",
+    [galleryId]
+  );
   if (current && current.cover_photo_id == null && insertedIds.length > 0) {
-    db.prepare("UPDATE galleries SET cover_photo_id = ? WHERE id = ?").run(insertedIds[0], galleryId);
+    await execute("UPDATE galleries SET cover_photo_id = $1 WHERE id = $2", [
+      insertedIds[0],
+      galleryId,
+    ]);
   }
 
-  const slug = (db.prepare("SELECT slug FROM galleries WHERE id = ?").get(galleryId) as { slug: string } | undefined)?.slug;
-  await syncDb();
+  const slug = (await queryOne<{ slug: string }>("SELECT slug FROM galleries WHERE id = $1", [galleryId]))?.slug;
   if (slug) revalidatePath(`/portfolio/${slug}`);
   revalidatePath(`/admin/galleries/${galleryId}`);
   revalidatePath("/portfolio");
@@ -218,9 +213,10 @@ export async function uploadPhoto(galleryId: number, formData: FormData) {
 
 export async function setCover(galleryId: number, photoId: number) {
   requireUser();
-  const db = await getDbAsync();
-  db.prepare("UPDATE galleries SET cover_photo_id = ? WHERE id = ?").run(photoId, galleryId);
-  await syncDb();
+  await execute("UPDATE galleries SET cover_photo_id = $1 WHERE id = $2", [
+    photoId,
+    galleryId,
+  ]);
   revalidatePath("/portfolio");
   revalidatePath("/");
   revalidatePath(`/admin/galleries/${galleryId}`);
@@ -228,10 +224,10 @@ export async function setCover(galleryId: number, photoId: number) {
 
 export async function deletePhoto(photoId: number) {
   requireUser();
-  const db = await getDbAsync();
-  const row = db.prepare("SELECT filename, gallery_id FROM photos WHERE id = ?").get(photoId) as
-    | { filename: string; gallery_id: number }
-    | undefined;
+  const row = await queryOne<{ filename: string; gallery_id: number }>(
+    "SELECT filename, gallery_id FROM photos WHERE id = $1",
+    [photoId]
+  );
   if (!row) return;
   if (!row.filename.startsWith("hero")) {
     if (isBlobUrl(row.filename)) {
@@ -245,9 +241,9 @@ export async function deletePhoto(photoId: number) {
       }
     }
   }
-  db.prepare("UPDATE galleries SET cover_photo_id = NULL WHERE cover_photo_id = ?").run(photoId);
-  db.prepare("DELETE FROM photos WHERE id = ?").run(photoId);
-  await syncDb();
+  // Null out the FK first so the photo row can be deleted cleanly.
+  await execute("UPDATE galleries SET cover_photo_id = NULL WHERE cover_photo_id = $1", [photoId]);
+  await execute("DELETE FROM photos WHERE id = $1", [photoId]);
   if (row.gallery_id) revalidatePath(`/admin/galleries/${row.gallery_id}`);
   revalidatePath("/portfolio");
 }
@@ -256,48 +252,51 @@ export async function updatePhotoSpan(photoId: number, span: string) {
   requireUser();
   const valid = ["", "wide", "tall", "big"];
   if (!valid.includes(span)) return;
-  const db = await getDbAsync();
-  db.prepare("UPDATE photos SET span = ? WHERE id = ?").run(span, photoId);
-  await syncDb();
-  const row = db.prepare("SELECT gallery_id FROM photos WHERE id = ?").get(photoId) as { gallery_id: number } | undefined;
+  await execute("UPDATE photos SET span = $1 WHERE id = $2", [span, photoId]);
+  const row = await queryOne<{ gallery_id: number }>("SELECT gallery_id FROM photos WHERE id = $1", [photoId]);
   if (row?.gallery_id) revalidatePath(`/admin/galleries/${row.gallery_id}`);
   const slug = row?.gallery_id
-    ? (db.prepare("SELECT slug FROM galleries WHERE id = ?").get(row.gallery_id) as { slug: string } | undefined)?.slug
+    ? (await queryOne<{ slug: string }>("SELECT slug FROM galleries WHERE id = $1", [row.gallery_id]))?.slug
     : undefined;
   if (slug) revalidatePath(`/portfolio/${slug}`);
 }
 
 export async function updatePhotoAlt(photoId: number, alt: string) {
   requireUser();
-  const db = await getDbAsync();
-  db.prepare("UPDATE photos SET alt = ? WHERE id = ?").run(alt.slice(0, 200), photoId);
-  await syncDb();
-  const row = db.prepare("SELECT gallery_id FROM photos WHERE id = ?").get(photoId) as { gallery_id: number } | undefined;
+  await execute("UPDATE photos SET alt = $1 WHERE id = $2", [alt.slice(0, 200), photoId]);
+  const row = await queryOne<{ gallery_id: number }>("SELECT gallery_id FROM photos WHERE id = $1", [photoId]);
   if (row?.gallery_id) revalidatePath(`/admin/galleries/${row.gallery_id}`);
 }
 
 export async function movePhoto(photoId: number, direction: "up" | "down") {
   requireUser();
-  const db = await getDbAsync();
-  const me = db
-    .prepare("SELECT id, gallery_id, sort_order FROM photos WHERE id = ?")
-    .get(photoId) as { id: number; gallery_id: number; sort_order: number } | undefined;
+  const me = await queryOne<{ id: number; gallery_id: number; sort_order: number }>(
+    "SELECT id, gallery_id, sort_order FROM photos WHERE id = $1",
+    [photoId]
+  );
   if (!me) return;
-  const sibling = db
-    .prepare(
-      direction === "up"
-        ? "SELECT id, sort_order FROM photos WHERE gallery_id = ? AND sort_order < ? ORDER BY sort_order DESC LIMIT 1"
-        : "SELECT id, sort_order FROM photos WHERE gallery_id = ? AND sort_order > ? ORDER BY sort_order ASC LIMIT 1"
-    )
-    .get(me.gallery_id, me.sort_order) as { id: number; sort_order: number } | undefined;
+  const sibling = await queryOne<{ id: number; sort_order: number }>(
+    direction === "up"
+      ? "SELECT id, sort_order FROM photos WHERE gallery_id = $1 AND sort_order < $2 ORDER BY sort_order DESC LIMIT 1"
+      : "SELECT id, sort_order FROM photos WHERE gallery_id = $1 AND sort_order > $2 ORDER BY sort_order ASC LIMIT 1",
+    [me.gallery_id, me.sort_order]
+  );
   if (!sibling) return;
-  const tx = db.transaction(() => {
-    db.prepare("UPDATE photos SET sort_order = ? WHERE id = ?").run(sibling.sort_order, me.id);
-    db.prepare("UPDATE photos SET sort_order = ? WHERE id = ?").run(me.sort_order, sibling.id);
-  });
-  tx();
-  await syncDb();
+  // Postgres transactional swap. Use a client checkout because the two
+  // UPDATEs must run on the same connection inside a BEGIN/COMMIT.
+  const client = await pool().connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("UPDATE photos SET sort_order = $1 WHERE id = $2", [sibling.sort_order, me.id]);
+    await client.query("UPDATE photos SET sort_order = $1 WHERE id = $2", [me.sort_order, sibling.id]);
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
   revalidatePath(`/admin/galleries/${me.gallery_id}`);
-  const slug = (db.prepare("SELECT slug FROM galleries WHERE id = ?").get(me.gallery_id) as { slug: string } | undefined)?.slug;
+  const slug = (await queryOne<{ slug: string }>("SELECT slug FROM galleries WHERE id = $1", [me.gallery_id]))?.slug;
   if (slug) revalidatePath(`/portfolio/${slug}`);
 }

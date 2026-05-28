@@ -19,10 +19,10 @@ import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { getSettings } from "@/lib/settings";
 
-export default function ContactPage() {
+export default async function ContactPage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
-  const settings = getSettings();
+  const settings = await getSettings();
 
   // Replace coord values from settings (fall back to translation defaults)
   const coords: [string, string, string][] = [

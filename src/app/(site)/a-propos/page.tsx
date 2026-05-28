@@ -22,11 +22,11 @@ import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { pickShowcasePhotos, photoUrl } from "@/lib/content";
 
-export default function AboutPage() {
+export default async function AboutPage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
   // 1 eyebrow image + 1 story image = 2 distinct photos
-  const [eyebrowImg, storyImg] = pickShowcasePhotos(2, "about-v1");
+  const [eyebrowImg, storyImg] = await pickShowcasePhotos(2, "about-v1");
   const valueKinds: ValueKind[] = ["excellence", "detail", "emotion", "elegance"];
 
   return (

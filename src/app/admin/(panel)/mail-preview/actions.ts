@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { sendContactNotification, type ContactMail } from "@/lib/mailer";
-import { getDbAsync } from "@/lib/db";
+import { queryOne } from "@/lib/db";
 
 const FAKE: ContactMail = {
   firstName: "Camille",
@@ -22,13 +22,10 @@ export async function sendTestEmail(formData: FormData) {
 
   let data = FAKE;
   if (source === "latest") {
-    const db = await getDbAsync();
-    const row = db
-      .prepare("SELECT * FROM messages ORDER BY id DESC LIMIT 1")
-      .get() as {
-        first_name: string; last_name: string; email: string; phone: string;
-        wedding_date: string; place: string; message: string; lang: string;
-      } | undefined;
+    const row = await queryOne<{
+      first_name: string; last_name: string; email: string; phone: string;
+      wedding_date: string; place: string; message: string; lang: string;
+    }>("SELECT * FROM messages ORDER BY id DESC LIMIT 1");
     if (row) {
       data = {
         firstName: row.first_name,

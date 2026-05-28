@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 import type { Lang } from "@/lib/i18n";
 
 export type GalleryRow = {
@@ -18,41 +18,40 @@ export type GalleryRow = {
   cover_filename: string | null;
 };
 
-export function listGalleries(opts: { featuredOnly?: boolean; includeDrafts?: boolean } = {}): GalleryRow[] {
+export async function listGalleries(
+  opts: { featuredOnly?: boolean; includeDrafts?: boolean } = {}
+): Promise<GalleryRow[]> {
   const conditions: string[] = [];
   if (!opts.includeDrafts) conditions.push("g.published = 1");
   if (opts.featuredOnly) conditions.push("g.featured = 1");
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const sql = `
+  return query<GalleryRow>(`
     SELECT g.*, p.filename AS cover_filename
     FROM galleries g
     LEFT JOIN photos p ON p.id = g.cover_photo_id
     ${whereClause}
     ORDER BY g.sort_order ASC, g.id ASC
-  `;
-  return getDb().prepare(sql).all() as GalleryRow[];
+  `);
 }
 
-export function getGallery(slug: string): GalleryRow | null {
-  return (getDb()
-    .prepare(`
-      SELECT g.*, p.filename AS cover_filename
-      FROM galleries g
-      LEFT JOIN photos p ON p.id = g.cover_photo_id
-      WHERE g.slug = ? AND g.published = 1
-    `)
-    .get(slug) as GalleryRow) ?? null;
+export async function getGallery(slug: string): Promise<GalleryRow | null> {
+  return queryOne<GalleryRow>(
+    `SELECT g.*, p.filename AS cover_filename
+     FROM galleries g
+     LEFT JOIN photos p ON p.id = g.cover_photo_id
+     WHERE g.slug = $1 AND g.published = 1`,
+    [slug]
+  );
 }
 
-export function getGalleryById(id: number): GalleryRow | null {
-  return (getDb()
-    .prepare(`
-      SELECT g.*, p.filename AS cover_filename
-      FROM galleries g
-      LEFT JOIN photos p ON p.id = g.cover_photo_id
-      WHERE g.id = ?
-    `)
-    .get(id) as GalleryRow) ?? null;
+export async function getGalleryById(id: number): Promise<GalleryRow | null> {
+  return queryOne<GalleryRow>(
+    `SELECT g.*, p.filename AS cover_filename
+     FROM galleries g
+     LEFT JOIN photos p ON p.id = g.cover_photo_id
+     WHERE g.id = $1`,
+    [id]
+  );
 }
 
 export type PhotoRow = {
@@ -64,15 +63,16 @@ export type PhotoRow = {
   sort_order: number;
 };
 
-export function listPhotosForGallery(galleryId: number): PhotoRow[] {
-  return getDb()
-    .prepare("SELECT * FROM photos WHERE gallery_id = ? ORDER BY sort_order ASC, id ASC")
-    .all(galleryId) as PhotoRow[];
+export async function listPhotosForGallery(galleryId: number): Promise<PhotoRow[]> {
+  return query<PhotoRow>(
+    "SELECT * FROM photos WHERE gallery_id = $1 ORDER BY sort_order ASC, id ASC",
+    [galleryId]
+  );
 }
 
 // Re-export the pure helper so server-side callers can keep importing it
 // from "@/lib/content". Client components must import from "@/lib/photo-url"
-// directly to avoid pulling in DB/fs dependencies.
+// directly to avoid pulling in DB dependencies.
 export { photoUrl } from "@/lib/photo-url";
 import { photoUrl } from "@/lib/photo-url";
 
@@ -82,11 +82,11 @@ import { photoUrl } from "@/lib/photo-url";
  * a deterministic photo from the pool so grids look varied. The actual gallery
  * detail page should use the raw `cover_filename` to stay honest.
  */
-export function coverFor(g: GalleryRow, seed: string): string {
+export async function coverFor(g: GalleryRow, seed: string): Promise<string> {
   if (g.cover_filename && g.cover_filename !== "hero.jpg") {
     return photoUrl(g.cover_filename)!;
   }
-  const pool = pickShowcasePhotos(1, seed);
+  const pool = await pickShowcasePhotos(1, seed);
   return pool[0] ? photoUrl(pool[0])! : "/uploads/hero.jpg";
 }
 
@@ -94,25 +94,17 @@ export function coverFor(g: GalleryRow, seed: string): string {
  * Pick N photos from the published gallery pool, distributed across galleries
  * so consecutive picks come from DIFFERENT weddings (round-robin), with a
  * seed-derived starting offset for cross-page variety.
- *
- * - Within a single call: photos are distinct AND span as many galleries as possible
- * - Same seed: stable ordering across page renders
- * - Different seeds: different starting offsets → different photo selection
  */
-export function pickShowcasePhotos(n: number, seed: string = "default"): string[] {
-  const rows = getDb()
-    .prepare(`
-      SELECT p.gallery_id, p.filename
-      FROM photos p
-      JOIN galleries g ON g.id = p.gallery_id
-      WHERE g.published = 1 AND p.filename != 'hero.jpg'
-      ORDER BY p.gallery_id ASC, p.sort_order ASC, p.id ASC
-    `)
-    .all() as { gallery_id: number; filename: string }[];
+export async function pickShowcasePhotos(n: number, seed: string = "default"): Promise<string[]> {
+  const rows = await query<{ gallery_id: number; filename: string }>(
+    `SELECT p.gallery_id, p.filename
+     FROM photos p
+     JOIN galleries g ON g.id = p.gallery_id
+     WHERE g.published = 1 AND p.filename != 'hero.jpg'
+     ORDER BY p.gallery_id ASC, p.sort_order ASC, p.id ASC`
+  );
   if (rows.length === 0) return [];
 
-  // Group by gallery, then shuffle each queue with the seed so different seeds
-  // surface different photos from the same gallery.
   const rng = mulberry32(hashString(seed));
   const byGallery = new Map<number, string[]>();
   for (const r of rows) {
@@ -128,13 +120,11 @@ export function pickShowcasePhotos(n: number, seed: string = "default"): string[
     return c;
   });
 
-  // Shuffle the order of galleries too, so the FIRST pick varies per seed
   for (let i = queues.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [queues[i], queues[j]] = [queues[j], queues[i]];
   }
 
-  // Round-robin: one photo from each gallery in rotation
   const interleaved: string[] = [];
   while (queues.some((q) => q.length > 0)) {
     for (const q of queues) {
@@ -150,7 +140,6 @@ export function pickShowcasePhotos(n: number, seed: string = "default"): string[
 // ---- Seeded RNG helpers (no deps, deterministic) ----
 
 function hashString(s: string): number {
-  // FNV-1a 32-bit
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -166,16 +155,6 @@ function mulberry32(seed: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-function seededShuffle<T>(arr: T[], seed: string): T[] {
-  const rng = mulberry32(hashString(seed));
-  const copy = arr.slice();
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
 }
 
 export type PostRow = {
@@ -195,15 +174,15 @@ export type PostRow = {
   published: number;
 };
 
-export function listPosts(opts: { includeDrafts?: boolean } = {}): PostRow[] {
+export async function listPosts(opts: { includeDrafts?: boolean } = {}): Promise<PostRow[]> {
   const where = opts.includeDrafts ? "" : "WHERE published = 1";
-  return getDb()
-    .prepare(`SELECT * FROM posts ${where} ORDER BY published_at DESC, id DESC`)
-    .all() as PostRow[];
+  return query<PostRow>(
+    `SELECT * FROM posts ${where} ORDER BY published_at DESC, id DESC`
+  );
 }
 
-export function getPost(slug: string): PostRow | null {
-  return (getDb().prepare("SELECT * FROM posts WHERE slug = ?").get(slug) as PostRow) ?? null;
+export async function getPost(slug: string): Promise<PostRow | null> {
+  return queryOne<PostRow>("SELECT * FROM posts WHERE slug = $1", [slug]);
 }
 
 export type ReviewRow = {
@@ -217,11 +196,11 @@ export type ReviewRow = {
   published: number;
 };
 
-export function listReviews(opts: { includeHidden?: boolean } = {}): ReviewRow[] {
+export async function listReviews(opts: { includeHidden?: boolean } = {}): Promise<ReviewRow[]> {
   const where = opts.includeHidden ? "" : "WHERE published = 1";
-  return getDb()
-    .prepare(`SELECT * FROM reviews ${where} ORDER BY sort_order ASC, id ASC`)
-    .all() as ReviewRow[];
+  return query<ReviewRow>(
+    `SELECT * FROM reviews ${where} ORDER BY sort_order ASC, id ASC`
+  );
 }
 
 export function reviewText(r: ReviewRow, lang: Lang): string {

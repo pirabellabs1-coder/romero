@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDb } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { BarChart, HBarChart, Donut } from "@/components/admin/charts";
 
@@ -24,29 +24,32 @@ type LatestMessage = {
   read_at: string | null;
 };
 
-function getCounts(): Counts {
-  const db = getDb();
+async function getCounts(): Promise<Counts> {
+  const [g, p, po, r, m, u] = await Promise.all([
+    queryOne<{ c: number }>("SELECT COUNT(*)::int as c FROM galleries"),
+    queryOne<{ c: number }>("SELECT COUNT(*)::int as c FROM photos WHERE filename != 'hero.jpg'"),
+    queryOne<{ c: number }>("SELECT COUNT(*)::int as c FROM posts"),
+    queryOne<{ c: number }>("SELECT COUNT(*)::int as c FROM reviews"),
+    queryOne<{ c: number }>("SELECT COUNT(*)::int as c FROM messages"),
+    queryOne<{ c: number }>("SELECT COUNT(*)::int as c FROM messages WHERE read_at IS NULL"),
+  ]);
   return {
-    galleries: (db.prepare("SELECT COUNT(*) as c FROM galleries").get() as { c: number }).c,
-    photos: (db.prepare("SELECT COUNT(*) as c FROM photos WHERE filename != 'hero.jpg'").get() as { c: number }).c,
-    posts: (db.prepare("SELECT COUNT(*) as c FROM posts").get() as { c: number }).c,
-    reviews: (db.prepare("SELECT COUNT(*) as c FROM reviews").get() as { c: number }).c,
-    messages: (db.prepare("SELECT COUNT(*) as c FROM messages").get() as { c: number }).c,
-    unread: (db.prepare("SELECT COUNT(*) as c FROM messages WHERE read_at IS NULL").get() as { c: number }).c,
+    galleries: g?.c ?? 0,
+    photos: p?.c ?? 0,
+    posts: po?.c ?? 0,
+    reviews: r?.c ?? 0,
+    messages: m?.c ?? 0,
+    unread: u?.c ?? 0,
   };
 }
 
-/** Build a 30-day buckets array ending today */
-function messagesPer30Days(): { label: string; value: number }[] {
-  const db = getDb();
-  const rows = db
-    .prepare(`
-      SELECT substr(created_at, 1, 10) as d, COUNT(*) as c
-      FROM messages
-      WHERE created_at >= datetime('now', '-29 days')
-      GROUP BY d
-    `)
-    .all() as { d: string; c: number }[];
+async function messagesPer30Days(): Promise<{ label: string; value: number }[]> {
+  const rows = await query<{ d: string; c: number }>(
+    `SELECT to_char(created_at, 'YYYY-MM-DD') as d, COUNT(*)::int as c
+     FROM messages
+     WHERE created_at >= NOW() - INTERVAL '29 days'
+     GROUP BY d`
+  );
   const byDay = new Map(rows.map((r) => [r.d, r.c]));
   const out: { label: string; value: number }[] = [];
   const today = new Date();
@@ -59,43 +62,36 @@ function messagesPer30Days(): { label: string; value: number }[] {
   return out;
 }
 
-function photosByGallery(): { label: string; value: number }[] {
-  const db = getDb();
-  return db
-    .prepare(`
-      SELECT g.names AS label, COUNT(p.id) AS value
-      FROM galleries g
-      LEFT JOIN photos p ON p.gallery_id = g.id AND p.filename != 'hero.jpg'
-      WHERE g.published = 1
-      GROUP BY g.id
-      ORDER BY value DESC
-    `)
-    .all() as { label: string; value: number }[];
+async function photosByGallery(): Promise<{ label: string; value: number }[]> {
+  return query<{ label: string; value: number }>(
+    `SELECT g.names AS label, COUNT(p.id)::int AS value
+     FROM galleries g
+     LEFT JOIN photos p ON p.gallery_id = g.id AND p.filename != 'hero.jpg'
+     WHERE g.published = 1
+     GROUP BY g.id
+     ORDER BY value DESC`
+  );
 }
 
-function galleriesByRegion(): { label: string; value: number }[] {
-  const db = getDb();
-  return db
-    .prepare(`SELECT region AS label, COUNT(*) AS value FROM galleries WHERE published = 1 GROUP BY region`)
-    .all() as { label: string; value: number }[];
+async function galleriesByRegion(): Promise<{ label: string; value: number }[]> {
+  return query<{ label: string; value: number }>(
+    `SELECT region AS label, COUNT(*)::int AS value FROM galleries WHERE published = 1 GROUP BY region`
+  );
 }
 
-function postsByCategory(): { label: string; value: number }[] {
-  const db = getDb();
-  return db
-    .prepare(`SELECT category AS label, COUNT(*) AS value FROM posts WHERE published = 1 GROUP BY category ORDER BY value DESC`)
-    .all() as { label: string; value: number }[];
+async function postsByCategory(): Promise<{ label: string; value: number }[]> {
+  return query<{ label: string; value: number }>(
+    `SELECT category AS label, COUNT(*)::int AS value FROM posts WHERE published = 1 GROUP BY category ORDER BY value DESC`
+  );
 }
 
-function getMessagesThisMonth(): number {
-  const db = getDb();
-  const r = db
-    .prepare("SELECT COUNT(*) as c FROM messages WHERE created_at >= datetime('now', 'start of month')")
-    .get() as { c: number };
-  return r.c;
+async function getMessagesThisMonth(): Promise<number> {
+  const r = await queryOne<{ c: number }>(
+    "SELECT COUNT(*)::int as c FROM messages WHERE created_at >= date_trunc('month', NOW())"
+  );
+  return r?.c ?? 0;
 }
 
-/** "Lundi 27 mai 2026" in French, no library needed. */
 function frenchDate(d: Date): string {
   const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
   const months = [
@@ -106,7 +102,7 @@ function frenchDate(d: Date): string {
 }
 
 function timeAgo(iso: string): string {
-  const d = new Date(iso.replace(" ", "T") + (iso.endsWith("Z") ? "" : "Z"));
+  const d = new Date(iso);
   const ms = Date.now() - d.getTime();
   const mins = Math.round(ms / 60_000);
   if (mins < 1) return "À l'instant";
@@ -122,7 +118,6 @@ function initials(first: string, last: string): string {
   return `${(first || "?").charAt(0)}${(last || "").charAt(0)}`.toUpperCase();
 }
 
-// ───────────────────────── icons (inline svg, current-color) ─────────────────────────
 function Icon({ name }: { name: "gallery" | "photo" | "article" | "review" | "mail" | "bell" }) {
   switch (name) {
     case "gallery":
@@ -193,22 +188,21 @@ function StatCard({ label, value, hint, href, icon, tone = "default" }: StatProp
   );
 }
 
-export default function AdminDashboard() {
-  const counts = getCounts();
-  const messagesDaily = messagesPer30Days();
-  const galleryPhotos = photosByGallery();
-  const regions = galleriesByRegion();
-  const categories = postsByCategory();
-  const messagesThisMonth = getMessagesThisMonth();
+export default async function AdminDashboard() {
+  const [counts, messagesDaily, galleryPhotos, regions, categories, messagesThisMonth, latestMessages] =
+    await Promise.all([
+      getCounts(),
+      messagesPer30Days(),
+      photosByGallery(),
+      galleriesByRegion(),
+      postsByCategory(),
+      getMessagesThisMonth(),
+      query<LatestMessage>(
+        "SELECT id, first_name, last_name, email, place, created_at, read_at FROM messages ORDER BY created_at DESC LIMIT 5"
+      ),
+    ]);
+
   const user = getCurrentUser();
-
-  const latestMessages = getDb()
-    .prepare(
-      "SELECT id, first_name, last_name, email, place, created_at, read_at FROM messages ORDER BY created_at DESC LIMIT 5"
-    )
-    .all() as LatestMessage[];
-
-  // Friendly handle: anything before @ in the email, capitalized
   const userHandle = user?.email
     ? user.email.split("@")[0].split(".")[0].replace(/^\w/, (c) => c.toUpperCase())
     : "Mickael";

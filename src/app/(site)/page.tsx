@@ -10,18 +10,18 @@ import { listGalleries, pickShowcasePhotos, coverFor, photoUrl } from "@/lib/con
 
 const HERO_PHOTO = "/uploads/hero.jpg";
 
-export default function HomePage() {
+export default async function HomePage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
-  const featured = listGalleries({ featuredOnly: true }).slice(0, 3);
-  // 4 distinct photos for the services teaser tiles
-  const teaserPhotos = pickShowcasePhotos(4, "home-teaser-v1");
+  const [allFeatured, teaserPhotos] = await Promise.all([
+    listGalleries({ featuredOnly: true }),
+    pickShowcasePhotos(4, "home-teaser-v1"),
+  ]);
+  const featured = allFeatured.slice(0, 3);
+  const covers = await Promise.all(featured.map((g) => coverFor(g, `home-featured-${g.slug}`)));
   const valueKinds: ValueKind[] = ["authenticity", "elegance", "closeness", "excellence"];
 
-  const firstCover = (i: number) => {
-    const g = featured[i];
-    return g ? coverFor(g, `home-featured-${g.slug}`) : null;
-  };
+  const firstCover = (i: number) => covers[i] ?? null;
 
   return (
     <main className="page-enter">

@@ -23,11 +23,10 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ReviewsPage() {
+export default async function ReviewsPage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
-  const reviews = listReviews();
-  const settings = getSettings();
+  const [reviews, settings] = await Promise.all([listReviews(), getSettings()]);
   const googleUrl = settings.google_reviews_url || "https://www.google.com/maps/search/?api=1&query=Romero+Photography+Nice";
 
   return (

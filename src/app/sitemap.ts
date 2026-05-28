@@ -3,7 +3,7 @@ import { listGalleries, listPosts } from "@/lib/content";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${siteUrl}/`, lastModified: now, changeFrequency: "weekly", priority: 1 },
@@ -17,14 +17,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${siteUrl}/politique-confidentialite`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
   ];
 
-  const galleryUrls: MetadataRoute.Sitemap = listGalleries().map((g) => ({
+  const [galleries, posts] = await Promise.all([listGalleries(), listPosts()]);
+  const galleryUrls: MetadataRoute.Sitemap = galleries.map((g) => ({
     url: `${siteUrl}/portfolio/${g.slug}`,
     lastModified: now,
     changeFrequency: "monthly" as const,
     priority: 0.7,
   }));
 
-  const postUrls: MetadataRoute.Sitemap = listPosts().map((p) => ({
+  const postUrls: MetadataRoute.Sitemap = posts.map((p) => ({
     url: `${siteUrl}/blog/${p.slug}`,
     lastModified: new Date(p.published_at),
     changeFrequency: "yearly" as const,

@@ -23,11 +23,11 @@ import { pickShowcasePhotos, photoUrl } from "@/lib/content";
 
 const HERO_PHOTO = "/uploads/hero.jpg";
 
-export default function ServicesPage() {
+export default async function ServicesPage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
   // 1 hero + 4 card images + 1 zoom image + 4 gallery tiles = 10 distinct photos
-  const allShots = pickShowcasePhotos(10, "prestations-v3");
+  const allShots = await pickShowcasePhotos(10, "prestations-v3");
   const heroImg = allShots[0];
   const cardPhotos = allShots.slice(1, 5);
   const zoomImg = allShots[5];
