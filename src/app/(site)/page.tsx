@@ -139,7 +139,7 @@ export default async function HomePage() {
                   <div style={{ aspectRatio: "4 / 5", overflow: "hidden" }}>
                     {firstCover(0) ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={firstCover(0)!} alt={featured[0]?.names ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <img src={firstCover(0)!} alt={featured[0]?.names ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: featured[0]?.cover_position || "center center" }} />
                     ) : (
                       <Photo label={featured[0]?.names ?? "Mariage"} ratio="4 / 5" rounded={false} />
                     )}
@@ -164,7 +164,7 @@ export default async function HomePage() {
                     {firstCover(i) ? (
                       <div style={{ aspectRatio: "4 / 5", overflow: "hidden" }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={firstCover(i)!} alt={featured[i]?.names ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <img src={firstCover(i)!} alt={featured[i]?.names ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: featured[i]?.cover_position || "center center" }} />
                       </div>
                     ) : (
                       <Photo label={`${featured[i]?.names ?? ""} · ${featured[i]?.place ?? ""}`} ratio="4 / 5" />

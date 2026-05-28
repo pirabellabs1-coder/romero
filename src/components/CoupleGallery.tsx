@@ -47,7 +47,7 @@ export default function CoupleGallery({ t, gallery, photos, intro }: Props) {
           <img
             src={photoUrl(gallery.cover_filename) || ""}
             alt={gallery.names}
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: gallery.cover_position || "center center" }}
           />
         ) : (
           <div className="placeholder" style={{ position: "absolute", inset: 0, borderRadius: 0, border: 0 }}>

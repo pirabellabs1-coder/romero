@@ -1850,7 +1850,53 @@ section { position: relative; }
   color: var(--gold-deep);
 }
 
-/* Focal point 3x3 grid */
+/* ── Click-to-set focal point (replaces the 3x3 grid) ─── */
+.focal-picker { display: flex; flex-direction: column; gap: 8px; max-width: 380px; }
+.focal-picker__frame {
+  position: relative;
+  background: var(--cream-deep);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+.focal-picker__marker {
+  position: absolute;
+  width: 22px; height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: var(--gold);
+  box-shadow: 0 0 0 2px rgba(184,151,90,0.4), 0 2px 6px rgba(0,0,0,0.35);
+  pointer-events: none;
+  transition: left 0.05s linear, top 0.05s linear;
+}
+.focal-picker__marker::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+.focal-picker__readout {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11.5px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.focal-picker__reset {
+  background: transparent; border: 0;
+  color: var(--gold-deep);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 4px 2px;
+}
+.focal-picker__reset:hover { color: var(--gold); }
+
+/* Legacy 3x3 grid (kept in case anything still references it) */
 .cover-picker__focal {
   display: flex; flex-direction: column; gap: 8px;
   padding: 14px 16px;

@@ -81,7 +81,7 @@ export default function PortfolioGrid({ filters, galleries }: Props) {
                           loading={i < 3 ? "eager" : "lazy"}
                           fetchPriority={i < 3 ? "high" : "low"}
                           decoding="async"
-                          style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 1.2s ease" }}
+                          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: g.cover_position || "center center", transition: "transform 1.2s ease" }}
                         />
                       </div>
                     </div>

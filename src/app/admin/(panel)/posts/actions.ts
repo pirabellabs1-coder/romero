@@ -3,12 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { execute, queryOne } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-
-const ALLOWED_POS = new Set([
-  "left top", "center top", "right top",
-  "left center", "center center", "right center",
-  "left bottom", "center bottom", "right bottom",
-]);
+import { sanitizePosition } from "@/lib/cover-position";
 
 /**
  * Live-save the post's cover. Called by CoverPicker as soon as:
@@ -28,7 +23,7 @@ export async function updatePostCover(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     requireUser();
-    const pos = ALLOWED_POS.has(coverPosition) ? coverPosition : "center center";
+    const pos = sanitizePosition(coverPosition);
     // null clears the cover (back to fallback); empty string would do nothing
     // useful so we treat it the same as null.
     const value = coverFilename && coverFilename.trim() ? coverFilename.trim() : null;

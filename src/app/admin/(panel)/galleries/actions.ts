@@ -7,6 +7,7 @@ import sharp from "sharp";
 import { put, del } from "@vercel/blob";
 import { query, queryOne, execute, pool } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { sanitizePosition } from "@/lib/cover-position";
 
 const MAX_DIM = 2200;
 const WEBP_QUALITY = 80;
@@ -326,7 +327,35 @@ export async function setCover(galleryId: number, photoId: number) {
   revalidatePath("/portfolio");
   revalidatePath("/");
   revalidatePath(`/admin/galleries/${galleryId}`);
+  const slug = (await queryOne<{ slug: string }>("SELECT slug FROM galleries WHERE id = $1", [galleryId]))?.slug;
+  if (slug) revalidatePath(`/portfolio/${slug}`);
 }
+
+/**
+ * Live-save the focal point (object-position) of the gallery cover.
+ * Stored as either "left|center|right top|center|bottom" OR a percentage
+ * pair like "37% 62%" — the granular click-to-set mode. We accept any
+ * "<x>% <y>%" with bounded numbers.
+ */
+export async function setGalleryCoverPosition(
+  galleryId: number,
+  position: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    requireUser();
+    const safe = sanitizePosition(position);
+    await execute("UPDATE galleries SET cover_position = $1 WHERE id = $2", [safe, galleryId]);
+    revalidatePath("/portfolio");
+    revalidatePath("/");
+    revalidatePath(`/admin/galleries/${galleryId}`);
+    const slug = (await queryOne<{ slug: string }>("SELECT slug FROM galleries WHERE id = $1", [galleryId]))?.slug;
+    if (slug) revalidatePath(`/portfolio/${slug}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 
 export async function deletePhoto(photoId: number) {
   requireUser();

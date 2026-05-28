@@ -6,8 +6,9 @@ import UploadDropzone from "@/components/admin/UploadDropzone";
 import ConfirmDelete from "@/components/admin/ConfirmDelete";
 import {
   updateGallery, deleteGallery, registerUploadedPhotos,
-  setCover, deletePhoto, updatePhotoSpan, updatePhotoAlt, movePhoto,
+  setCover, setGalleryCoverPosition, deletePhoto, updatePhotoSpan, updatePhotoAlt, movePhoto,
 } from "../actions";
+import GalleryCoverPosition from "@/components/admin/GalleryCoverPosition";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +113,18 @@ export default async function GalleryEdit({
             </button>
           </div>
         </form>
+      </div>
+
+      <div className="admin-card">
+        <h2 className="serif" style={{ fontSize: 22, color: "var(--forest)", margin: "0 0 18px" }}>
+          Cadrage de la couverture
+        </h2>
+        <GalleryCoverPosition
+          galleryId={id}
+          coverFilename={g.cover_filename}
+          currentPosition={g.cover_position || "center center"}
+          saveAction={setGalleryCoverPosition}
+        />
       </div>
 
       <div className="admin-card">

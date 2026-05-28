@@ -1,7 +1,8 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { upload } from "@vercel/blob/client";
 import { photoUrl } from "@/lib/photo-url";
+import FocalPointPicker from "@/components/admin/FocalPointPicker";
 
 type GalleryPhoto = { id: number; gallery_id: number; filename: string };
 type GalleryWithPhotos = {
@@ -25,18 +26,6 @@ type Props = {
     coverPosition: string
   ) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
-
-const POSITION_OPTIONS = [
-  { value: "left top",       label: "Haut g." },
-  { value: "center top",     label: "Haut" },
-  { value: "right top",      label: "Haut d." },
-  { value: "left center",    label: "Gauche" },
-  { value: "center center",  label: "Centre" },
-  { value: "right center",   label: "Droite" },
-  { value: "left bottom",    label: "Bas g." },
-  { value: "center bottom",  label: "Bas" },
-  { value: "right bottom",   label: "Bas d." },
-];
 
 type Status =
   | { kind: "idle" }
@@ -94,11 +83,6 @@ export default function CoverPicker({ postId, currentCover, currentPosition, gal
     await persist(filename, position);
   }
 
-  async function handlePositionChange(next: string) {
-    setPosition(next);
-    await persist(cover, next);
-  }
-
   // Debounced status banner — small inline indicator next to the title.
   const statusBanner = (() => {
     switch (status.kind) {
@@ -114,34 +98,37 @@ export default function CoverPicker({ postId, currentCover, currentPosition, gal
 
   return (
     <div className="cover-picker">
-      {/* ── Live preview + status pill ──────────────────────────────── */}
-      <div className="cover-picker__preview">
-        <div className="cover-picker__preview-head">
-          <span className="cover-picker__hint">
-            Aperçu 4:3 — exactement le rendu sur le blog. Les changements sont enregistrés automatiquement.
+      {/* ── Status pill ───────────────────────────────────────────── */}
+      <div className="cover-picker__preview-head">
+        <span className="cover-picker__hint">
+          Cliquez sur la photo ci-dessous pour choisir la zone à garder visible. Tout est enregistré automatiquement.
+        </span>
+        {statusBanner && (
+          <span className="cover-picker__status" style={{ color: statusBanner.color }}>
+            {statusBanner.text}
           </span>
-          {statusBanner && (
-            <span className="cover-picker__status" style={{ color: statusBanner.color }}>
-              {statusBanner.text}
-            </span>
-          )}
-        </div>
-        <div className="cover-picker__preview-frame">
-          {previewSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={previewSrc}
-              alt="Aperçu de couverture"
-              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: position }}
-            />
-          ) : (
-            <div className="cover-picker__empty">
-              <span>Aucune couverture</span>
-              <small>Choisissez une photo ou téléversez-en une.</small>
-            </div>
-          )}
-        </div>
+        )}
       </div>
+
+      {/* ── Live preview + focal point picker on the SAME image ──── */}
+      {previewSrc ? (
+        <FocalPointPicker
+          src={previewSrc}
+          value={position}
+          ratio="4 / 3"
+          onChange={async (next) => {
+            setPosition(next);
+            await persist(cover, next);
+          }}
+        />
+      ) : (
+        <div className="cover-picker__preview-frame" style={{ aspectRatio: "4 / 3", maxWidth: 380 }}>
+          <div className="cover-picker__empty">
+            <span>Aucune couverture</span>
+            <small>Choisissez une photo ou téléversez-en une.</small>
+          </div>
+        </div>
+      )}
 
       {/* ── Source: pick / upload ───────────────────────────────────── */}
       <div className="cover-picker__actions">
@@ -188,31 +175,6 @@ export default function CoverPicker({ postId, currentCover, currentPosition, gal
         )}
       </div>
 
-      {/* ── Focal point ─────────────────────────────────────────────── */}
-      <div className="cover-picker__focal">
-        <div className="cover-picker__focal-label">
-          <span className="admin-label">Cadrage</span>
-          <span className="cover-picker__focal-current">{position}</span>
-        </div>
-        <div className="cover-picker__focal-grid">
-          {POSITION_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={`cover-picker__focal-cell${position === opt.value ? " is-active" : ""}`}
-              onClick={() => handlePositionChange(opt.value)}
-              title={opt.label}
-              aria-label={`Cadrage : ${opt.label}`}
-              disabled={status.kind === "saving"}
-            >
-              <span className="cover-picker__focal-dot" />
-            </button>
-          ))}
-        </div>
-        <p className="cover-picker__hint">
-          Cliquez sur la zone à garder visible (utile pour décentrer un sujet).
-        </p>
-      </div>
 
       {/* ── Modal: pick from gallery ────────────────────────────────── */}
       {pickerOpen && (

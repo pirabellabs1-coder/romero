@@ -12,6 +12,7 @@ export type GalleryRow = {
   intro_fr: string;
   intro_en: string;
   cover_photo_id: number | null;
+  cover_position: string;
   featured: number;
   sort_order: number;
   published: number;
@@ -77,30 +78,19 @@ export { photoUrl } from "@/lib/photo-url";
 import { photoUrl } from "@/lib/photo-url";
 
 /**
- * Return a usable cover URL for the gallery.
+ * Return the cover URL for the gallery.
  *
- * Honesty rule: the admin dashboard and the public site MUST show the same
- * photo for a given gallery. We used to substitute hero.jpg with a random
- * photo from another gallery for "variety" — that produced the bug where
- * the photographer saw hero.jpg on /admin but a stranger's wedding on /.
- *
- * Fallback chain:
- *   1. The admin-chosen cover_filename (if not the hero placeholder)
- *   2. The first real photo of this same gallery (any non-hero photo)
- *   3. The hero placeholder, as last resort
+ * Honesty rule: dashboard and public site MUST show the same photo.
+ * We just return whatever cover_filename is — no more fallback magic
+ * that could diverge between the two. If a gallery has hero.jpg as
+ * cover, both admin and site show hero.jpg. If the photographer wants
+ * a different cover she clicks "Couverture" on a real photo in the
+ * gallery edit page.
  *
  * `seed` is kept for API compatibility but no longer used.
  */
 export async function coverFor(g: GalleryRow, _seed: string): Promise<string> {
-  if (g.cover_filename && g.cover_filename !== "hero.jpg") {
-    return photoUrl(g.cover_filename)!;
-  }
-  // Try the gallery's own first real photo before falling back to hero.
-  const own = await queryOne<{ filename: string }>(
-    "SELECT filename FROM photos WHERE gallery_id = $1 AND filename != 'hero.jpg' ORDER BY sort_order ASC, id ASC LIMIT 1",
-    [g.id]
-  );
-  if (own?.filename) return photoUrl(own.filename)!;
+  if (g.cover_filename) return photoUrl(g.cover_filename)!;
   return "/uploads/hero.jpg";
 }
 
