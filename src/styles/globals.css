@@ -525,16 +525,31 @@ section { position: relative; }
 .site-header {
   position: fixed; top: 0; left: 0; right: 0;
   z-index: 50;
-  background: transparent;
+  background: rgba(248, 244, 236, 0.55);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
   border-bottom: 1px solid transparent;
-  transition: background .4s, border-color .4s, backdrop-filter .4s;
+  transition: background .4s, border-color .4s, backdrop-filter .4s, box-shadow .4s;
+}
+/* Subtle gradient veil at the very top — ensures menu stays readable on
+   any photo background while keeping the floating luxury feel. */
+.site-header::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 100%;
+  background: linear-gradient(180deg, rgba(31, 42, 31, 0.06) 0%, rgba(31, 42, 31, 0) 100%);
+  pointer-events: none;
+  z-index: -1;
+  transition: opacity .4s ease;
 }
 .site-header.scrolled {
-  background: rgba(248, 244, 236, 0.92);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(248, 244, 236, 0.94);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
   border-bottom: 1px solid var(--rule);
+  box-shadow: 0 2px 24px -16px rgba(31, 42, 31, 0.18);
 }
+.site-header.scrolled::before { opacity: 0; }
 .site-header-inner {
   position: relative;
   max-width: 1640px;
@@ -605,8 +620,8 @@ section { position: relative; }
   font-size: 10.5px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  font-weight: 500;
-  color: var(--forest);
+  font-weight: 600;
+  color: var(--forest-deep);
   padding: 10px 4px;
   position: relative;
   cursor: pointer;
@@ -614,6 +629,11 @@ section { position: relative; }
   background: transparent;
   border: 0;
   display: inline-flex; align-items: center;
+  /* Subtle text-shadow gives the menu just enough contrast against bright
+     photo areas (chandeliers, sky, white walls) without altering the
+     editorial feel. Once the header has its scrolled background, the
+     shadow becomes invisible against the cream backdrop. */
+  text-shadow: 0 0 12px rgba(248, 244, 236, 0.6);
 }
 .nav-link::after {
   content: "";
@@ -623,10 +643,13 @@ section { position: relative; }
   transition: width .35s ease, opacity .25s ease;
   opacity: 0;
 }
-.nav-link:hover { color: var(--gold); }
+.nav-link:hover { color: var(--gold-deep); }
 .nav-link:hover::after { width: 22px; opacity: .7; }
-.nav-link.active { color: var(--gold); }
+.nav-link.active { color: var(--gold-deep); }
 .nav-link.active::after { width: 28px; opacity: 1; }
+/* Once the header is scrolled, the cream backdrop kills the need for the
+   readability shadow — turn it off for crisper rendering. */
+.site-header.scrolled .nav-link { text-shadow: none; }
 
 /* Mobile burger */
 .mobile-burger {
