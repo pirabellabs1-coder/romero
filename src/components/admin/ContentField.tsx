@@ -12,16 +12,18 @@ type Props = {
   page: string;
   fieldKey: string;
   label: string;
-  /** Whether the input renders as a single-line input or multi-line textarea. */
+  /** Single-line input vs multi-line textarea. */
   variant?: "input" | "textarea";
-  /** Current value in DB (override) if any. */
+  /** Current values in DB (override) if any. */
   initialFr: string;
   initialEn: string;
-  /** Fallback default (the i18n hardcoded string). Shown greyed when no override. */
+  /** Fallback default (the i18n hardcoded string). */
   defaultFr: string;
   defaultEn: string;
-  /** Optional helper text below the label. */
+  /** Optional helper text below the field. */
   hint?: string;
+  /** Show both FR and EN columns. Default false — FR first, EN later. */
+  showEn?: boolean;
   saveAction: (
     page: string,
     key: string,
@@ -33,15 +35,9 @@ type Props = {
 /**
  * Inline editor for a single i18n field.
  *
- *   ┌─ Label ────────────────────────────────┐
- *   │ [ FR input          ] [ ✓ saved ]      │
- *   │ [ EN input          ]                  │
- *   │ hint (optional)                        │
- *   └────────────────────────────────────────┘
- *
- * - Saves on blur (no manual ENREGISTRER button needed).
- * - Per-language status indicator.
- * - Clearing the input restores the i18n factory default.
+ * Default mode shows only the French input. Set `showEn` to display the
+ * English column side-by-side. Saves on blur (no manual button needed).
+ * Clearing the input restores the i18n factory default.
  */
 export default function ContentField({
   page,
@@ -53,12 +49,11 @@ export default function ContentField({
   defaultFr,
   defaultEn,
   hint,
+  showEn = false,
   saveAction,
 }: Props) {
   const [fr, setFr] = useState(initialFr);
   const [en, setEn] = useState(initialEn);
-  // Track which version was last persisted, so blur doesn't fire a
-  // save when nothing has actually changed.
   const lastSavedRef = useRef({ fr: initialFr, en: initialEn });
   const [status, setStatus] = useState<{ fr: Status; en: Status }>({
     fr: { kind: "idle" },
@@ -83,10 +78,16 @@ export default function ContentField({
     }
   }
 
-  function renderInput(lang: Lang, value: string, setter: (v: string) => void, placeholder: string) {
+  function renderInput(
+    lang: Lang,
+    value: string,
+    setter: (v: string) => void,
+    placeholder: string
+  ) {
     const common = {
       value,
-      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setter(e.target.value),
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+        setter(e.target.value),
       onBlur: () => save(lang),
       placeholder,
       className: variant === "textarea" ? "admin-textarea" : "admin-input",
@@ -101,9 +102,12 @@ export default function ContentField({
   function pill(s: Status) {
     switch (s.kind) {
       case "idle": return null;
-      case "saving": return <span style={{ fontSize: 11, color: "var(--muted)" }}>Enregistrement…</span>;
-      case "saved": return <span style={{ fontSize: 11, color: "var(--sage-deep)" }}>✓ Enregistré</span>;
-      case "error": return <span style={{ fontSize: 11, color: "#8B2E2E" }}>❌ {s.message}</span>;
+      case "saving":
+        return <span style={{ fontSize: 11, color: "var(--muted)" }}>Enregistrement…</span>;
+      case "saved":
+        return <span style={{ fontSize: 11, color: "var(--sage-deep)" }}>✓ Enregistré</span>;
+      case "error":
+        return <span style={{ fontSize: 11, color: "#8B2E2E" }}>❌ {s.message}</span>;
     }
   }
 
@@ -114,29 +118,43 @@ export default function ContentField({
     <div className="content-field">
       <div className="content-field__head">
         <label className="admin-label">{label}</label>
+        {!showEn && pill(status.fr)}
       </div>
-      <div className="content-field__bilingual">
-        <div className="content-field__col">
-          <div className="content-field__col-head">
-            <span className="cap-tracked-sm gold">FR</span>
-            {pill(status.fr)}
+
+      {showEn ? (
+        <div className="content-field__bilingual">
+          <div className="content-field__col">
+            <div className="content-field__col-head">
+              <span className="cap-tracked-sm gold">FR</span>
+              {pill(status.fr)}
+            </div>
+            {renderInput("fr", fr, setFr, frEmpty ? defaultFr : "")}
+            {frEmpty && (
+              <p className="content-field__default">↳ Par défaut : <em>« {defaultFr} »</em></p>
+            )}
           </div>
+          <div className="content-field__col">
+            <div className="content-field__col-head">
+              <span className="cap-tracked-sm gold">EN</span>
+              {pill(status.en)}
+            </div>
+            {renderInput("en", en, setEn, enEmpty ? defaultEn : "")}
+            {enEmpty && (
+              <p className="content-field__default">↳ Defaults to: <em>« {defaultEn} »</em></p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
           {renderInput("fr", fr, setFr, frEmpty ? defaultFr : "")}
           {frEmpty && (
-            <p className="content-field__default">↳ Affichera la valeur par défaut : <em>« {defaultFr} »</em></p>
+            <p className="content-field__default">
+              ↳ Par défaut : <em>« {defaultFr} »</em>
+            </p>
           )}
-        </div>
-        <div className="content-field__col">
-          <div className="content-field__col-head">
-            <span className="cap-tracked-sm gold">EN</span>
-            {pill(status.en)}
-          </div>
-          {renderInput("en", en, setEn, enEmpty ? defaultEn : "")}
-          {enEmpty && (
-            <p className="content-field__default">↳ Defaults to: <em>« {defaultEn} »</em></p>
-          )}
-        </div>
-      </div>
+        </>
+      )}
+
       {hint && <p className="content-field__hint">{hint}</p>}
     </div>
   );

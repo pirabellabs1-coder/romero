@@ -9,7 +9,7 @@ import { getLangFromCookies } from "@/lib/lang";
 import { listGalleries, pickShowcasePhotos, coverFor, photoUrl } from "@/lib/content";
 import { getPageContent } from "@/lib/page-content";
 
-const HERO_PHOTO = "/uploads/hero.jpg";
+const HERO_PHOTO_DEFAULT = "/uploads/hero.jpg";
 
 export default async function HomePage() {
   const lang = getLangFromCookies();
@@ -39,6 +39,10 @@ export default async function HomePage() {
     ov[`values_${i}_title`] || titleDef,
     ov[`values_${i}_body`] || bodyDef,
   ] as [string, string]);
+
+  // Hero photo: admin override (page_content key="hero_photo") wins,
+  // else the original /uploads/hero.jpg.
+  const heroPhoto = ov["hero_photo"] || HERO_PHOTO_DEFAULT;
 
   return (
     <main className="page-enter">
@@ -85,7 +89,7 @@ export default async function HomePage() {
             <div style={{ position: "relative", height: "100%", borderRadius: 4, overflow: "hidden", boxShadow: "var(--shadow-md)" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={HERO_PHOTO}
+                src={heroPhoto}
                 alt="Couple sous un voile"
                 loading="eager"
                 fetchPriority="high"

@@ -2132,3 +2132,111 @@ section { position: relative; }
   text-transform: uppercase;
   color: var(--gold-deep);
 }
+
+/* ─── Home content editor: visual layout matching the actual page ─── */
+.content-layout-hero {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .content-layout-hero { grid-template-columns: 1fr; }
+}
+
+.content-values-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 14px;
+}
+@media (max-width: 720px) {
+  .content-values-grid { grid-template-columns: 1fr; }
+}
+.content-values-cell {
+  padding: 14px 16px;
+  background: var(--cream);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+.content-values-cell__head {
+  font-family: var(--serif);
+  font-size: 15px;
+  color: var(--forest);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.content-featured-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 18px;
+}
+@media (max-width: 780px) {
+  .content-featured-row { grid-template-columns: 1fr; }
+}
+.content-featured-card {
+  background: var(--cream);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+  padding-bottom: 12px;
+}
+.content-featured-card__photo {
+  aspect-ratio: 4 / 5;
+  background: var(--cream-deep);
+  overflow: hidden;
+}
+.content-featured-card__title {
+  margin: 12px 14px 2px;
+  font-size: 16px;
+  color: var(--forest);
+}
+.content-featured-card__sub {
+  margin: 0 14px 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.content-featured-card a {
+  margin: 4px 14px 0;
+  display: inline-block;
+}
+
+/* HeroPhotoUploader */
+.hero-photo-uploader {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hero-photo-uploader__preview {
+  position: relative;
+  background: var(--cream-deep);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.hero-photo-uploader__overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  background: rgba(31, 42, 31, 0.78);
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.hero-photo-uploader__overlay:hover { background: var(--forest-deep); }
+.hero-photo-uploader__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}

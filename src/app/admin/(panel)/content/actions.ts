@@ -4,6 +4,31 @@ import { setPageContent } from "@/lib/page-content";
 import { requireUser } from "@/lib/auth";
 
 /**
+ * Save a one-off photo URL for a page section (e.g. home hero). Stored
+ * in page_content with lang='fr' since the same image is used in both
+ * locales. Use saveContentField for plain text.
+ */
+export async function saveContentPhoto(
+  page: string,
+  key: string,
+  url: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    requireUser();
+    // Sanity: only accept blob URLs we just uploaded, or relative /uploads/.
+    if (!/^https?:\/\/.+|^\/uploads\//.test(url)) {
+      return { ok: false, error: "URL non reconnue" };
+    }
+    await setPageContent(page, key, "fr", url);
+    if (page === "home") revalidatePath("/");
+    revalidatePath(`/admin/content/${page}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
  * Live-save a single content field. Called by the inline-editing UI on
  * every blur (or after a short debounce). Returns ok/error so the client
  * can show "✓ Enregistré" or "❌ <err>" next to the field.
