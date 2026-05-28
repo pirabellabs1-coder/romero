@@ -1,14 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { upload } from "@vercel/blob/client";
 import { photoUrl } from "@/lib/photo-url";
-
-type Props = {
-  postId: number;
-  currentCover: string | null;
-  currentPosition: string;
-  galleries: GalleryWithPhotos[];
-};
 
 type GalleryPhoto = { id: number; gallery_id: number; filename: string };
 type GalleryWithPhotos = {
@@ -18,6 +11,20 @@ type GalleryWithPhotos = {
   photos: GalleryPhoto[];
 };
 
+type Props = {
+  postId: number;
+  currentCover: string | null;
+  currentPosition: string;
+  galleries: GalleryWithPhotos[];
+  // Live-save action. The picker calls this directly whenever the cover
+  // OR the focal point changes, so the photographer never has to "commit"
+  // a media choice with the big ENREGISTRER button.
+  saveAction: (
+    postId: number,
+    coverFilename: string | null,
+    coverPosition: string
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
+};
 
 const POSITION_OPTIONS = [
   { value: "left top",       label: "Haut g." },
@@ -31,24 +38,40 @@ const POSITION_OPTIONS = [
   { value: "right bottom",   label: "Bas d." },
 ];
 
-export default function CoverPicker({ postId, currentCover, currentPosition, galleries }: Props) {
-  const [pickerOpen, setPickerOpen] = useState(false);
-  // selectedFile is whatever URL/filename will be saved as the cover. It can
-  // come from picking in a gallery OR from a freshly-finished client→Blob
-  // upload. Either way the final submit only needs the URL.
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [position, setPosition] = useState(currentPosition || "center center");
-  const [uploadName, setUploadName] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+type Status =
+  | { kind: "idle" }
+  | { kind: "uploading"; name: string }
+  | { kind: "saving" }
+  | { kind: "saved" }
+  | { kind: "error"; message: string };
 
-  const effectiveCover = selectedFile ?? currentCover;
-  const previewSrc = effectiveCover ? photoUrl(effectiveCover) : null;
+export default function CoverPicker({ postId, currentCover, currentPosition, galleries, saveAction }: Props) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [cover, setCover] = useState<string | null>(currentCover);
+  const [position, setPosition] = useState(currentPosition || "center center");
+  const [status, setStatus] = useState<Status>({ kind: "idle" });
+
+  // Hide "Enregistré ✓" after a couple of seconds so it doesn't linger.
+  useEffect(() => {
+    if (status.kind !== "saved") return;
+    const t = setTimeout(() => setStatus({ kind: "idle" }), 1800);
+    return () => clearTimeout(t);
+  }, [status]);
+
+  const previewSrc = cover ? photoUrl(cover) : null;
+
+  async function persist(nextCover: string | null, nextPosition: string) {
+    setStatus({ kind: "saving" });
+    const res = await saveAction(postId, nextCover, nextPosition);
+    if (res.ok) {
+      setStatus({ kind: "saved" });
+    } else {
+      setStatus({ kind: "error", message: res.error });
+    }
+  }
 
   async function handleFileUpload(file: File) {
-    setUploadError(null);
-    setUploadName(file.name);
-    setUploading(true);
+    setStatus({ kind: "uploading", name: file.name });
     try {
       const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 60);
@@ -58,25 +81,51 @@ export default function CoverPicker({ postId, currentCover, currentPosition, gal
         access: "public",
         handleUploadUrl: "/api/blob/upload-token",
       });
-      setSelectedFile(blob.url);
+      setCover(blob.url);
+      await persist(blob.url, position);
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : String(e));
-      setUploadName(null);
-    } finally {
-      setUploading(false);
+      setStatus({ kind: "error", message: e instanceof Error ? e.message : String(e) });
     }
   }
 
+  async function handleGalleryPick(filename: string) {
+    setCover(filename);
+    setPickerOpen(false);
+    await persist(filename, position);
+  }
+
+  async function handlePositionChange(next: string) {
+    setPosition(next);
+    await persist(cover, next);
+  }
+
+  // Debounced status banner — small inline indicator next to the title.
+  const statusBanner = (() => {
+    switch (status.kind) {
+      case "idle":      return null;
+      case "uploading": return { color: "var(--gold-deep)",  text: `⏳ Téléversement de ${status.name}…` };
+      case "saving":    return { color: "var(--muted)",       text: "Enregistrement…" };
+      case "saved":     return { color: "var(--sage-deep)",   text: "✓ Enregistré" };
+      case "error":     return { color: "#8B2E2E",            text: `❌ ${status.message}` };
+    }
+  })();
+
+  const inputId = `cover-upload-${postId}`;
+
   return (
     <div className="cover-picker">
-      {/* Hidden inputs the parent <form> reads on submit. The actual file
-          bytes never travel through the form — they go client → Blob first,
-          then we submit only the resulting URL via cover_pick. */}
-      <input type="hidden" name="cover_pick" value={selectedFile ?? ""} />
-      <input type="hidden" name="cover_position" value={position} />
-
-      {/* ── Live preview ──────────────────────────────────────────────── */}
+      {/* ── Live preview + status pill ──────────────────────────────── */}
       <div className="cover-picker__preview">
+        <div className="cover-picker__preview-head">
+          <span className="cover-picker__hint">
+            Aperçu 4:3 — exactement le rendu sur le blog. Les changements sont enregistrés automatiquement.
+          </span>
+          {statusBanner && (
+            <span className="cover-picker__status" style={{ color: statusBanner.color }}>
+              {statusBanner.text}
+            </span>
+          )}
+        </div>
         <div className="cover-picker__preview-frame">
           {previewSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -92,49 +141,54 @@ export default function CoverPicker({ postId, currentCover, currentPosition, gal
             </div>
           )}
         </div>
-        <p className="cover-picker__hint">
-          Aperçu au format 4:3 — c&apos;est exactement ce que les visiteurs verront sur le blog.
-        </p>
       </div>
 
-      {/* ── Source: pick from a gallery, or upload ──────────────────── */}
+      {/* ── Source: pick / upload ───────────────────────────────────── */}
       <div className="cover-picker__actions">
         <button
           type="button"
           className="cover-picker__btn"
           onClick={() => setPickerOpen(true)}
+          disabled={status.kind === "uploading" || status.kind === "saving"}
         >
           📷 Choisir depuis une galerie
         </button>
-        <label className={`cover-picker__btn cover-picker__btn--ghost${uploading ? " is-disabled" : ""}`}>
-          {uploading ? "⏳ Téléversement en cours…" : "⬆ Téléverser une nouvelle image"}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-            disabled={uploading}
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = "";
-              if (f) handleFileUpload(f);
-            }}
-          />
+        <label
+          htmlFor={inputId}
+          className={`cover-picker__btn cover-picker__btn--ghost${status.kind === "uploading" ? " is-disabled" : ""}`}
+        >
+          {status.kind === "uploading" ? "⏳ Téléversement…" : "⬆ Téléverser une nouvelle image"}
         </label>
+        <input
+          id={inputId}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          disabled={status.kind === "uploading"}
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            // Reset so picking the same file twice re-fires change.
+            e.target.value = "";
+            if (f) handleFileUpload(f);
+          }}
+        />
+        {cover && (
+          <button
+            type="button"
+            className="cover-picker__btn cover-picker__btn--ghost"
+            onClick={async () => {
+              setCover(null);
+              await persist(null, position);
+            }}
+            disabled={status.kind === "uploading" || status.kind === "saving"}
+            title="Retirer la couverture (le blog affichera un placeholder)"
+          >
+            ✕ Retirer
+          </button>
+        )}
       </div>
-      {uploadName && !uploadError && (
-        <p className="cover-picker__upload-note">
-          {uploading
-            ? <>⏳ Téléversement de <b>{uploadName}</b>…</>
-            : <>✓ <b>{uploadName}</b> téléversée — cliquez sur ENREGISTRER pour l&apos;appliquer comme couverture.</>}
-        </p>
-      )}
-      {uploadError && (
-        <p className="cover-picker__upload-note" style={{ background: "rgba(139,46,46,.07)", borderColor: "#C09595", color: "#8B2E2E" }}>
-          ❌ Erreur pendant le téléversement : <b>{uploadError}</b>
-        </p>
-      )}
 
-      {/* ── Focal point ──────────────────────────────────────────────── */}
+      {/* ── Focal point ─────────────────────────────────────────────── */}
       <div className="cover-picker__focal">
         <div className="cover-picker__focal-label">
           <span className="admin-label">Cadrage</span>
@@ -146,20 +200,21 @@ export default function CoverPicker({ postId, currentCover, currentPosition, gal
               key={opt.value}
               type="button"
               className={`cover-picker__focal-cell${position === opt.value ? " is-active" : ""}`}
-              onClick={() => setPosition(opt.value)}
+              onClick={() => handlePositionChange(opt.value)}
               title={opt.label}
               aria-label={`Cadrage : ${opt.label}`}
+              disabled={status.kind === "saving"}
             >
               <span className="cover-picker__focal-dot" />
             </button>
           ))}
         </div>
         <p className="cover-picker__hint">
-          Cliquez sur la zone de la photo à garder visible (utile pour décentrer un sujet).
+          Cliquez sur la zone à garder visible (utile pour décentrer un sujet).
         </p>
       </div>
 
-      {/* ── Modal: pick from gallery ─────────────────────────────────── */}
+      {/* ── Modal: pick from gallery ────────────────────────────────── */}
       {pickerOpen && (
         <div
           className="cover-picker__modal"
@@ -176,7 +231,7 @@ export default function CoverPicker({ postId, currentCover, currentPosition, gal
                   Choisir une photo de couverture
                 </h3>
                 <p className="cover-picker__hint" style={{ marginTop: 4 }}>
-                  Cliquez sur une photo pour la sélectionner.
+                  Cliquez sur une photo — elle est enregistrée immédiatement.
                 </p>
               </div>
               <button
@@ -192,7 +247,7 @@ export default function CoverPicker({ postId, currentCover, currentPosition, gal
             <div className="cover-picker__modal-body">
               {galleries.length === 0 ? (
                 <p className="muted" style={{ padding: 24, textAlign: "center" }}>
-                  Aucune galerie publiée. Créez d&apos;abord une galerie avec des photos.
+                  Aucune galerie publiée avec des photos.
                 </p>
               ) : (
                 galleries.map((g) => (
@@ -204,17 +259,13 @@ export default function CoverPicker({ postId, currentCover, currentPosition, gal
                     <div className="cover-picker__photos">
                       {g.photos.map((p) => {
                         const url = photoUrl(p.filename);
-                        const isSelected = selectedFile === p.filename;
+                        const isSelected = cover === p.filename;
                         return (
                           <button
                             key={p.id}
                             type="button"
                             className={`cover-picker__tile${isSelected ? " is-selected" : ""}`}
-                            onClick={() => {
-                              setSelectedFile(p.filename);
-                              setUploadName(null); // clear any pending upload
-                              setPickerOpen(false);
-                            }}
+                            onClick={() => handleGalleryPick(p.filename)}
                             title={p.filename.split("/").pop()}
                           >
                             {url && (

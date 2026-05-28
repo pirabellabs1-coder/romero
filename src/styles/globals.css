@@ -1777,7 +1777,22 @@ section { position: relative; }
 .cover-picker { display: flex; flex-direction: column; gap: 18px; }
 
 /* Live preview */
-.cover-picker__preview { display: flex; flex-direction: column; gap: 6px; }
+.cover-picker__preview { display: flex; flex-direction: column; gap: 8px; }
+.cover-picker__preview-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 12px; flex-wrap: wrap;
+}
+.cover-picker__status {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  transition: opacity 0.2s ease;
+}
+.cover-picker__btn--ghost.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: not-allowed;
+}
 .cover-picker__preview-frame {
   aspect-ratio: 4 / 3;
   max-width: 380px;

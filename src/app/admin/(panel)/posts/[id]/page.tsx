@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { query, queryOne } from "@/lib/db";
-import { updatePost, deletePost } from "../actions";
+import { updatePost, deletePost, updatePostCover } from "../actions";
 import ConfirmDelete from "@/components/admin/ConfirmDelete";
 import RichEditor from "@/components/admin/RichEditor";
 import CoverPicker from "@/components/admin/CoverPicker";
@@ -107,6 +107,7 @@ export default async function PostEdit({ params, searchParams }: { params: { id:
               currentCover={p.cover_filename}
               currentPosition={p.cover_position || "center center"}
               galleries={galleriesWithPhotos}
+              saveAction={updatePostCover}
             />
           </div>
 
