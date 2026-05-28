@@ -21,21 +21,45 @@ import CTABlock from "@/components/CTABlock";
 import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { pickShowcasePhotos, photoUrl } from "@/lib/content";
+import { getPageContent } from "@/lib/page-content";
 
 export default async function AboutPage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
-  // 1 eyebrow image + 1 story image = 2 distinct photos
-  const [eyebrowImg, storyImg] = await pickShowcasePhotos(2, "about-v1");
+  const [eyebrowImg, storyImg, ov] = await Promise.all([
+    pickShowcasePhotos(2, "about-v1").then((arr) => arr[0]),
+    pickShowcasePhotos(2, "about-v1").then((arr) => arr[1]),
+    getPageContent("about", lang),
+  ]);
   const valueKinds: ValueKind[] = ["excellence", "detail", "emotion", "elegance"];
+
+  // CMS overrides — merge over t.about per top-level scalar, plus expand
+  // the flat indexed keys back into arrays.
+  const about = { ...t.about };
+  for (const k of Object.keys(about) as Array<keyof typeof about>) {
+    const v = ov[k as string];
+    if (typeof v === "string" && v.length > 0 && typeof about[k] === "string") {
+      (about as Record<string, unknown>)[k as string] = v;
+    }
+  }
+  const body = (t.about.body as ReadonlyArray<string>).map((p, i) => ov[`body_${i}`] || p);
+  const values = (t.about.values as ReadonlyArray<[string, string]>).map(([titleDef, bodyDef], i) => [
+    ov[`values_${i}_title`] || titleDef,
+    ov[`values_${i}_body`] || bodyDef,
+  ] as [string, string]);
+  const process = (t.about.process as ReadonlyArray<[string, string]>).map(([titleDef, bodyDef], i) => [
+    ov[`process_${i}_title`] || titleDef,
+    ov[`process_${i}_body`] || bodyDef,
+  ] as [string, string]);
+  const gear = (t.about.gear as ReadonlyArray<string>).map((g, i) => ov[`gear_${i}`] || g);
 
   return (
     <main>
       <PageEyebrow
-        eyebrow={t.about.eyebrow}
-        title={t.about.title}
-        accent={t.about.titleAccent}
-        lead={t.about.lead}
+        eyebrow={about.eyebrow}
+        title={about.title}
+        accent={about.titleAccent}
+        lead={about.lead}
         image={{ src: photoUrl(eyebrowImg), label: "Mickael en plein reportage" }}
       />
 
@@ -68,11 +92,11 @@ export default async function AboutPage() {
             </Rise>
             <Rise delay={120}>
               <div>
-                <div className="cap-tracked gold">{t.about.bodyEyebrow}</div>
+                <div className="cap-tracked gold">{about.bodyEyebrow}</div>
                 <h2 className="h-section" style={{ marginTop: 14, marginBottom: 32 }}>
-                  {t.about.bodyTitle}
+                  {about.bodyTitle}
                 </h2>
-                {t.about.body.map((p, i) => (
+                {body.map((p, i) => (
                   <p key={i} className="body" style={{ fontSize: 16, lineHeight: 1.85, color: "var(--ink)", marginBottom: 22 }}>
                     {p}
                   </p>
@@ -93,14 +117,14 @@ export default async function AboutPage() {
       <section className="section-pad" style={{ background: "var(--cream-deep)" }}>
         <div className="container-wide">
           <div style={{ textAlign: "center", marginBottom: 64 }}>
-            <div className="cap-tracked gold">{t.about.valuesEyebrow}</div>
+            <div className="cap-tracked gold">{about.valuesEyebrow}</div>
             <h2 className="h-section" style={{ marginTop: 14 }}>
-              {t.about.valuesTitle}
+              {about.valuesTitle}
             </h2>
             <OrnamentDivider />
           </div>
           <div className="responsive-4col">
-            {t.about.values.map(([title, body], i) => (
+            {values.map(([title, body], i) => (
               <Rise key={i} delay={i * 70}>
                 <div className="card" style={{ textAlign: "center", padding: "44px 26px" }}>
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 22 }}>
@@ -123,15 +147,15 @@ export default async function AboutPage() {
       <section className="section-pad" style={{ background: "var(--cream)" }}>
         <div className="container-wide">
           <div style={{ textAlign: "center", marginBottom: 70 }}>
-            <div className="cap-tracked gold">{t.about.processEyebrow}</div>
+            <div className="cap-tracked gold">{about.processEyebrow}</div>
             <h2 className="h-section" style={{ marginTop: 14 }}>
-              {t.about.processTitle}
+              {about.processTitle}
             </h2>
             <OrnamentDivider />
           </div>
           <div className="process-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, position: "relative" }}>
             <div className="process-line" />
-            {t.about.process.map(([title, body], i) => (
+            {process.map(([title, body], i) => (
               <Rise key={i} delay={i * 90}>
                 <div style={{ padding: "0 22px", textAlign: "center", position: "relative", zIndex: 1 }}>
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 22, background: "var(--cream)" }}>
@@ -166,16 +190,16 @@ export default async function AboutPage() {
           <div className="responsive-2col">
             <div>
               <div className="cap-tracked" style={{ color: "var(--gold-light)" }}>
-                {t.about.gearEyebrow}
+                {about.gearEyebrow}
               </div>
               <h2 className="h-section" style={{ marginTop: 14, color: "#F4EFE3" }}>
-                {t.about.gearTitle}
+                {about.gearTitle}
               </h2>
               <OrnamentDivider />
-              <p style={{ marginTop: 24, color: "#C9C2B4", maxWidth: 460, lineHeight: 1.7 }}>{t.about.gearLead}</p>
+              <p style={{ marginTop: 24, color: "#C9C2B4", maxWidth: 460, lineHeight: 1.7 }}>{about.gearLead}</p>
             </div>
             <div className="gear-grid">
-              {t.about.gear.map((g, i) => (
+              {gear.map((g, i) => (
                 <Rise key={i} delay={i * 60}>
                   <div
                     style={{

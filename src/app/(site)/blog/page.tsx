@@ -14,26 +14,43 @@ export const metadata: Metadata = {
 };
 import BlogList from "@/components/BlogList";
 import CTABlock from "@/components/CTABlock";
-import { getStrings } from "@/lib/i18n";
+import { getStrings, type Strings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { listPosts, pickShowcasePhotos } from "@/lib/content";
+import { getPageContent } from "@/lib/page-content";
 
 export default async function BlogPage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
   const posts = await listPosts();
-  // Provide a varied photo for any post without an uploaded cover
-  const fallbackPhotos = await pickShowcasePhotos(posts.length, "blog-covers-v1");
+  const [fallbackPhotos, ov] = await Promise.all([
+    pickShowcasePhotos(posts.length, "blog-covers-v1"),
+    getPageContent("blog", lang),
+  ]);
   const postsWithCover = posts.map((p, i) => ({
     ...p,
     cover_filename: p.cover_filename || fallbackPhotos[i] || null,
   }));
 
+  const tt: Strings = {
+    ...t,
+    blog: {
+      ...t.blog,
+      eyebrow:     ov.eyebrow     || t.blog.eyebrow,
+      title:       ov.title       || t.blog.title,
+      titleAccent: ov.titleAccent || t.blog.titleAccent,
+      lead:        ov.lead        || t.blog.lead,
+      readMore:    ov.readMore    || t.blog.readMore,
+      featured:    ov.featured    || t.blog.featured,
+      categories:  t.blog.categories.map((c, i) => ov[`categories_${i}`] || c) as Strings["blog"]["categories"],
+    },
+  };
+
   return (
     <main>
-      <PageEyebrow eyebrow={t.blog.eyebrow} title={t.blog.title} accent={t.blog.titleAccent} lead={t.blog.lead} />
-      <BlogList posts={postsWithCover} t={t} lang={lang} />
-      <CTABlock t={t} />
+      <PageEyebrow eyebrow={tt.blog.eyebrow} title={tt.blog.title} accent={tt.blog.titleAccent} lead={tt.blog.lead} />
+      <BlogList posts={postsWithCover} t={tt} lang={lang} />
+      <CTABlock t={tt} />
     </main>
   );
 }

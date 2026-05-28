@@ -26,12 +26,30 @@ export const metadata: Metadata = {
 export default async function ReviewsPage() {
   const lang = getLangFromCookies();
   const t = getStrings(lang);
-  const [reviews, settings] = await Promise.all([listReviews(), getSettings()]);
+  const [reviews, settings, ov] = await Promise.all([
+    listReviews(),
+    getSettings(),
+    (await import("@/lib/page-content")).getPageContent("reviews", lang),
+  ]);
   const googleUrl = settings.google_reviews_url || "https://www.google.com/maps/search/?api=1&query=Romero+Photography+Nice";
+
+  const r = {
+    eyebrow:     ov.eyebrow     || t.reviews.eyebrow,
+    title:       ov.title       || t.reviews.title,
+    titleAccent: ov.titleAccent || t.reviews.titleAccent,
+    lead:        ov.lead        || t.reviews.lead,
+    googleCta:   ov.googleCta   || t.reviews.googleCta,
+    live:        ov.live        || t.reviews.live,
+    liveTitle:   ov.liveTitle   || t.reviews.liveTitle,
+    stats: (t.reviews.stats as ReadonlyArray<[string, string]>).map(([vDef, lDef], i) => [
+      ov[`stats_${i}_value`] || vDef,
+      ov[`stats_${i}_label`] || lDef,
+    ] as [string, string]),
+  };
 
   return (
     <main>
-      <PageEyebrow eyebrow={t.reviews.eyebrow} title={t.reviews.title} accent={t.reviews.titleAccent} lead={t.reviews.lead} />
+      <PageEyebrow eyebrow={r.eyebrow} title={r.title} accent={r.titleAccent} lead={r.lead} />
 
       {reviews.length > 0 ? (
         <>
@@ -45,7 +63,7 @@ export default async function ReviewsPage() {
                 padding: "40px 0",
               }}
             >
-              {t.reviews.stats.map(([num, label], i) => (
+              {r.stats.map(([num, label], i) => (
                 <div
                   key={i}
                   style={{ textAlign: "center", borderRight: i < 2 ? "1px solid var(--rule)" : "none", padding: "0 20px" }}
@@ -70,9 +88,9 @@ export default async function ReviewsPage() {
           <section style={{ background: "var(--cream-deep)", padding: "90px 0", position: "relative" }}>
             <div className="container-wide">
               <div style={{ textAlign: "center", marginBottom: 60 }}>
-                <div className="cap-tracked gold">{t.reviews.live}</div>
+                <div className="cap-tracked gold">{r.live}</div>
                 <h2 className="h-section" style={{ marginTop: 14 }}>
-                  {t.reviews.liveTitle}
+                  {r.liveTitle}
                 </h2>
                 <OrnamentDivider />
               </div>
@@ -81,7 +99,7 @@ export default async function ReviewsPage() {
 
               <div style={{ textAlign: "center", marginTop: 40 }}>
                 <a href={googleUrl} target="_blank" rel="noopener noreferrer" className="btn btn-gold-outline">
-                  <GoogleG /> &nbsp; {t.reviews.googleCta}
+                  <GoogleG /> &nbsp; {r.googleCta}
                 </a>
               </div>
             </div>

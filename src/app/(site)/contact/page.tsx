@@ -21,10 +21,46 @@ import { getSettings } from "@/lib/settings";
 
 export default async function ContactPage() {
   const lang = getLangFromCookies();
-  const t = getStrings(lang);
+  const tRaw = getStrings(lang);
   const settings = await getSettings();
+  const ov = await (await import("@/lib/page-content")).getPageContent("contact", lang);
 
-  // Replace coord values from settings (fall back to translation defaults)
+  // Merge CMS overrides over the default contact strings before any UI uses them.
+  const baseContact = tRaw.contact;
+  const formMerged = {
+    ...baseContact.form,
+    firstName: ov.form_firstName || baseContact.form.firstName,
+    lastName:  ov.form_lastName  || baseContact.form.lastName,
+    email:     ov.form_email     || baseContact.form.email,
+    phone:     ov.form_phone     || baseContact.form.phone,
+    date:      ov.form_date      || baseContact.form.date,
+    place:     ov.form_place     || baseContact.form.place,
+    message:   ov.form_message   || baseContact.form.message,
+    messagePh: ov.form_messagePh || baseContact.form.messagePh,
+    submit:    ov.form_submit    || baseContact.form.submit,
+    sent:      ov.form_sent      || baseContact.form.sent,
+    error:     ov.form_error     || baseContact.form.error,
+  };
+  const t = {
+    ...tRaw,
+    contact: {
+      ...baseContact,
+      eyebrow:       ov.eyebrow       || baseContact.eyebrow,
+      title:         ov.title         || baseContact.title,
+      titleAccent:   ov.titleAccent   || baseContact.titleAccent,
+      lead:          ov.lead          || baseContact.lead,
+      coordsEyebrow: ov.coordsEyebrow || baseContact.coordsEyebrow,
+      coordsTitle:   ov.coordsTitle   || baseContact.coordsTitle,
+      form: formMerged,
+      coords: baseContact.coords.map(([iconDef, _mainDef, subDef], i) => [
+        ov[`coords_${i}_icon`] || iconDef,
+        _mainDef, // overridden by settings below
+        ov[`coords_${i}_sub`] || subDef,
+      ] as [string, string, string]) as typeof baseContact.coords,
+    },
+  };
+
+  // Settings still drive the actual city/phone/email values (override CMS for those).
   const coords: [string, string, string][] = [
     [t.contact.coords[0][0], settings.contact_city, t.contact.coords[0][2]],
     [t.contact.coords[1][0], settings.contact_phone, t.contact.coords[1][2]],

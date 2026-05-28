@@ -34,7 +34,7 @@ export default async function ContentIndex() {
         <div className="content-page-list">
           {PAGES.map((p) => {
             const overrides = countMap.get(p.slug) ?? 0;
-            const ready = p.slug === "home"; // Only Home is wired up for now
+            const ready = ["home", "about", "portfolio", "blog", "reviews", "contact", "services", "nav", "footer"].includes(p.slug);
             return ready ? (
               <Link key={p.slug} href={`/admin/content/${p.slug}`} className="content-page-card">
                 <h3 className="content-page-card__title">{p.title}</h3>

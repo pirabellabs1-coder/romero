@@ -25,13 +25,43 @@ const HERO_PHOTO = "/uploads/hero.jpg";
 
 export default async function ServicesPage() {
   const lang = getLangFromCookies();
-  const t = getStrings(lang);
-  // 1 hero + 4 card images + 1 zoom image + 4 gallery tiles = 10 distinct photos
-  const allShots = await pickShowcasePhotos(10, "prestations-v3");
+  const tRaw = getStrings(lang);
+  const [allShots, ov] = await Promise.all([
+    pickShowcasePhotos(10, "prestations-v3"),
+    (await import("@/lib/page-content")).getPageContent("services", lang),
+  ]);
   const heroImg = allShots[0];
   const cardPhotos = allShots.slice(1, 5);
   const zoomImg = allShots[5];
   const galleryPhotos = allShots.slice(6, 10);
+
+  // CMS overrides — merge over t.services before any UI uses it.
+  const baseS = tRaw.services;
+  const t = {
+    ...tRaw,
+    services: {
+      ...baseS,
+      eyebrow:        ov.eyebrow        || baseS.eyebrow,
+      title:          ov.title          || baseS.title,
+      titleAccent:    ov.titleAccent    || baseS.titleAccent,
+      lead:           ov.lead           || baseS.lead,
+      zoomEyebrow:    ov.zoomEyebrow    || baseS.zoomEyebrow,
+      zoomTitle:      ov.zoomTitle      || baseS.zoomTitle,
+      zoomIntro:      ov.zoomIntro      || baseS.zoomIntro,
+      galleryEyebrow: ov.galleryEyebrow || baseS.galleryEyebrow,
+      cta:            ov.cta            || baseS.cta,
+      cards: baseS.cards.map(([title, subtitle, price, body], i) => [
+        ov[`cards_${i}_title`]    || title,
+        ov[`cards_${i}_subtitle`] || subtitle,
+        ov[`cards_${i}_price`]    || price,
+        ov[`cards_${i}_body`]     || body,
+      ] as [string, string, string, string]) as typeof baseS.cards,
+      includes: baseS.includes.map(([title, body], i) => [
+        ov[`includes_${i}_title`] || title,
+        ov[`includes_${i}_body`]  || body,
+      ] as [string, string]) as typeof baseS.includes,
+    },
+  };
 
   // Labels for the 4 service categories (matches t.services.cards order)
   const CATEGORY_LABELS_FR = ["Mariage", "Séance d'engagement", "Portrait", "Lifestyle"];
