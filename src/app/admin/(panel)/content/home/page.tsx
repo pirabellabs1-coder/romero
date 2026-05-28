@@ -2,8 +2,16 @@ import Link from "next/link";
 import { getPageContentBilingual } from "@/lib/page-content";
 import { STRINGS } from "@/lib/i18n";
 import { listGalleries, coverFor } from "@/lib/content";
+import { listSectionsForPage } from "@/lib/page-sections";
 import HomeContentEditor from "@/components/admin/HomeContentEditor";
+import SectionsEditor from "@/components/admin/SectionsEditor";
 import { saveContentFields, saveContentPhoto } from "../actions";
+import {
+  addSectionAction,
+  updateSectionAction,
+  deleteSectionAction,
+  moveSectionAction,
+} from "../sections-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +40,12 @@ async function saveHero(url: string) {
 }
 
 export default async function HomeContentPage() {
-  const overrides = await getPageContentBilingual("home");
-  const featuredGals = (await listGalleries({ featuredOnly: true })).slice(0, 3);
+  const [overrides, featuredGalsAll, sections] = await Promise.all([
+    getPageContentBilingual("home"),
+    listGalleries({ featuredOnly: true }),
+    listSectionsForPage("home"),
+  ]);
+  const featuredGals = featuredGalsAll.slice(0, 3);
   const featuredCovers = await Promise.all(
     featuredGals.map((g) => coverFor(g, `home-featured-${g.slug}`))
   );
@@ -71,6 +83,22 @@ export default async function HomeContentPage() {
         saveAction={saveContentFields}
         saveHeroAction={saveHero}
       />
+
+      {/* ── Sections custom (modular blocks à la Elementor light) ─── */}
+      <div className="admin-card">
+        <div className="content-section-head">
+          <h2>⑤ Sections personnalisées</h2>
+          <p>Ajoutez autant de sections que vous voulez à la fin de la page. Texte, image+texte, citation, photo pleine largeur.</p>
+        </div>
+        <SectionsEditor
+          page="home"
+          initialSections={sections}
+          addAction={addSectionAction}
+          updateAction={updateSectionAction}
+          deleteAction={deleteSectionAction}
+          moveAction={moveSectionAction}
+        />
+      </div>
     </>
   );
 }

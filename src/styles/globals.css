@@ -2328,3 +2328,115 @@ section { position: relative; }
 @media (max-width: 600px) {
   .content-editor__savebar { margin-left: -18px; margin-right: -18px; padding: 12px 18px; }
 }
+
+/* ─── Sections editor (CMS modular blocks) ────────────────────── */
+.section-card {
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow: hidden;
+  transition: border-color .2s ease;
+}
+.section-card:hover { border-color: rgba(184,151,90,.3); }
+.section-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: var(--cream);
+  border-bottom: 1px solid var(--rule);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.section-card__title { display: flex; align-items: center; }
+.section-card__controls { display: flex; gap: 6px; align-items: center; }
+.section-card__controls button {
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--forest);
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.section-card__controls button:hover:not(:disabled) {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #fff;
+}
+.section-card__controls button:disabled { opacity: .3; cursor: not-allowed; }
+.section-card__controls button.section-card__delete { color: #8B2E2E; border-color: #C09595; }
+.section-card__controls button.section-card__delete:hover:not(:disabled) {
+  background: #8B2E2E; border-color: #8B2E2E; color: #fff;
+}
+.section-card__body { padding: 18px; }
+
+/* Bilingual editor inside a section */
+.section-bilingual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+@media (max-width: 760px) { .section-bilingual { grid-template-columns: 1fr; } }
+.section-lang-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+}
+.section-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.section-row .admin-label { margin-bottom: 0; }
+
+.section-image-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: start;
+}
+@media (max-width: 600px) { .section-image-row { grid-template-columns: 1fr; } }
+.section-image-preview {
+  background: var(--cream-deep);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Add-section type picker */
+.section-type-picker {
+  background: var(--cream);
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  padding: 18px;
+}
+.section-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.section-type-card {
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 16px 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+.section-type-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold);
+  box-shadow: 0 4px 12px -6px rgba(184,151,90,.4);
+}
+.section-type-card:disabled { opacity: .5; cursor: not-allowed; }

@@ -8,6 +8,7 @@ import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { listGalleries, pickShowcasePhotos, coverFor, photoUrl } from "@/lib/content";
 import { getPageContent } from "@/lib/page-content";
+import PageSections from "@/components/PageSections";
 
 const HERO_PHOTO_DEFAULT = "/uploads/hero.jpg";
 
@@ -272,6 +273,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* CMS-managed custom sections (modular blocks) appended at the end */}
+      <PageSections page="home" lang={lang} />
     </main>
   );
 }
