@@ -29,23 +29,40 @@ export default function FocalPointPicker({ src, value, ratio = "4 / 3", onChange
   const frameRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState(parsePosition(value));
   const draggingRef = useRef(false);
+  // Track whether the position has been altered since the last commit.
+  // We only fire onChange (which triggers a server roundtrip) on
+  // pointer-up / single-click, never on every mousemove — otherwise a
+  // single drag fires 50+ Server Actions, queues them on pg's max:1
+  // pool, and freezes the rest of the form.
+  const dirtyRef = useRef(false);
 
   // Sync local state with prop changes (e.g. after a different image is picked).
   useEffect(() => {
     setPos(parsePosition(value));
   }, [value]);
 
-  function pickFromEvent(e: { clientX: number; clientY: number }) {
+  function visualUpdateOnly(e: { clientX: number; clientY: number }) {
     const el = frameRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    const xClamped = Math.max(0, Math.min(100, x));
-    const yClamped = Math.max(0, Math.min(100, y));
-    const next = { x: round1(xClamped), y: round1(yClamped) };
+    const next = {
+      x: round1(Math.max(0, Math.min(100, x))),
+      y: round1(Math.max(0, Math.min(100, y))),
+    };
     setPos(next);
-    onChange(`${next.x}% ${next.y}%`);
+    dirtyRef.current = true;
+  }
+
+  // Read the latest pos via a ref so commit() inside event handlers
+  // doesn't capture a stale closure. Using a ref synchronised in render.
+  const posRef = useRef(pos);
+  posRef.current = pos;
+  function commitLatest() {
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
+    onChange(`${posRef.current.x}% ${posRef.current.y}%`);
   }
 
   return (
@@ -56,24 +73,35 @@ export default function FocalPointPicker({ src, value, ratio = "4 / 3", onChange
         style={{ aspectRatio: ratio }}
         onMouseDown={(e) => {
           draggingRef.current = true;
-          pickFromEvent(e);
+          visualUpdateOnly(e);
         }}
         onMouseMove={(e) => {
-          if (draggingRef.current) pickFromEvent(e);
+          if (draggingRef.current) visualUpdateOnly(e);
         }}
-        onMouseUp={() => { draggingRef.current = false; }}
-        onMouseLeave={() => { draggingRef.current = false; }}
+        onMouseUp={() => {
+          if (draggingRef.current) {
+            draggingRef.current = false;
+            commitLatest();
+          }
+        }}
+        onMouseLeave={() => {
+          if (draggingRef.current) {
+            draggingRef.current = false;
+            commitLatest();
+          }
+        }}
         onTouchStart={(e) => {
           const t = e.touches[0];
-          if (t) pickFromEvent({ clientX: t.clientX, clientY: t.clientY });
+          if (t) visualUpdateOnly({ clientX: t.clientX, clientY: t.clientY });
         }}
         onTouchMove={(e) => {
           const t = e.touches[0];
           if (t) {
             e.preventDefault();
-            pickFromEvent({ clientX: t.clientX, clientY: t.clientY });
+            visualUpdateOnly({ clientX: t.clientX, clientY: t.clientY });
           }
         }}
+        onTouchEnd={() => commitLatest()}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -98,6 +126,7 @@ export default function FocalPointPicker({ src, value, ratio = "4 / 3", onChange
         <span>{Math.round(pos.x)}% × {Math.round(pos.y)}%</span>
         <button type="button" className="focal-picker__reset" onClick={() => {
           setPos({ x: 50, y: 50 });
+          dirtyRef.current = false;
           onChange("50% 50%");
         }}>
           Recentrer
