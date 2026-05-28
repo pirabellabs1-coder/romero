@@ -2240,3 +2240,91 @@ section { position: relative; }
   gap: 10px;
   flex-wrap: wrap;
 }
+
+/* ─── Content editor: language switch + sticky save bar ───────── */
+.content-editor { padding-bottom: 100px; /* room for sticky save bar */ }
+
+.content-editor__topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.content-editor__langs {
+  display: inline-flex;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.content-editor__lang-btn {
+  border: 0;
+  padding: 9px 18px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.content-editor__lang-btn + .content-editor__lang-btn { border-left: 1px solid var(--rule); }
+.content-editor__lang-btn:hover { background: var(--cream); color: var(--forest); }
+.content-editor__lang-btn.is-active {
+  background: var(--forest);
+  color: #F4EFE3;
+}
+
+/* Dirty pill on individual fields */
+.content-field.is-dirty {
+  border-left: 3px solid var(--gold);
+  padding-left: 14px;
+  background: rgba(184, 151, 90, 0.025);
+}
+.content-field__dirty-pill {
+  padding: 2px 8px;
+  background: var(--gold);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+/* Sticky save bar */
+.content-editor__savebar {
+  position: sticky;
+  bottom: 0;
+  margin: 24px -28px -28px;
+  padding: 14px 28px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--rule);
+  z-index: 30;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+.content-editor__savebar.is-dirty {
+  background: rgba(184, 151, 90, 0.06);
+  border-top-color: var(--gold);
+}
+.content-editor__savebar-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  max-width: 1200px;
+  margin: 0 auto;
+  flex-wrap: wrap;
+}
+.content-editor__savebar-status {
+  font-size: 13px;
+  font-weight: 500;
+}
+@media (max-width: 600px) {
+  .content-editor__savebar { margin-left: -18px; margin-right: -18px; padding: 12px 18px; }
+}
