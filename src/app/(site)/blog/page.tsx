@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import PageEyebrow from "@/components/PageEyebrow";
 
 export const metadata: Metadata = {
-  title: "Journal — Carnets de la Riviera",
+  title: "Le journal",
   description:
     "Conseils pour les futurs mariés, lieux de rêve sur la Côte d'Azur, coulisses de mariages. Un journal pour rêver, préparer, s'inspirer.",
   alternates: { canonical: "/blog" },

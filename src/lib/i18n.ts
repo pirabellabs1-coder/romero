@@ -184,8 +184,8 @@ export const STRINGS: Record<Lang, Strings> = {
 
     blog: {
       eyebrow: "JOURNAL",
-      title: "Carnets de la",
-      titleAccent: "Riviera",
+      title: "Le",
+      titleAccent: "journal",
       lead: "Conseils pour les futurs mariés, lieux de rêve sur la Côte d'Azur, coulisses de mariages — un journal pour rêver, préparer, s'inspirer.",
       readMore: "LIRE L'ARTICLE",
       categories: ["TOUS", "MARIAGES", "LIEUX", "CONSEILS"],
@@ -361,8 +361,8 @@ export const STRINGS: Record<Lang, Strings> = {
 
     blog: {
       eyebrow: "JOURNAL",
-      title: "Notes from the",
-      titleAccent: "Riviera",
+      title: "The",
+      titleAccent: "journal",
       lead: "Tips for couples-to-be, dream venues on the Côte d'Azur, behind-the-scenes — a journal to dream, plan, and be inspired.",
       readMore: "READ ARTICLE",
       categories: ["ALL", "WEDDINGS", "VENUES", "TIPS"],
