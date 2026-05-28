@@ -1,23 +1,27 @@
 "use client";
 import { useState, useTransition } from "react";
 import { upload } from "@vercel/blob/client";
-import type {
-  PageSection,
-  SectionType,
-  SectionData,
-  TextSectionData,
-  TextImageSectionData,
-  QuoteSectionData,
-  FullImageSectionData,
-} from "@/lib/page-sections";
+import {
+  type PageSection,
+  type SectionType,
+  type SectionSlot,
+  type SectionData,
+  type TextSectionData,
+  type TextImageSectionData,
+  type QuoteSectionData,
+  type FullImageSectionData,
+  SLOT_LABELS,
+  SLOT_ORDER,
+} from "@/lib/page-sections-types";
 
 type Props = {
   page: string;
   initialSections: PageSection[];
-  addAction: (page: string, type: SectionType) => Promise<{ ok: true; id: number } | { ok: false; error: string }>;
+  addAction: (page: string, type: SectionType, slot: SectionSlot) => Promise<{ ok: true; id: number } | { ok: false; error: string }>;
   updateAction: (id: number, data: SectionData) => Promise<{ ok: true } | { ok: false; error: string }>;
   deleteAction: (id: number) => Promise<{ ok: true } | { ok: false; error: string }>;
   moveAction: (page: string, id: number, direction: "up" | "down") => Promise<{ ok: true } | { ok: false; error: string }>;
+  changeSlotAction: (id: number, slot: SectionSlot) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
 const TYPE_INFO: Record<SectionType, { label: string; emoji: string; description: string }> = {
@@ -27,22 +31,31 @@ const TYPE_INFO: Record<SectionType, { label: string; emoji: string; description
   "full-image":  { emoji: "🌅", label: "Bandeau pleine largeur", description: "Photo plein écran avec légende optionnelle." },
 };
 
-export default function SectionsEditor({ page, initialSections, addAction, updateAction, deleteAction, moveAction }: Props) {
+const SLOT_SHORT: Record<SectionSlot, string> = {
+  "top":            "Tout en haut",
+  "after-hero":     "Après le hero",
+  "after-values":   "Après les valeurs",
+  "after-featured": "Après les mariages",
+  "after-quote":    "Après la citation",
+  "bottom":         "Tout en bas",
+};
+
+export default function SectionsEditor({ page, initialSections, addAction, updateAction, deleteAction, moveAction, changeSlotAction }: Props) {
   const [sections, setSections] = useState(initialSections);
   const [pending, startTransition] = useTransition();
-  const [showTypePicker, setShowTypePicker] = useState(false);
+  // Type picker is per-slot now: the photographer clicks "+ Ajouter ici"
+  // inside the slot block and gets the type chooser scoped to that slot.
+  const [pickerForSlot, setPickerForSlot] = useState<SectionSlot | null>(null);
   const [openSection, setOpenSection] = useState<number | null>(null);
 
   async function refresh() {
-    // Cheap refresh: revalidatePath is called server-side; full page refresh
-    // is the safest way to re-fetch with React Server Components.
     window.location.reload();
   }
 
-  async function addSection(type: SectionType) {
-    setShowTypePicker(false);
+  async function addSection(type: SectionType, slot: SectionSlot) {
+    setPickerForSlot(null);
     startTransition(async () => {
-      const res = await addAction(page, type);
+      const res = await addAction(page, type, slot);
       if (res.ok) await refresh();
       else alert(`❌ ${res.error}`);
     });
@@ -65,89 +78,133 @@ export default function SectionsEditor({ page, initialSections, addAction, updat
     });
   }
 
+  async function changeSlot(id: number, slot: SectionSlot) {
+    startTransition(async () => {
+      const res = await changeSlotAction(id, slot);
+      if (res.ok) await refresh();
+      else alert(`❌ ${res.error}`);
+    });
+  }
+
+  // Group sections by slot for the UI.
+  const bySlot: Record<SectionSlot, PageSection[]> = {
+    "top": [], "after-hero": [], "after-values": [], "after-featured": [], "after-quote": [], "bottom": [],
+  };
+  for (const s of sections) bySlot[s.slot]?.push(s);
+
   return (
     <div>
-      {/* ── List of existing sections ─────────────────────────────── */}
-      {sections.length === 0 ? (
-        <p className="muted" style={{ fontSize: 13, fontStyle: "italic", marginBottom: 22 }}>
-          Aucune section personnalisée. Cliquez sur « + Ajouter une section » ci-dessous.
-        </p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 22 }}>
-          {sections.map((s, i) => {
-            const info = TYPE_INFO[s.type];
-            const isOpen = openSection === s.id;
-            return (
-              <div key={s.id} className="section-card">
-                <header className="section-card__head">
-                  <div className="section-card__title">
-                    <span style={{ fontSize: 18, marginRight: 8 }}>{info.emoji}</span>
-                    <span className="serif" style={{ fontSize: 17, color: "var(--forest)" }}>
-                      Section {i + 1} — {info.label}
-                    </span>
-                  </div>
-                  <div className="section-card__controls">
-                    <button type="button" disabled={pending || i === 0} onClick={() => move(s.id, "up")} title="Monter">↑</button>
-                    <button type="button" disabled={pending || i === sections.length - 1} onClick={() => move(s.id, "down")} title="Descendre">↓</button>
-                    <button type="button" onClick={() => setOpenSection(isOpen ? null : s.id)}>
-                      {isOpen ? "Replier" : "Modifier"}
-                    </button>
-                    <button type="button" className="section-card__delete" disabled={pending} onClick={() => removeSection(s.id)}>
-                      ✕
-                    </button>
-                  </div>
-                </header>
-                {isOpen && (
-                  <div className="section-card__body">
-                    <SectionEditorBody
-                      section={s}
-                      onSave={async (data) => {
-                        const res = await updateAction(s.id, data);
-                        if (res.ok) {
-                          setSections((prev) => prev.map((x) => (x.id === s.id ? { ...x, data } : x)));
-                        }
-                        return res;
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <p className="muted" style={{ fontSize: 12.5, marginBottom: 16, fontStyle: "italic" }}>
+        Vous pouvez ajouter des sections à 6 emplacements différents de la page. Chaque section peut ensuite être
+        déplacée d&apos;un emplacement à un autre via le menu déroulant.
+      </p>
 
-      {/* ── Add new section ───────────────────────────────────────── */}
-      {showTypePicker ? (
-        <div className="section-type-picker">
-          <h4 style={{ margin: "0 0 12px", fontSize: 14, color: "var(--forest)" }}>Choisissez un type de section :</h4>
-          <div className="section-type-grid">
-            {(Object.keys(TYPE_INFO) as SectionType[]).map((t) => {
-              const info = TYPE_INFO[t];
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  className="section-type-card"
-                  disabled={pending}
-                  onClick={() => addSection(t)}
-                >
-                  <div style={{ fontSize: 30, marginBottom: 6 }}>{info.emoji}</div>
-                  <div className="serif" style={{ fontSize: 14, color: "var(--forest)" }}>{info.label}</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{info.description}</div>
+      {SLOT_ORDER.map((slot) => {
+        const slotSections = bySlot[slot] || [];
+        const isPickerOpen = pickerForSlot === slot;
+        return (
+          <div key={slot} className="section-slot">
+            <header className="section-slot__head">
+              <h4 className="section-slot__title">
+                <span className="section-slot__pin">📍</span> {SLOT_LABELS[slot]}
+              </h4>
+              <span className="section-slot__count">
+                {slotSections.length} section{slotSections.length > 1 ? "s" : ""}
+              </span>
+            </header>
+
+            {slotSections.length === 0 ? (
+              <p className="section-slot__empty">Aucune section ici.</p>
+            ) : (
+              <div className="section-slot__list">
+                {slotSections.map((s, i) => {
+                  const info = TYPE_INFO[s.type];
+                  const isOpen = openSection === s.id;
+                  return (
+                    <div key={s.id} className="section-card">
+                      <header className="section-card__head">
+                        <div className="section-card__title">
+                          <span style={{ fontSize: 18, marginRight: 8 }}>{info.emoji}</span>
+                          <span className="serif" style={{ fontSize: 16, color: "var(--forest)" }}>
+                            {info.label}
+                          </span>
+                        </div>
+                        <div className="section-card__controls">
+                          <select
+                            className="admin-select section-card__slot-select"
+                            value={s.slot}
+                            disabled={pending}
+                            onChange={(e) => changeSlot(s.id, e.target.value as SectionSlot)}
+                            title="Déplacer vers un autre emplacement"
+                          >
+                            {SLOT_ORDER.map((sl) => (
+                              <option key={sl} value={sl}>📍 {SLOT_SHORT[sl]}</option>
+                            ))}
+                          </select>
+                          <button type="button" disabled={pending || i === 0} onClick={() => move(s.id, "up")} title="Monter">↑</button>
+                          <button type="button" disabled={pending || i === slotSections.length - 1} onClick={() => move(s.id, "down")} title="Descendre">↓</button>
+                          <button type="button" onClick={() => setOpenSection(isOpen ? null : s.id)}>
+                            {isOpen ? "Replier" : "Modifier"}
+                          </button>
+                          <button type="button" className="section-card__delete" disabled={pending} onClick={() => removeSection(s.id)}>✕</button>
+                        </div>
+                      </header>
+                      {isOpen && (
+                        <div className="section-card__body">
+                          <SectionEditorBody
+                            section={s}
+                            onSave={async (data) => {
+                              const res = await updateAction(s.id, data);
+                              if (res.ok) {
+                                setSections((prev) => prev.map((x) => (x.id === s.id ? { ...x, data } : x)));
+                              }
+                              return res;
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── Add section to this slot ────────────────────────── */}
+            {isPickerOpen ? (
+              <div className="section-type-picker">
+                <h4 style={{ margin: "0 0 12px", fontSize: 14, color: "var(--forest)" }}>
+                  Quel type de section ajouter <em>{SLOT_LABELS[slot].toLowerCase()}</em> ?
+                </h4>
+                <div className="section-type-grid">
+                  {(Object.keys(TYPE_INFO) as SectionType[]).map((t) => {
+                    const info = TYPE_INFO[t];
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        className="section-type-card"
+                        disabled={pending}
+                        onClick={() => addSection(t, slot)}
+                      >
+                        <div style={{ fontSize: 28, marginBottom: 4 }}>{info.emoji}</div>
+                        <div className="serif" style={{ fontSize: 13.5, color: "var(--forest)" }}>{info.label}</div>
+                        <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 3 }}>{info.description}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button type="button" className="admin-btn ghost" onClick={() => setPickerForSlot(null)} style={{ marginTop: 10 }}>
+                  Annuler
                 </button>
-              );
-            })}
+              </div>
+            ) : (
+              <button type="button" className="section-slot__add" onClick={() => setPickerForSlot(slot)} disabled={pending}>
+                + Ajouter ici
+              </button>
+            )}
           </div>
-          <button type="button" className="admin-btn ghost" onClick={() => setShowTypePicker(false)} style={{ marginTop: 12 }}>
-            Annuler
-          </button>
-        </div>
-      ) : (
-        <button type="button" className="admin-btn" onClick={() => setShowTypePicker(true)} disabled={pending}>
-          + AJOUTER UNE SECTION
-        </button>
-      )}
+        );
+      })}
     </div>
   );
 }
@@ -233,7 +290,6 @@ function SectionEditorBody({
   );
 }
 
-// Per-type editors — kept inline because they're tiny and very type-specific.
 type FieldComponent = (props: { label: string; value: string; onChange: (v: string) => void; variant?: "input" | "textarea"; hint?: string }) => React.JSX.Element;
 
 function TextEditor({ data, patch, Field }: { data: TextSectionData; patch: (u: Partial<TextSectionData>) => void; Field: FieldComponent }) {

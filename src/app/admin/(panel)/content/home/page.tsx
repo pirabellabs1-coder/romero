@@ -11,6 +11,7 @@ import {
   updateSectionAction,
   deleteSectionAction,
   moveSectionAction,
+  changeSectionSlotAction,
 } from "../sections-actions";
 
 export const dynamic = "force-dynamic";
@@ -97,6 +98,7 @@ export default async function HomeContentPage() {
           updateAction={updateSectionAction}
           deleteAction={deleteSectionAction}
           moveAction={moveSectionAction}
+          changeSlotAction={changeSectionSlotAction}
         />
       </div>
     </>

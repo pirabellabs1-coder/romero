@@ -1,25 +1,23 @@
 import Link from "next/link";
-import { listSectionsForPage, type PageSection, type TextSectionData, type TextImageSectionData, type QuoteSectionData, type FullImageSectionData } from "@/lib/page-sections";
+import { listSectionsForSlot, type PageSection, type SectionSlot, type TextSectionData, type TextImageSectionData, type QuoteSectionData, type FullImageSectionData } from "@/lib/page-sections";
 import OrnamentDivider from "@/components/OrnamentDivider";
 import Monogram from "@/components/Monogram";
 import type { Lang } from "@/lib/i18n";
 
 type Props = {
   page: string;
+  slot: SectionSlot;
   lang: Lang;
 };
 
 /**
  * Public renderer for the photographer's custom modular sections.
- * Each row in page_sections becomes one rendered block. Type-specific
- * components handle the four flavours: text, text-image, quote,
- * full-image.
- *
- * Empty fields fall through to nothing (so a section in draft state with
- * only a title doesn't show ugly empty paragraphs).
+ * Called once per insertion point (slot) on the page. Empty slots
+ * render nothing so it's cheap to scatter <PageSections /> tags
+ * between every fixed section.
  */
-export default async function PageSections({ page, lang }: Props) {
-  const sections = await listSectionsForPage(page);
+export default async function PageSections({ page, slot, lang }: Props) {
+  const sections = await listSectionsForSlot(page, slot);
   if (sections.length === 0) return null;
   return (
     <>

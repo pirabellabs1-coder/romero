@@ -47,6 +47,9 @@ export default async function HomePage() {
 
   return (
     <main className="page-enter">
+      {/* CMS custom sections: TOP — above hero */}
+      <PageSections page="home" slot="top" lang={lang} />
+
       {/* HERO */}
       <section style={{ position: "relative", overflow: "hidden", background: "var(--cream)", paddingTop: 120 }}>
         <div className="watercolor" />
@@ -106,6 +109,9 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* CMS custom sections: AFTER HERO */}
+      <PageSections page="home" slot="after-hero" lang={lang} />
+
       {/* VALUES BAND */}
       <section
         className="section-pad-sm"
@@ -138,6 +144,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* CMS custom sections: AFTER VALUES */}
+      <PageSections page="home" slot="after-values" lang={lang} />
 
       {/* FEATURED WEDDINGS */}
       <section className="section-pad" style={{ background: "var(--cream)" }}>
@@ -207,6 +216,9 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* CMS custom sections: AFTER FEATURED */}
+      <PageSections page="home" slot="after-featured" lang={lang} />
+
       {/* QUOTE BAND */}
       <section style={{ background: "var(--sage-soft)", padding: "110px 0", position: "relative", overflow: "hidden" }}>
         <div
@@ -239,6 +251,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* CMS custom sections: AFTER QUOTE */}
+      <PageSections page="home" slot="after-quote" lang={lang} />
 
       {/* SERVICES TEASER */}
       <section className="section-pad" style={{ background: "var(--cream)" }}>
@@ -274,8 +289,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* CMS-managed custom sections (modular blocks) appended at the end */}
-      <PageSections page="home" lang={lang} />
+      {/* CMS custom sections: BOTTOM — after services teaser */}
+      <PageSections page="home" slot="bottom" lang={lang} />
     </main>
   );
 }
