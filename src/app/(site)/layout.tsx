@@ -1,3 +1,4 @@
+import Script from "next/script";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { getStrings } from "@/lib/i18n";
@@ -44,6 +45,15 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       <Header t={t} lang={lang} />
       {children}
       <Footer t={t} lang={lang} settings={settings} />
+      {/* Limova chatbot — public site only (admin pages have their own layout
+          and never include this script). Strategy "lazyOnload" defers the
+          fetch to after the page is interactive, so it never blocks the
+          initial paint or the LCP image. */}
+      <Script
+        src="https://limova-web-sltj.onrender.com/scripts/chatbot-loader.js"
+        data-connection-id="75e59a0a-2736-48d8-8cdd-d308a9343775"
+        strategy="lazyOnload"
+      />
     </>
   );
 }
