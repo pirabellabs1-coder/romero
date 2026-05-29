@@ -1,35 +1,44 @@
 /**
  * Page content overrides — the CMS layer on top of the i18n defaults.
  *
- * Every page has a hardcoded set of strings in `lib/i18n.ts` (the
- * "factory defaults"). For any string the photographer wants to edit
- * herself, we look up `page_content(page, key, lang)` in the DB and
- * use that value if present. If the row doesn't exist, the i18n
- * default wins. This means:
- *   • A brand-new install renders exactly as the designer intended.
- *   • Any edit she makes survives forever in Postgres.
- *   • If she clears a field, the default comes back automatically.
+ * Every public page reads getPageContent on every render. To avoid hitting
+ * Postgres N times per request, we wrap the read with Next's unstable_cache,
+ * tagged per page+lang. Admin actions call revalidateTag after each save,
+ * so freshness is preserved without paying a roundtrip on cache hits.
+ *
+ * Cache budget: 5 minutes is a safety net — actions invalidate explicitly,
+ * the TTL just bounds staleness if a revalidate ever silently fails.
  */
+import { unstable_cache, revalidateTag } from "next/cache";
 import { query, execute } from "@/lib/db";
 import type { Lang } from "@/lib/i18n";
 
 export type ContentRow = { key: string; value: string };
 
-/** Fetch every override for a given page+lang, as a plain object. */
-export async function getPageContent(
-  page: string,
-  lang: Lang
-): Promise<Record<string, string>> {
-  const rows = await query<ContentRow>(
-    "SELECT key, value FROM page_content WHERE page = $1 AND lang = $2",
-    [page, lang]
-  );
-  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+export const PAGE_CONTENT_TAG = "cms-content";
+export function pageContentTag(page: string): string {
+  return `${PAGE_CONTENT_TAG}:${page}`;
 }
 
 /**
- * Fetch overrides for BOTH languages in one round-trip. Used by the
- * admin editor which displays FR + EN side by side.
+ * Public read — used on every site page. Cached and tagged so admin
+ * edits become visible immediately via revalidateTag.
+ */
+export const getPageContent: (page: string, lang: Lang) => Promise<Record<string, string>> = unstable_cache(
+  async (page: string, lang: Lang): Promise<Record<string, string>> => {
+    const rows = await query<ContentRow>(
+      "SELECT key, value FROM page_content WHERE page = $1 AND lang = $2",
+      [page, lang]
+    );
+    return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  },
+  ["page-content-by-page-lang"],
+  { revalidate: 300, tags: [PAGE_CONTENT_TAG] }
+);
+
+/**
+ * Admin read — both languages at once. Never cached (admin should always
+ * see what's actually in the DB when editing).
  */
 export async function getPageContentBilingual(
   page: string
@@ -49,8 +58,7 @@ export async function getPageContentBilingual(
 
 /**
  * Upsert a single override. Setting `value` to an empty string deletes
- * the row so the i18n default comes back — that's the "reset to default"
- * pattern, no separate action needed.
+ * the row so the i18n default comes back. Invalidates the public cache.
  */
 export async function setPageContent(
   page: string,
@@ -63,13 +71,15 @@ export async function setPageContent(
       "DELETE FROM page_content WHERE page = $1 AND key = $2 AND lang = $3",
       [page, key, lang]
     );
-    return;
+  } else {
+    await execute(
+      `INSERT INTO page_content (page, key, lang, value)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (page, key, lang)
+       DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [page, key, lang, value]
+    );
   }
-  await execute(
-    `INSERT INTO page_content (page, key, lang, value)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (page, key, lang)
-     DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-    [page, key, lang, value]
-  );
+  // Invalidate the public cache so visitors see the edit on next request.
+  revalidateTag(PAGE_CONTENT_TAG);
 }
