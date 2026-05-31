@@ -32,29 +32,24 @@ export default async function ContentIndex() {
 
       <div className="admin-card">
         <div className="content-page-list">
-          {PAGES.map((p) => {
-            const overrides = countMap.get(p.slug) ?? 0;
+          {PAGES
             // Hidden until the post-delivery review with the client.
-            // To re-enable: list the slugs the client should see.
-            const ready = ["home"].includes(p.slug);
-            return ready ? (
-              <Link key={p.slug} href={`/admin/content/${p.slug}`} className="content-page-card">
-                <h3 className="content-page-card__title">{p.title}</h3>
-                <p className="content-page-card__sub">{p.description}</p>
-                <p className="content-page-card__count">
-                  {overrides > 0
-                    ? `${overrides} champ${overrides > 1 ? "s" : ""} personnalisé${overrides > 1 ? "s" : ""}`
-                    : "Aucune personnalisation"}
-                </p>
-              </Link>
-            ) : (
-              <div key={p.slug} className="content-page-card" style={{ opacity: 0.45, cursor: "not-allowed" }} title="Bientôt">
-                <h3 className="content-page-card__title">{p.title}</h3>
-                <p className="content-page-card__sub">{p.description}</p>
-                <p className="content-page-card__count" style={{ color: "var(--muted)" }}>Bientôt</p>
-              </div>
-            );
-          })}
+            // To re-enable a page: add its slug here AND in cms-guard.ts.
+            .filter((p) => ["home"].includes(p.slug))
+            .map((p) => {
+              const overrides = countMap.get(p.slug) ?? 0;
+              return (
+                <Link key={p.slug} href={`/admin/content/${p.slug}`} className="content-page-card">
+                  <h3 className="content-page-card__title">{p.title}</h3>
+                  <p className="content-page-card__sub">{p.description}</p>
+                  <p className="content-page-card__count">
+                    {overrides > 0
+                      ? `${overrides} champ${overrides > 1 ? "s" : ""} personnalisé${overrides > 1 ? "s" : ""}`
+                      : "Aucune personnalisation"}
+                  </p>
+                </Link>
+              );
+            })}
         </div>
       </div>
     </>
