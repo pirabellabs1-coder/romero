@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { upload } from "@vercel/blob/client";
+import FocalPointPicker from "@/components/admin/FocalPointPicker";
 
 type Status =
   | { kind: "idle" }
@@ -16,26 +17,40 @@ type Props = {
   caption?: string;
   /** Aspect ratio of the preview frame. */
   ratio?: string;
-  /** Live-save action that stores the URL into page_content. */
+  /** Live-save action for the URL. */
   saveAction: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+
+  // ── Optional focal point support ─────────────────────────────────
+  /**
+   * If provided, a focal-point picker appears under the photo and the
+   * preview applies the chosen position (live preview). The current
+   * value is shown in % (or named position).
+   */
+  currentFocal?: string;
+  /** Live-save action for the focal point (called on mouseup). */
+  saveFocalAction?: (focal: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
 /**
- * Inline photo replacer for the home hero (or any other one-off photo).
+ * Inline photo replacer + focal-point picker (when enabled).
  *
- * Client → Blob direct upload, then live-saves the resulting URL via the
- * given Server Action. Same pattern as the gallery uploads — no file
- * bytes flow through our Server Action, so Vercel's 4.5 MB serverless
- * cap is irrelevant.
+ * Client → Blob direct upload for the URL, then live-saves URL and/or
+ * focal point via the given Server Actions. The picker uses the same
+ * click-on-image pattern as the gallery covers — drag the gold marker
+ * to set which part of the photo must stay visible after cropping.
  */
 export default function HeroPhotoUploader({
   currentUrl,
   caption,
   ratio = "4 / 5",
   saveAction,
+  currentFocal,
+  saveFocalAction,
 }: Props) {
   const [url, setUrl] = useState(currentUrl);
+  const [focal, setFocal] = useState(currentFocal || "center center");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [focalStatus, setFocalStatus] = useState<Status>({ kind: "idle" });
 
   async function handleFile(f: File) {
     setStatus({ kind: "uploading", name: f.name });
@@ -61,41 +76,93 @@ export default function HeroPhotoUploader({
     }
   }
 
-  const pill = (() => {
-    switch (status.kind) {
+  async function handleFocalChange(next: string) {
+    setFocal(next);
+    if (!saveFocalAction) return;
+    setFocalStatus({ kind: "saving" });
+    const res = await saveFocalAction(next);
+    if (res.ok) {
+      setFocalStatus({ kind: "saved" });
+      setTimeout(() => setFocalStatus({ kind: "idle" }), 1800);
+    } else {
+      setFocalStatus({ kind: "error", message: res.error });
+    }
+  }
+
+  function pillOf(s: Status) {
+    switch (s.kind) {
       case "idle":      return null;
-      case "uploading": return { color: "var(--gold-deep)",  text: `⏳ Téléversement de ${status.name}…` };
+      case "uploading": return { color: "var(--gold-deep)",  text: `⏳ Téléversement de ${s.name}…` };
       case "saving":    return { color: "var(--muted)",       text: "Enregistrement…" };
       case "saved":     return { color: "var(--sage-deep)",   text: "✓ Enregistré" };
-      case "error":     return { color: "#8B2E2E",            text: `❌ ${status.message}` };
+      case "error":     return { color: "#8B2E2E",            text: `❌ ${s.message}` };
     }
-  })();
+  }
+  const pill = pillOf(status);
+  const focalPill = pillOf(focalStatus);
+
+  const focalEnabled = Boolean(saveFocalAction);
 
   return (
     <div className="hero-photo-uploader">
-      <div className="hero-photo-uploader__preview" style={{ aspectRatio: ratio }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={url} alt="Photo hero" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        <label className="hero-photo-uploader__overlay">
-          {status.kind === "uploading" ? "⏳ Envoi…" : "📷 Remplacer la photo"}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-            disabled={status.kind === "uploading" || status.kind === "saving"}
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = "";
-              if (f) handleFile(f);
-            }}
+      {focalEnabled ? (
+        // Focal point mode: the FocalPointPicker IS the preview. Clicking
+        // anywhere on the image moves the gold marker; releasing commits.
+        <div style={{ position: "relative" }}>
+          <FocalPointPicker
+            src={url}
+            value={focal}
+            ratio={ratio}
+            onChange={handleFocalChange}
           />
-        </label>
-      </div>
+          <label className="hero-photo-uploader__overlay" style={{ borderRadius: "0 0 4px 4px" }}>
+            {status.kind === "uploading" ? "⏳ Envoi…" : "📷 Remplacer la photo"}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+              disabled={status.kind === "uploading" || status.kind === "saving"}
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (f) handleFile(f);
+              }}
+            />
+          </label>
+        </div>
+      ) : (
+        // Legacy plain-preview mode (no focal point control).
+        <div className="hero-photo-uploader__preview" style={{ aspectRatio: ratio }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt="Photo hero" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <label className="hero-photo-uploader__overlay">
+            {status.kind === "uploading" ? "⏳ Envoi…" : "📷 Remplacer la photo"}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+              disabled={status.kind === "uploading" || status.kind === "saving"}
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (f) handleFile(f);
+              }}
+            />
+          </label>
+        </div>
+      )}
       <div className="hero-photo-uploader__foot">
         {caption && <span className="cover-picker__hint">{caption}</span>}
-        {pill && (
-          <span style={{ fontSize: 11.5, fontWeight: 500, color: pill.color }}>{pill.text}</span>
-        )}
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {focalPill && (
+            <span style={{ fontSize: 11.5, fontWeight: 500, color: focalPill.color }}>
+              Cadrage : {focalPill.text}
+            </span>
+          )}
+          {pill && (
+            <span style={{ fontSize: 11.5, fontWeight: 500, color: pill.color }}>{pill.text}</span>
+          )}
+        </div>
       </div>
     </div>
   );

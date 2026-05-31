@@ -6,7 +6,7 @@ import { listSectionsForPage } from "@/lib/page-sections";
 import { PAGE_SLOTS } from "@/lib/page-slots";
 import AboutContentEditor from "@/components/admin/AboutContentEditor";
 import SectionsEditor from "@/components/admin/SectionsEditor";
-import { saveContentFields, saveContentPhoto } from "../actions";
+import { saveContentFields, saveContentPhoto, saveContentPhotoFocal } from "../actions";
 import {
   addSectionAction, updateSectionAction, deleteSectionAction,
   moveSectionAction, changeSectionSlotAction,
@@ -29,6 +29,11 @@ function flatAboutDefaults(lang: "fr" | "en"): Record<string, string> {
     out[`process_${i}_title`] = t; out[`process_${i}_body`] = b;
   });
   (about.gear as string[] | undefined)?.forEach((g, i) => { out[`gear_${i}`] = g; });
+  // CTA block at the end of the page (shared default strings).
+  const cta = STRINGS[lang].cta as { question: string; line1: string; line2: string };
+  out["cta_question"] = cta.question;
+  out["cta_line1"] = cta.line1;
+  out["cta_line2"] = cta.line2;
   return out;
 }
 
@@ -40,6 +45,14 @@ async function saveAboutStoryPhoto(url: string) {
   "use server";
   return saveContentPhoto("about", "photo_story", url);
 }
+async function saveAboutEyebrowFocal(focal: string) {
+  "use server";
+  return saveContentPhotoFocal("about", "photo_eyebrow", focal);
+}
+async function saveAboutStoryFocal(focal: string) {
+  "use server";
+  return saveContentPhotoFocal("about", "photo_story", focal);
+}
 
 export default async function AboutContentPage() {
   cmsPageGuard("about");
@@ -50,8 +63,10 @@ export default async function AboutContentPage() {
     listSectionsForPage("about"),
   ]);
   const slotCfg = PAGE_SLOTS["about"];
-  const eyebrowPhotoUrl = frOnly["photo_eyebrow"] || photoUrl(fallbackPool[0]) || "/uploads/hero.jpg";
-  const storyPhotoUrl   = frOnly["photo_story"]   || photoUrl(fallbackPool[1]) || "/uploads/hero.jpg";
+  const eyebrowPhotoUrl   = frOnly["photo_eyebrow"]       || photoUrl(fallbackPool[0]) || "/uploads/hero.jpg";
+  const storyPhotoUrl     = frOnly["photo_story"]         || photoUrl(fallbackPool[1]) || "/uploads/hero.jpg";
+  const eyebrowPhotoFocal = frOnly["photo_eyebrow_focal"] || "center center";
+  const storyPhotoFocal   = frOnly["photo_story_focal"]   || "center center";
 
   return (
     <>
@@ -65,10 +80,14 @@ export default async function AboutContentPage() {
         defaultsFr={flatAboutDefaults("fr")}
         defaultsEn={flatAboutDefaults("en")}
         eyebrowPhotoUrl={eyebrowPhotoUrl}
+        eyebrowPhotoFocal={eyebrowPhotoFocal}
         storyPhotoUrl={storyPhotoUrl}
+        storyPhotoFocal={storyPhotoFocal}
         saveAction={saveContentFields}
         saveEyebrowPhotoAction={saveAboutEyebrowPhoto}
+        saveEyebrowFocalAction={saveAboutEyebrowFocal}
         saveStoryPhotoAction={saveAboutStoryPhoto}
+        saveStoryFocalAction={saveAboutStoryFocal}
       />
 
       {/* ─── Sections personnalisées (Elementor-light) ─── */}

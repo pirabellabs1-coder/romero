@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { getPageContentBilingual } from "@/lib/page-content";
 import { STRINGS } from "@/lib/i18n";
-import { listGalleries, coverFor } from "@/lib/content";
+import { listGalleries, coverFor, pickShowcasePhotos, photoUrl } from "@/lib/content";
 import { listSectionsForPage } from "@/lib/page-sections";
 import HomeContentEditor from "@/components/admin/HomeContentEditor";
 import SectionsEditor from "@/components/admin/SectionsEditor";
-import { saveContentFields, saveContentPhoto } from "../actions";
+import { saveContentFields, saveContentPhoto, saveContentPhotoFocal } from "../actions";
 import {
   addSectionAction,
   updateSectionAction,
@@ -32,19 +32,34 @@ function flatHomeDefaults(lang: "fr" | "en"): Record<string, string> {
     out[`values_${i}_title`] = t;
     out[`values_${i}_body`] = b;
   });
+  // Teaser block defaults inherit from the Services page strings + nav label.
+  const nav = STRINGS[lang].nav;
+  const services = STRINGS[lang].services;
+  out["teaser_eyebrow"]     = nav.services;
+  out["teaser_title"]       = services.title;
+  out["teaser_titleAccent"] = services.titleAccent;
+  out["teaser_lead"]        = services.lead;
+  out["teaser_cta"]         = services.cta;
   return out;
 }
 
-async function saveHero(url: string) {
-  "use server";
-  return saveContentPhoto("home", "hero_photo", url);
-}
+async function saveHero(url: string)         { "use server"; return saveContentPhoto("home", "hero_photo", url); }
+async function saveHeroFocal(f: string)      { "use server"; return saveContentPhotoFocal("home", "hero_photo", f); }
+async function saveTeaserPhoto0(url: string) { "use server"; return saveContentPhoto("home", "teaser_photo_0", url); }
+async function saveTeaserPhoto1(url: string) { "use server"; return saveContentPhoto("home", "teaser_photo_1", url); }
+async function saveTeaserPhoto2(url: string) { "use server"; return saveContentPhoto("home", "teaser_photo_2", url); }
+async function saveTeaserPhoto3(url: string) { "use server"; return saveContentPhoto("home", "teaser_photo_3", url); }
+async function saveTeaserFocal0(f: string)   { "use server"; return saveContentPhotoFocal("home", "teaser_photo_0", f); }
+async function saveTeaserFocal1(f: string)   { "use server"; return saveContentPhotoFocal("home", "teaser_photo_1", f); }
+async function saveTeaserFocal2(f: string)   { "use server"; return saveContentPhotoFocal("home", "teaser_photo_2", f); }
+async function saveTeaserFocal3(f: string)   { "use server"; return saveContentPhotoFocal("home", "teaser_photo_3", f); }
 
 export default async function HomeContentPage() {
-  const [overrides, featuredGalsAll, sections] = await Promise.all([
+  const [overrides, featuredGalsAll, sections, teaserPool] = await Promise.all([
     getPageContentBilingual("home"),
     listGalleries({ featuredOnly: true }),
     listSectionsForPage("home"),
+    pickShowcasePhotos(4, "home-teaser-v1"),
   ]);
   const featuredGals = featuredGalsAll.slice(0, 3);
   const featuredCovers = await Promise.all(
@@ -60,11 +75,34 @@ export default async function HomeContentPage() {
   }));
 
   const heroPhoto = overrides.fr["hero_photo"] || DEFAULT_HERO;
-  // The hero_photo "override" isn't a translatable string; drop it from
-  // the text fields the editor displays.
-  const { hero_photo: _hpFr, ...frTexts } = overrides.fr;
-  const { hero_photo: _hpEn, ...enTexts } = overrides.en;
-  void _hpFr; void _hpEn;
+  const heroPhotoFocal = overrides.fr["hero_photo_focal"] || "center center";
+
+  // Teaser photos: admin URL wins, else fallback to the random pool.
+  const teaserPhotos: [string, string, string, string] = [
+    overrides.fr["teaser_photo_0"] || photoUrl(teaserPool[0]) || DEFAULT_HERO,
+    overrides.fr["teaser_photo_1"] || photoUrl(teaserPool[1]) || DEFAULT_HERO,
+    overrides.fr["teaser_photo_2"] || photoUrl(teaserPool[2]) || DEFAULT_HERO,
+    overrides.fr["teaser_photo_3"] || photoUrl(teaserPool[3]) || DEFAULT_HERO,
+  ];
+  const teaserFocals: [string, string, string, string] = [
+    overrides.fr["teaser_photo_0_focal"] || "center center",
+    overrides.fr["teaser_photo_1_focal"] || "center center",
+    overrides.fr["teaser_photo_2_focal"] || "center center",
+    overrides.fr["teaser_photo_3_focal"] || "center center",
+  ];
+
+  // Drop photo URL/focal keys from the text editor (they're not strings).
+  const NON_TEXT_KEYS = new Set([
+    "hero_photo", "hero_photo_focal",
+    "teaser_photo_0", "teaser_photo_0_focal",
+    "teaser_photo_1", "teaser_photo_1_focal",
+    "teaser_photo_2", "teaser_photo_2_focal",
+    "teaser_photo_3", "teaser_photo_3_focal",
+  ]);
+  const frTexts: Record<string, string> = {};
+  for (const [k, v] of Object.entries(overrides.fr)) if (!NON_TEXT_KEYS.has(k)) frTexts[k] = v;
+  const enTexts: Record<string, string> = {};
+  for (const [k, v] of Object.entries(overrides.en)) if (!NON_TEXT_KEYS.has(k)) enTexts[k] = v;
 
   return (
     <>
@@ -81,14 +119,26 @@ export default async function HomeContentPage() {
         defaultsEn={flatHomeDefaults("en")}
         featured={featured}
         heroPhoto={heroPhoto}
+        heroPhotoFocal={heroPhotoFocal}
+        teaserPhotos={teaserPhotos}
+        teaserFocals={teaserFocals}
         saveAction={saveContentFields}
         saveHeroAction={saveHero}
+        saveHeroFocalAction={saveHeroFocal}
+        saveTeaserPhoto0={saveTeaserPhoto0}
+        saveTeaserPhoto1={saveTeaserPhoto1}
+        saveTeaserPhoto2={saveTeaserPhoto2}
+        saveTeaserPhoto3={saveTeaserPhoto3}
+        saveTeaserFocal0={saveTeaserFocal0}
+        saveTeaserFocal1={saveTeaserFocal1}
+        saveTeaserFocal2={saveTeaserFocal2}
+        saveTeaserFocal3={saveTeaserFocal3}
       />
 
       {/* ── Sections custom (modular blocks à la Elementor light) ─── */}
       <div className="admin-card">
         <div className="content-section-head">
-          <h2>⑤ Sections personnalisées</h2>
+          <h2>⑥ Sections personnalisées</h2>
           <p>Ajoutez autant de sections que vous voulez à la fin de la page. Texte, image+texte, citation, photo pleine largeur.</p>
         </div>
         <SectionsEditor

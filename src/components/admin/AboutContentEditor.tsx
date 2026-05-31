@@ -12,10 +12,14 @@ type Props = {
   defaultsFr: Record<string, string>;
   defaultsEn: Record<string, string>;
   eyebrowPhotoUrl: string;
+  eyebrowPhotoFocal?: string;
   storyPhotoUrl: string;
+  storyPhotoFocal?: string;
   saveAction: (page: string, edits: ContentEdit[]) => Promise<{ ok: true; count: number } | { ok: false; error: string }>;
   saveEyebrowPhotoAction: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveEyebrowFocalAction?: (focal: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   saveStoryPhotoAction:   (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveStoryFocalAction?:  (focal: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
 /**
@@ -42,8 +46,10 @@ type FieldStatus = "idle" | "saving" | "saved" | { error: string };
 
 export default function AboutContentEditor({
   initialFr, initialEn, defaultsFr, defaultsEn,
-  eyebrowPhotoUrl, storyPhotoUrl,
-  saveAction, saveEyebrowPhotoAction, saveStoryPhotoAction,
+  eyebrowPhotoUrl, eyebrowPhotoFocal, storyPhotoUrl, storyPhotoFocal,
+  saveAction,
+  saveEyebrowPhotoAction, saveEyebrowFocalAction,
+  saveStoryPhotoAction, saveStoryFocalAction,
 }: Props) {
   const [lang, setLang] = useState<Lang>("fr");
   const [fr, setFr] = useState(() => resolved(initialFr, defaultsFr));
@@ -198,9 +204,11 @@ export default function AboutContentEditor({
           <div className="content-layout-hero__photo">
             <HeroPhotoUploader
               currentUrl={eyebrowPhotoUrl}
-              caption="Photo à droite du bandeau. Format vertical recommandé (3:4)."
+              currentFocal={eyebrowPhotoFocal}
+              caption="Cliquez sur la photo pour choisir le cadrage."
               ratio="3 / 4"
               saveAction={saveEyebrowPhotoAction}
+              saveFocalAction={saveEyebrowFocalAction}
             />
           </div>
         </div>
@@ -216,9 +224,11 @@ export default function AboutContentEditor({
           <div className="content-layout-hero__photo">
             <HeroPhotoUploader
               currentUrl={storyPhotoUrl}
-              caption="Photo à côté du texte de votre histoire."
+              currentFocal={storyPhotoFocal}
+              caption="Cliquez sur la photo pour choisir le cadrage."
               ratio="3 / 4"
               saveAction={saveStoryPhotoAction}
+              saveFocalAction={saveStoryFocalAction}
             />
           </div>
           <div className="content-layout-hero__text">
@@ -282,6 +292,20 @@ export default function AboutContentEditor({
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginTop: 10 }}>
           {Array.from({ length: 10 }, (_, i) => field(`gear_${i}`, `Ligne ${i + 1}`))}
         </div>
+      </div>
+
+      {/* ─── ⑥ Bloc final « Une question ? » (CTA sauge) ─── */}
+      <div className="admin-card">
+        <div className="content-section-head">
+          <h2>⑥ Bloc final « Une question ? »</h2>
+          <p>Le bandeau sauge en bas de la page avec le bouton « Réserver une séance ».</p>
+        </div>
+        {field("cta_question", "Surtitre du bloc (small caps)")}
+        {field("cta_line1", "Phrase ligne 1")}
+        {field("cta_line2", "Phrase ligne 2 (italique doré)")}
+        <p className="content-field__hint" style={{ marginTop: 4 }}>
+          Le texte du bouton « Réserver une séance » se modifie dans Navigation → bouton « Réserver ».
+        </p>
       </div>
 
       {/* Sticky save bar */}

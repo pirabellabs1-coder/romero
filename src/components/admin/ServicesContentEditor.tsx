@@ -6,15 +6,21 @@ import HeroPhotoUploader from "@/components/admin/HeroPhotoUploader";
 type Lang = "fr" | "en";
 type ContentEdit = { key: string; lang: Lang; value: string };
 
+type FocalAction = (focal: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+
 type Props = {
   initialFr: Record<string, string>;
   initialEn: Record<string, string>;
   defaultsFr: Record<string, string>;
   defaultsEn: Record<string, string>;
   heroPhoto: string;
+  heroFocal?: string;
   cardPhotos: [string, string, string, string];
+  cardFocals?: [string, string, string, string];
   zoomPhoto: string;
+  zoomFocal?: string;
   galleryPhotos: [string, string, string, string];
+  galleryFocals?: [string, string, string, string];
   saveAction: (page: string, edits: ContentEdit[]) => Promise<{ ok: true; count: number } | { ok: false; error: string }>;
   savePhotoHero:    (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   savePhotoZoom:    (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
@@ -26,6 +32,16 @@ type Props = {
   savePhotoGallery1: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   savePhotoGallery2: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   savePhotoGallery3: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveFocalHero?:    FocalAction;
+  saveFocalZoom?:    FocalAction;
+  saveFocalCard0?:   FocalAction;
+  saveFocalCard1?:   FocalAction;
+  saveFocalCard2?:   FocalAction;
+  saveFocalCard3?:   FocalAction;
+  saveFocalGallery0?: FocalAction;
+  saveFocalGallery1?: FocalAction;
+  saveFocalGallery2?: FocalAction;
+  saveFocalGallery3?: FocalAction;
 };
 
 /**
@@ -49,11 +65,14 @@ type FS = "idle" | "saving" | "saved" | { error: string };
 export default function ServicesContentEditor(props: Props) {
   const {
     initialFr, initialEn, defaultsFr, defaultsEn,
-    heroPhoto, cardPhotos, zoomPhoto, galleryPhotos,
+    heroPhoto, heroFocal, cardPhotos, cardFocals, zoomPhoto, zoomFocal, galleryPhotos, galleryFocals,
     saveAction,
     savePhotoHero, savePhotoZoom,
     savePhotoCard0, savePhotoCard1, savePhotoCard2, savePhotoCard3,
     savePhotoGallery0, savePhotoGallery1, savePhotoGallery2, savePhotoGallery3,
+    saveFocalHero, saveFocalZoom,
+    saveFocalCard0, saveFocalCard1, saveFocalCard2, saveFocalCard3,
+    saveFocalGallery0, saveFocalGallery1, saveFocalGallery2, saveFocalGallery3,
   } = props;
 
   const [lang, setLang] = useState<Lang>("fr");
@@ -179,6 +198,8 @@ export default function ServicesContentEditor(props: Props) {
 
   const CARD_PHOTO_SAVERS = [savePhotoCard0, savePhotoCard1, savePhotoCard2, savePhotoCard3];
   const GAL_PHOTO_SAVERS = [savePhotoGallery0, savePhotoGallery1, savePhotoGallery2, savePhotoGallery3];
+  const CARD_FOCAL_SAVERS = [saveFocalCard0, saveFocalCard1, saveFocalCard2, saveFocalCard3];
+  const GAL_FOCAL_SAVERS = [saveFocalGallery0, saveFocalGallery1, saveFocalGallery2, saveFocalGallery3];
 
   return (
     <div className="content-editor">
@@ -208,7 +229,7 @@ export default function ServicesContentEditor(props: Props) {
             {field("lead", "Sous-titre", "textarea")}
           </div>
           <div className="content-layout-hero__photo">
-            <HeroPhotoUploader currentUrl={heroPhoto} caption="Photo principale du bandeau." ratio="3 / 4" saveAction={savePhotoHero} />
+            <HeroPhotoUploader currentUrl={heroPhoto} currentFocal={heroFocal} caption="Cliquez sur la photo pour choisir le cadrage." ratio="3 / 4" saveAction={savePhotoHero} saveFocalAction={saveFocalHero} />
           </div>
         </div>
       </div>
@@ -223,7 +244,7 @@ export default function ServicesContentEditor(props: Props) {
           {[0, 1, 2, 3].map((i) => (
             <div key={i} style={{ background: "var(--cream)", border: "1px solid var(--rule)", borderRadius: 6, padding: 16 }}>
               <div style={{ marginBottom: 12 }}>
-                <HeroPhotoUploader currentUrl={cardPhotos[i]} caption={`Photo de la carte ${i + 1}`} ratio="4 / 3" saveAction={CARD_PHOTO_SAVERS[i]} />
+                <HeroPhotoUploader currentUrl={cardPhotos[i]} currentFocal={cardFocals?.[i]} caption={`Carte ${i + 1} — cliquez pour choisir le cadrage`} ratio="4 / 3" saveAction={CARD_PHOTO_SAVERS[i]} saveFocalAction={CARD_FOCAL_SAVERS[i]} />
               </div>
               {field(`cards_${i}_title`, `Carte ${i + 1} — titre`)}
               {field(`cards_${i}_subtitle`, "Baseline")}
@@ -247,7 +268,7 @@ export default function ServicesContentEditor(props: Props) {
             {field("zoomIntro", "Texte d'intro", "textarea")}
           </div>
           <div className="content-layout-hero__photo">
-            <HeroPhotoUploader currentUrl={zoomPhoto} caption="Photo qui accompagne le bloc des formules." ratio="3 / 2" saveAction={savePhotoZoom} />
+            <HeroPhotoUploader currentUrl={zoomPhoto} currentFocal={zoomFocal} caption="Cliquez sur la photo pour choisir le cadrage." ratio="3 / 2" saveAction={savePhotoZoom} saveFocalAction={saveFocalZoom} />
           </div>
         </div>
         <div className="content-values-grid" style={{ marginTop: 18 }}>
@@ -272,7 +293,7 @@ export default function ServicesContentEditor(props: Props) {
           {[0, 1, 2, 3].map((i) => (
             <div key={i}>
               <p style={{ fontSize: 11, color: "var(--muted)", margin: "0 0 6px" }}>Photo {i + 1}</p>
-              <HeroPhotoUploader currentUrl={galleryPhotos[i]} caption="" ratio="4 / 5" saveAction={GAL_PHOTO_SAVERS[i]} />
+              <HeroPhotoUploader currentUrl={galleryPhotos[i]} currentFocal={galleryFocals?.[i]} caption="Cliquez pour le cadrage" ratio="4 / 5" saveAction={GAL_PHOTO_SAVERS[i]} saveFocalAction={GAL_FOCAL_SAVERS[i]} />
             </div>
           ))}
         </div>

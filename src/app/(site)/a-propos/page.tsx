@@ -35,6 +35,8 @@ export default async function AboutPage() {
   // Admin-uploaded photos win over the random showcase picks.
   const eyebrowPhotoUrl = ov["photo_eyebrow"] || photoUrl(eyebrowImg);
   const storyPhotoUrl   = ov["photo_story"]   || photoUrl(storyImg);
+  const eyebrowPhotoFocal = ov["photo_eyebrow_focal"] || "center center";
+  const storyPhotoFocal   = ov["photo_story_focal"]   || "center center";
   const valueKinds: ValueKind[] = ["excellence", "detail", "emotion", "elegance"];
 
   // CMS overrides — merge over t.about per top-level scalar, plus expand
@@ -57,6 +59,16 @@ export default async function AboutPage() {
   ] as [string, string]);
   const gear = (t.about.gear as ReadonlyArray<string>).map((g, i) => ov[`gear_${i}`] || g);
 
+  // CTA block (« Une question ? ») — let admin override the 3 strings.
+  const ctaT = {
+    ...t,
+    cta: {
+      question: ov["cta_question"] || t.cta.question,
+      line1:    ov["cta_line1"]    || t.cta.line1,
+      line2:    ov["cta_line2"]    || t.cta.line2,
+    },
+  };
+
   return (
     <main>
       <PageSections page="about" slot="top" lang={lang} />
@@ -65,7 +77,7 @@ export default async function AboutPage() {
         title={about.title}
         accent={about.titleAccent}
         lead={about.lead}
-        image={{ src: eyebrowPhotoUrl, label: "Mickael en plein reportage" }}
+        image={{ src: eyebrowPhotoUrl, label: "Mickael en plein reportage", objectPosition: eyebrowPhotoFocal }}
       />
 
       {/* STORY */}
@@ -74,7 +86,7 @@ export default async function AboutPage() {
           <div className="responsive-2col start">
             <Rise>
               <div style={{ position: "relative" }}>
-                <Photo src={storyPhotoUrl} label="Mickael, atelier de retouche" ratio="3 / 4" />
+                <Photo src={storyPhotoUrl} label="Mickael, atelier de retouche" ratio="3 / 4" objectPosition={storyPhotoFocal} />
                 <div
                   style={{
                     position: "absolute",
@@ -227,7 +239,7 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      <CTABlock t={t} />
+      <CTABlock t={ctaT} />
       <PageSections page="about" slot="bottom" lang={lang} />
     </main>
   );

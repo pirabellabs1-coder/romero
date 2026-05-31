@@ -30,11 +30,23 @@ type Props = {
   defaultsEn: Record<string, string>;
   featured: FeaturedGallery[];
   heroPhoto: string;
+  heroPhotoFocal?: string;
+  teaserPhotos: [string, string, string, string];
+  teaserFocals: [string, string, string, string];
   saveAction: (
     page: string,
     edits: ContentEdit[]
   ) => Promise<{ ok: true; count: number } | { ok: false; error: string }>;
   saveHeroAction: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveHeroFocalAction?: (focal: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveTeaserPhoto0: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveTeaserPhoto1: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveTeaserPhoto2: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveTeaserPhoto3: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveTeaserFocal0?: (f: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveTeaserFocal1?: (f: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveTeaserFocal2?: (f: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  saveTeaserFocal3?: (f: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
 /**
@@ -63,6 +75,13 @@ const QUOTE_FIELDS: FieldSpec[] = [
   { key: "bandQuote", label: "Citation (italique)", variant: "textarea" },
   { key: "bandAttr",  label: "Attribution (« — Mickael Romero »)" },
 ];
+const TEASER_FIELDS: FieldSpec[] = [
+  { key: "teaser_eyebrow",     label: "Surtitre" },
+  { key: "teaser_title",       label: "Titre — partie principale" },
+  { key: "teaser_titleAccent", label: "Titre — partie italique dorée" },
+  { key: "teaser_lead",        label: "Texte de présentation", variant: "textarea" },
+  { key: "teaser_cta",         label: "Bouton vers /prestations" },
+];
 
 /**
  * Resolve the value displayed in a field. Overrides win over defaults so
@@ -83,8 +102,10 @@ function resolvedInitial(
 
 export default function HomeContentEditor({
   initialFr, initialEn, defaultsFr, defaultsEn,
-  featured, heroPhoto,
-  saveAction, saveHeroAction,
+  featured, heroPhoto, heroPhotoFocal, teaserPhotos, teaserFocals,
+  saveAction, saveHeroAction, saveHeroFocalAction,
+  saveTeaserPhoto0, saveTeaserPhoto1, saveTeaserPhoto2, saveTeaserPhoto3,
+  saveTeaserFocal0, saveTeaserFocal1, saveTeaserFocal2, saveTeaserFocal3,
 }: Props) {
   const [lang, setLang] = useState<Lang>("fr");
   // Resolved values: override (if set) or factory default. Pre-filled so
@@ -305,9 +326,11 @@ export default function HomeContentEditor({
           <div className="content-layout-hero__photo">
             <HeroPhotoUploader
               currentUrl={heroPhoto}
-              caption="Photo affichée à droite du titre. Sauvegardée immédiatement après l'envoi (indépendant du bouton ENREGISTRER ci-dessous)."
+              currentFocal={heroPhotoFocal}
+              caption="Cliquez sur la photo pour choisir le cadrage. Remplacez avec « 📷 Remplacer la photo »."
               ratio="3 / 4"
               saveAction={saveHeroAction}
+              saveFocalAction={saveHeroFocalAction}
             />
           </div>
         </div>
@@ -371,6 +394,42 @@ export default function HomeContentEditor({
           <p>Le bandeau sauge avec le monogramme et une citation au milieu.</p>
         </div>
         {QUOTE_FIELDS.map(renderField)}
+      </div>
+
+      {/* ─── ⑤ BLOC PRESTATIONS (TEASER) — texte à gauche, 4 photos à droite ─── */}
+      <div className="admin-card">
+        <div className="content-section-head">
+          <h2>⑤ Bloc Prestations (teaser)</h2>
+          <p>Tout en bas de la page : texte de présentation à gauche, mosaïque de 4 photos à droite.</p>
+        </div>
+        <div className="content-layout-hero">
+          <div className="content-layout-hero__text">
+            {TEASER_FIELDS.map(renderField)}
+          </div>
+          <div className="content-layout-hero__photo">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {[0, 1, 2, 3].map((i) => {
+                const photo = teaserPhotos[i];
+                const focal = teaserFocals[i];
+                const saveUrl = [saveTeaserPhoto0, saveTeaserPhoto1, saveTeaserPhoto2, saveTeaserPhoto3][i];
+                const saveFocal = [saveTeaserFocal0, saveTeaserFocal1, saveTeaserFocal2, saveTeaserFocal3][i];
+                return (
+                  <div key={i}>
+                    <p style={{ fontSize: 11, color: "var(--muted)", margin: "0 0 6px" }}>Photo {i + 1}</p>
+                    <HeroPhotoUploader
+                      currentUrl={photo}
+                      currentFocal={focal}
+                      caption=""
+                      ratio="3 / 4"
+                      saveAction={saveUrl}
+                      saveFocalAction={saveFocal}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ─── Sticky save bar ─────────────────────────────────────── */}

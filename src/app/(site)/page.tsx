@@ -42,8 +42,32 @@ export default async function HomePage() {
   ] as [string, string]);
 
   // Hero photo: admin override (page_content key="hero_photo") wins,
-  // else the original /uploads/hero.jpg.
+  // else the original /uploads/hero.jpg. The focal point is its sibling
+  // key "hero_photo_focal" (CSS object-position).
   const heroPhoto = ov["hero_photo"] || HERO_PHOTO_DEFAULT;
+  const heroPhotoFocal = ov["hero_photo_focal"] || "center top";
+
+  // Teaser section at the bottom of the home: admin overrides (photos +
+  // texts) win over the dynamic showcase pool / Services-page defaults.
+  const teaserPics: [string, string, string, string] = [
+    ov["teaser_photo_0"] || photoUrl(teaserPhotos[0]) || HERO_PHOTO_DEFAULT,
+    ov["teaser_photo_1"] || photoUrl(teaserPhotos[1]) || HERO_PHOTO_DEFAULT,
+    ov["teaser_photo_2"] || photoUrl(teaserPhotos[2]) || HERO_PHOTO_DEFAULT,
+    ov["teaser_photo_3"] || photoUrl(teaserPhotos[3]) || HERO_PHOTO_DEFAULT,
+  ];
+  const teaserFocs: [string, string, string, string] = [
+    ov["teaser_photo_0_focal"] || "center center",
+    ov["teaser_photo_1_focal"] || "center center",
+    ov["teaser_photo_2_focal"] || "center center",
+    ov["teaser_photo_3_focal"] || "center center",
+  ];
+  const teaserCopy = {
+    eyebrow:     ov["teaser_eyebrow"]     || t.nav.services,
+    title:       ov["teaser_title"]       || t.services.title,
+    titleAccent: ov["teaser_titleAccent"] || t.services.titleAccent,
+    lead:        ov["teaser_lead"]        || t.services.lead,
+    cta:         ov["teaser_cta"]         || t.services.cta,
+  };
 
   return (
     <main className="page-enter">
@@ -98,7 +122,7 @@ export default async function HomePage() {
                 loading="eager"
                 fetchPriority="high"
                 decoding="async"
-                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }}
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: heroPhotoFocal }}
               />
               <div style={{ position: "absolute", top: 18, left: 18, width: 28, height: 28, borderTop: "1px solid var(--gold-light)", borderLeft: "1px solid var(--gold-light)", opacity: 0.85 }} />
               <div style={{ position: "absolute", top: 18, right: 18, width: 28, height: 28, borderTop: "1px solid var(--gold-light)", borderRight: "1px solid var(--gold-light)", opacity: 0.85 }} />
@@ -261,28 +285,28 @@ export default async function HomePage() {
           <div className="responsive-2col">
             <Rise>
               <div>
-                <div className="cap-tracked gold">{t.nav.services}</div>
+                <div className="cap-tracked gold">{teaserCopy.eyebrow}</div>
                 <h2 className="h-section" style={{ marginTop: 14 }}>
-                  {t.services.title}{" "}
+                  {teaserCopy.title}{" "}
                   <span className="italic-gold" style={{ fontStyle: "italic" }}>
-                    {t.services.titleAccent}
+                    {teaserCopy.titleAccent}
                   </span>
                 </h2>
                 <OrnamentDivider />
                 <p className="lead muted" style={{ marginTop: 24 }}>
-                  {t.services.lead}
+                  {teaserCopy.lead}
                 </p>
                 <Link href="/prestations" className="btn btn-sage" style={{ marginTop: 32 }}>
-                  {t.services.cta}
+                  {teaserCopy.cta}
                 </Link>
               </div>
             </Rise>
             <Rise delay={120}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <Photo src={photoUrl(teaserPhotos[0])} label="préparatifs" ratio="3 / 4" />
-                <Photo src={photoUrl(teaserPhotos[1])} label="cérémonie" ratio="3 / 4" style={{ marginTop: 40 }} />
-                <Photo src={photoUrl(teaserPhotos[2])} label="cocktail" ratio="3 / 4" style={{ marginTop: -20 }} />
-                <Photo src={photoUrl(teaserPhotos[3])} label="première danse" ratio="3 / 4" style={{ marginTop: 20 }} />
+                <Photo src={teaserPics[0]} label="préparatifs" ratio="3 / 4" objectPosition={teaserFocs[0]} />
+                <Photo src={teaserPics[1]} label="cérémonie" ratio="3 / 4" style={{ marginTop: 40 }} objectPosition={teaserFocs[1]} />
+                <Photo src={teaserPics[2]} label="cocktail" ratio="3 / 4" style={{ marginTop: -20 }} objectPosition={teaserFocs[2]} />
+                <Photo src={teaserPics[3]} label="première danse" ratio="3 / 4" style={{ marginTop: 20 }} objectPosition={teaserFocs[3]} />
               </div>
             </Rise>
           </div>

@@ -44,6 +44,46 @@ export async function saveContentPhoto(
   }
 }
 
+/**
+ * Save the focal point (CSS object-position) for a photo. Stored under a
+ * separate key — `<photoKey>_focal` by convention — so the public
+ * renderer can apply it independently of the URL.
+ *
+ * Accepts named positions ("center top", etc.) or "X% Y%" pairs.
+ */
+const ALLOWED_NAMED_FOCAL = new Set([
+  "left top", "center top", "right top",
+  "left center", "center center", "right center",
+  "left bottom", "center bottom", "right bottom",
+]);
+function sanitizeFocal(raw: string): string {
+  const s = String(raw || "").trim().toLowerCase();
+  if (ALLOWED_NAMED_FOCAL.has(s)) return s;
+  const m = s.match(/^(-?\d{1,3}(?:\.\d+)?)%\s+(-?\d{1,3}(?:\.\d+)?)%$/);
+  if (m) {
+    const x = Math.max(0, Math.min(100, parseFloat(m[1])));
+    const y = Math.max(0, Math.min(100, parseFloat(m[2])));
+    return `${x}% ${y}%`;
+  }
+  return "center center";
+}
+
+export async function saveContentPhotoFocal(
+  page: string,
+  key: string,
+  focal: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    requireUser();
+    const safe = sanitizeFocal(focal);
+    await setPageContent(page, `${key}_focal`, "fr", safe);
+    revalidateForPage(page);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export type ContentEdit = { key: string; lang: "fr" | "en"; value: string };
 
 /**
