@@ -13,6 +13,14 @@ import { notFound } from "next/navigation";
  */
 const ALLOWED = new Set<string>([
   "home",
+  "about",
+  "portfolio",
+  "blog",
+  "reviews",
+  "contact",
+  "services",
+  "nav",
+  "footer",
 ]);
 
 export function cmsPageGuard(slug: string): void {
