@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { getPageContentBilingual } from "@/lib/page-content";
+import { getPageContentBilingual, getPageContent } from "@/lib/page-content";
 import { STRINGS } from "@/lib/i18n";
+import { pickShowcasePhotos, photoUrl } from "@/lib/content";
 import PageContentEditor, { type SectionSpec } from "@/components/admin/PageContentEditor";
-import { saveContentFields } from "../actions";
+import HeroPhotoUploader from "@/components/admin/HeroPhotoUploader";
+import { saveContentFields, saveContentPhoto } from "../actions";
 import { cmsPageGuard } from "../cms-guard";
 
 export const dynamic = "force-dynamic";
@@ -81,14 +83,101 @@ function flatDefaults(lang: "fr" | "en"): Record<string, string> {
   return out;
 }
 
+// Bind one Server Action per photo key so each uploader has its own.
+function makeSavePhoto(key: string) {
+  return async function (url: string) {
+    "use server";
+    return saveContentPhoto("services", key, url);
+  };
+}
+
+// Pre-declared (server functions can't be created inline in JSX).
+const SAVE_PHOTO_HERO    = makeSavePhoto("photo_hero");
+const SAVE_PHOTO_ZOOM    = makeSavePhoto("photo_zoom");
+const SAVE_PHOTO_CARD_0  = makeSavePhoto("photo_card_0");
+const SAVE_PHOTO_CARD_1  = makeSavePhoto("photo_card_1");
+const SAVE_PHOTO_CARD_2  = makeSavePhoto("photo_card_2");
+const SAVE_PHOTO_CARD_3  = makeSavePhoto("photo_card_3");
+const SAVE_PHOTO_GAL_0   = makeSavePhoto("photo_gallery_0");
+const SAVE_PHOTO_GAL_1   = makeSavePhoto("photo_gallery_1");
+const SAVE_PHOTO_GAL_2   = makeSavePhoto("photo_gallery_2");
+const SAVE_PHOTO_GAL_3   = makeSavePhoto("photo_gallery_3");
+
 export default async function ServicesContentPage() {
   cmsPageGuard("services");
-  const overrides = await getPageContentBilingual("services");
+  const [overrides, frOnly, fallbackPool] = await Promise.all([
+    getPageContentBilingual("services"),
+    getPageContent("services", "fr"),
+    pickShowcasePhotos(10, "prestations-v3"),
+  ]);
+  // Resolve each photo: override (admin upload) wins, else random pool.
+  const pick = (key: string, fallbackIdx: number) =>
+    frOnly[key] || photoUrl(fallbackPool[fallbackIdx]) || "/uploads/hero.jpg";
+  const heroPhoto    = pick("photo_hero", 0);
+  const cardPhotos   = [pick("photo_card_0", 1), pick("photo_card_1", 2), pick("photo_card_2", 3), pick("photo_card_3", 4)];
+  const zoomPhoto    = pick("photo_zoom", 5);
+  const galleryPhotos = [pick("photo_gallery_0", 6), pick("photo_gallery_1", 7), pick("photo_gallery_2", 8), pick("photo_gallery_3", 9)];
+
+  const CARD_LABELS = ["Mariage", "Séance d'engagement", "Portrait", "Lifestyle"];
+
   return (
     <>
       <Link href="/admin/content" className="cap-tracked-sm gold">← TOUS LES CONTENUS</Link>
       <h1 className="admin-h1" style={{ marginTop: 10 }}>Page Prestations</h1>
-      <p className="admin-sub">Modifiez les forfaits, descriptions et bouton final.</p>
+      <p className="admin-sub">Modifiez les forfaits, descriptions, photos et bouton final.</p>
+
+      {/* ── Photos de la page ────────────────────────────────── */}
+      <div className="admin-card">
+        <div className="content-section-head">
+          <h2>📷 Photos</h2>
+          <p>10 photos sont affichées sur la page Prestations. Remplacez-en n&apos;importe laquelle. Si vous ne mettez rien, une photo de vos galeries est tirée au sort.</p>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+          {/* Hero */}
+          <div>
+            <label className="admin-label" style={{ marginBottom: 8, display: "block" }}>① Photo principale (bandeau d&apos;accueil)</label>
+            <div style={{ maxWidth: 320 }}>
+              <HeroPhotoUploader currentUrl={heroPhoto} caption="Affichée à droite du titre de la page." ratio="3 / 4" saveAction={SAVE_PHOTO_HERO} />
+            </div>
+          </div>
+
+          {/* 4 card photos */}
+          <div>
+            <label className="admin-label" style={{ marginBottom: 8, display: "block" }}>② Photos des 4 cartes prestations</label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+              {[SAVE_PHOTO_CARD_0, SAVE_PHOTO_CARD_1, SAVE_PHOTO_CARD_2, SAVE_PHOTO_CARD_3].map((save, i) => (
+                <div key={i}>
+                  <p style={{ fontSize: 11, color: "var(--muted)", margin: "0 0 6px" }}>{CARD_LABELS[i]}</p>
+                  <HeroPhotoUploader currentUrl={cardPhotos[i]} caption="" ratio="4 / 3" saveAction={save} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Zoom photo */}
+          <div>
+            <label className="admin-label" style={{ marginBottom: 8, display: "block" }}>③ Photo du bloc « Formules mariage »</label>
+            <div style={{ maxWidth: 360 }}>
+              <HeroPhotoUploader currentUrl={zoomPhoto} caption="Photo qui accompagne le bloc des formules." ratio="3 / 2" saveAction={SAVE_PHOTO_ZOOM} />
+            </div>
+          </div>
+
+          {/* 4 gallery photos */}
+          <div>
+            <label className="admin-label" style={{ marginBottom: 8, display: "block" }}>④ Photos de la galerie en bas</label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+              {[SAVE_PHOTO_GAL_0, SAVE_PHOTO_GAL_1, SAVE_PHOTO_GAL_2, SAVE_PHOTO_GAL_3].map((save, i) => (
+                <div key={i}>
+                  <p style={{ fontSize: 11, color: "var(--muted)", margin: "0 0 6px" }}>Photo {i + 1}</p>
+                  <HeroPhotoUploader currentUrl={galleryPhotos[i]} caption="" ratio="4 / 5" saveAction={save} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <PageContentEditor
         page="services"
         viewPath="/prestations"

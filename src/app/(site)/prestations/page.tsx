@@ -30,10 +30,21 @@ export default async function ServicesPage() {
     pickShowcasePhotos(10, "prestations-v3"),
     (await import("@/lib/page-content")).getPageContent("services", lang),
   ]);
-  const heroImg = allShots[0];
-  const cardPhotos = allShots.slice(1, 5);
-  const zoomImg = allShots[5];
-  const galleryPhotos = allShots.slice(6, 10);
+  // Admin photos override the random pool when set.
+  const heroImg = ov["photo_hero"] || photoUrl(allShots[0]);
+  const cardPhotos = [
+    ov["photo_card_0"] || photoUrl(allShots[1]),
+    ov["photo_card_1"] || photoUrl(allShots[2]),
+    ov["photo_card_2"] || photoUrl(allShots[3]),
+    ov["photo_card_3"] || photoUrl(allShots[4]),
+  ];
+  const zoomImg = ov["photo_zoom"] || photoUrl(allShots[5]);
+  const galleryPhotos = [
+    ov["photo_gallery_0"] || photoUrl(allShots[6]),
+    ov["photo_gallery_1"] || photoUrl(allShots[7]),
+    ov["photo_gallery_2"] || photoUrl(allShots[8]),
+    ov["photo_gallery_3"] || photoUrl(allShots[9]),
+  ];
 
   // CMS overrides — merge over t.services before any UI uses it.
   const baseS = tRaw.services;
@@ -75,7 +86,7 @@ export default async function ServicesPage() {
         title={t.services.title}
         accent={t.services.titleAccent}
         lead={t.services.lead}
-        image={{ src: photoUrl(heroImg), label: "bouquet de pivoines", objectPosition: "center 30%" }}
+        image={{ src: heroImg, label: "bouquet de pivoines", objectPosition: "center 30%" }}
       />
 
       {/* CARDS — 4 catégories clairement séparées */}
@@ -87,7 +98,7 @@ export default async function ServicesPage() {
                 <div className="card service-card" style={{ display: "flex", flexDirection: "column", height: "100%", padding: 0, overflow: "hidden" }}>
                   <div style={{ aspectRatio: "4 / 3" }}>
                     <Photo
-                      src={photoUrl(cardPhotos[i])}
+                      src={cardPhotos[i]}
                       label={labels[i]}
                       rounded={false}
                       ratio="4 / 3"
@@ -145,7 +156,7 @@ export default async function ServicesPage() {
                 <p className="lead muted" style={{ marginTop: 16, marginBottom: 36 }}>
                   {t.services.zoomIntro}
                 </p>
-                <Photo src={photoUrl(zoomImg) ?? HERO_PHOTO} ratio="3 / 2" alt="Reportage" />
+                <Photo src={zoomImg ?? HERO_PHOTO} ratio="3 / 2" alt="Reportage" />
               </div>
             </Rise>
             <Rise delay={120}>
@@ -189,7 +200,7 @@ export default async function ServicesPage() {
             {[0, 1, 2, 3].map((i) => (
               <Rise key={i} delay={i * 60}>
                 <Photo
-                  src={photoUrl(galleryPhotos[i])}
+                  src={galleryPhotos[i]}
                   label={["cérémonie", "détails", "préparatifs", "soirée"][i]}
                   ratio="3 / 4"
                 />

@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { getPageContentBilingual } from "@/lib/page-content";
+import { getPageContentBilingual, getPageContent } from "@/lib/page-content";
 import { STRINGS } from "@/lib/i18n";
+import { pickShowcasePhotos, photoUrl } from "@/lib/content";
 import PageContentEditor, { type SectionSpec } from "@/components/admin/PageContentEditor";
-import { saveContentFields } from "../actions";
+import HeroPhotoUploader from "@/components/admin/HeroPhotoUploader";
+import { saveContentFields, saveContentPhoto } from "../actions";
 import { cmsPageGuard } from "../cms-guard";
 
 export const dynamic = "force-dynamic";
@@ -100,14 +102,66 @@ function flatAboutDefaults(lang: "fr" | "en"): Record<string, string> {
   return out;
 }
 
+// Server Actions bound to specific photo keys for HeroPhotoUploader.
+async function saveAboutEyebrowPhoto(url: string) {
+  "use server";
+  return saveContentPhoto("about", "photo_eyebrow", url);
+}
+async function saveAboutStoryPhoto(url: string) {
+  "use server";
+  return saveContentPhoto("about", "photo_story", url);
+}
+
 export default async function AboutContentPage() {
   cmsPageGuard("about");
-  const overrides = await getPageContentBilingual("about");
+  // Resolve current photo URLs: override (if set) or the dynamic fallback
+  // that the public page would otherwise show.
+  const [overrides, fallbackPool, frOnly] = await Promise.all([
+    getPageContentBilingual("about"),
+    pickShowcasePhotos(2, "about-v1"),
+    getPageContent("about", "fr"),
+  ]);
+  const eyebrowPhoto = frOnly["photo_eyebrow"] || photoUrl(fallbackPool[0]) || "/uploads/hero.jpg";
+  const storyPhoto = frOnly["photo_story"] || photoUrl(fallbackPool[1]) || "/uploads/hero.jpg";
+
   return (
     <>
       <Link href="/admin/content" className="cap-tracked-sm gold">← TOUS LES CONTENUS</Link>
       <h1 className="admin-h1" style={{ marginTop: 10 }}>Page À propos</h1>
-      <p className="admin-sub">Modifiez chaque texte dans l&apos;ordre d&apos;apparition. FR + EN via les boutons en haut.</p>
+      <p className="admin-sub">Modifiez chaque texte et chaque photo dans l&apos;ordre d&apos;apparition.</p>
+
+      {/* ── Photos de la page ────────────────────────────────── */}
+      <div className="admin-card">
+        <div className="content-section-head">
+          <h2>📷 Photos</h2>
+          <p>Les deux photos affichées sur la page À propos. Cliquez sur « Remplacer la photo » pour en uploader une autre.</p>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          <div>
+            <label className="admin-label" style={{ marginBottom: 8, display: "block" }}>
+              Photo principale (à droite du titre)
+            </label>
+            <HeroPhotoUploader
+              currentUrl={eyebrowPhoto}
+              caption="Affichée à droite du bandeau d'introduction."
+              ratio="3 / 4"
+              saveAction={saveAboutEyebrowPhoto}
+            />
+          </div>
+          <div>
+            <label className="admin-label" style={{ marginBottom: 8, display: "block" }}>
+              Photo « Mon histoire »
+            </label>
+            <HeroPhotoUploader
+              currentUrl={storyPhoto}
+              caption="Affichée à côté du texte de votre histoire."
+              ratio="3 / 4"
+              saveAction={saveAboutStoryPhoto}
+            />
+          </div>
+        </div>
+      </div>
 
       <PageContentEditor
         page="about"

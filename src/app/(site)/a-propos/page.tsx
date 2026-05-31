@@ -31,6 +31,9 @@ export default async function AboutPage() {
     pickShowcasePhotos(2, "about-v1").then((arr) => arr[1]),
     getPageContent("about", lang),
   ]);
+  // Admin-uploaded photos win over the random showcase picks.
+  const eyebrowPhotoUrl = ov["photo_eyebrow"] || photoUrl(eyebrowImg);
+  const storyPhotoUrl   = ov["photo_story"]   || photoUrl(storyImg);
   const valueKinds: ValueKind[] = ["excellence", "detail", "emotion", "elegance"];
 
   // CMS overrides — merge over t.about per top-level scalar, plus expand
@@ -60,7 +63,7 @@ export default async function AboutPage() {
         title={about.title}
         accent={about.titleAccent}
         lead={about.lead}
-        image={{ src: photoUrl(eyebrowImg), label: "Mickael en plein reportage" }}
+        image={{ src: eyebrowPhotoUrl, label: "Mickael en plein reportage" }}
       />
 
       {/* STORY */}
@@ -69,7 +72,7 @@ export default async function AboutPage() {
           <div className="responsive-2col start">
             <Rise>
               <div style={{ position: "relative" }}>
-                <Photo src={photoUrl(storyImg)} label="Mickael, atelier de retouche" ratio="3 / 4" />
+                <Photo src={storyPhotoUrl} label="Mickael, atelier de retouche" ratio="3 / 4" />
                 <div
                   style={{
                     position: "absolute",
