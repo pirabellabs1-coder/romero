@@ -10,8 +10,8 @@ import {
   type TextImageSectionData,
   type QuoteSectionData,
   type FullImageSectionData,
-  SLOT_LABELS,
-  SLOT_ORDER,
+  SLOT_LABELS as DEFAULT_LABELS,
+  SLOT_ORDER as DEFAULT_SLOTS,
 } from "@/lib/page-sections-types";
 
 type Props = {
@@ -40,13 +40,24 @@ const SLOT_SHORT: Record<SectionSlot, string> = {
   "bottom":         "Tout en bas",
 };
 
-export default function SectionsEditor({ page, initialSections, addAction, updateAction, deleteAction, moveAction, changeSlotAction }: Props) {
+export default function SectionsEditor({
+  page,
+  initialSections,
+  addAction,
+  updateAction,
+  deleteAction,
+  moveAction,
+  changeSlotAction,
+}: Props) {
   const [sections, setSections] = useState(initialSections);
   const [pending, startTransition] = useTransition();
-  // Type picker is per-slot now: the photographer clicks "+ Ajouter ici"
-  // inside the slot block and gets the type chooser scoped to that slot.
   const [pickerForSlot, setPickerForSlot] = useState<SectionSlot | null>(null);
   const [openSection, setOpenSection] = useState<number | null>(null);
+
+  // Use the home's standard 6 slots for now. Other-page slot variations
+  // can be added later if/when needed.
+  const SLOTS = DEFAULT_SLOTS;
+  const LABELS = DEFAULT_LABELS;
 
   async function refresh() {
     window.location.reload();
@@ -99,14 +110,14 @@ export default function SectionsEditor({ page, initialSections, addAction, updat
         déplacée d&apos;un emplacement à un autre via le menu déroulant.
       </p>
 
-      {SLOT_ORDER.map((slot) => {
+      {SLOTS.map((slot) => {
         const slotSections = bySlot[slot] || [];
         const isPickerOpen = pickerForSlot === slot;
         return (
           <div key={slot} className="section-slot">
             <header className="section-slot__head">
               <h4 className="section-slot__title">
-                <span className="section-slot__pin">📍</span> {SLOT_LABELS[slot]}
+                <span className="section-slot__pin">📍</span> {LABELS[slot]}
               </h4>
               <span className="section-slot__count">
                 {slotSections.length} section{slotSections.length > 1 ? "s" : ""}
@@ -137,7 +148,7 @@ export default function SectionsEditor({ page, initialSections, addAction, updat
                             onChange={(e) => changeSlot(s.id, e.target.value as SectionSlot)}
                             title="Déplacer vers un autre emplacement"
                           >
-                            {SLOT_ORDER.map((sl) => (
+                            {SLOTS.map((sl) => (
                               <option key={sl} value={sl}>📍 {SLOT_SHORT[sl]}</option>
                             ))}
                           </select>
@@ -173,7 +184,7 @@ export default function SectionsEditor({ page, initialSections, addAction, updat
             {isPickerOpen ? (
               <div className="section-type-picker">
                 <h4 style={{ margin: "0 0 12px", fontSize: 14, color: "var(--forest)" }}>
-                  Quel type de section ajouter <em>{SLOT_LABELS[slot].toLowerCase()}</em> ?
+                  Quel type de section ajouter <em>{LABELS[slot].toLowerCase()}</em> ?
                 </h4>
                 <div className="section-type-grid">
                   {(Object.keys(TYPE_INFO) as SectionType[]).map((t) => {
