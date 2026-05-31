@@ -40,11 +40,12 @@ export default async function GalleriesAdmin({ searchParams }: { searchParams: {
               </select>
             </div>
             <div>
-              <label className="admin-label">Type</label>
-              <select className="admin-select" name="kind" defaultValue="INTIMISTE">
-                <option value="INTIMISTE">INTIMISTE</option>
-                <option value="INTERNATIONAL">INTERNATIONAL</option>
-                <option value="GRAND">GRAND</option>
+              <label className="admin-label">Type (filtre portfolio)</label>
+              <select className="admin-select" name="kind" defaultValue="MARIAGE">
+                <option value="MARIAGE">Mariages</option>
+                <option value="ENGAGEMENT">Séance d&apos;engagement</option>
+                <option value="PORTRAIT">Portraits</option>
+                <option value="LIFESTYLE">LifeStyle</option>
               </select>
             </div>
           </div>
