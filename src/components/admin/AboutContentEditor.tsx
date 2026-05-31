@@ -238,6 +238,7 @@ export default function AboutContentEditor({
             {field("body_1", "Paragraphe 2", "textarea")}
             {field("body_2", "Paragraphe 3", "textarea")}
             {field("body_3", "Paragraphe 4", "textarea")}
+            {field("story_quote", "Petit encadré citation (en bas à droite de la photo)", "textarea")}
           </div>
         </div>
       </div>

@@ -103,7 +103,7 @@ export default async function AboutPage() {
                     lineHeight: 1.4,
                   }}
                 >
-                  « Photographier, c&apos;est savoir attendre. »
+                  {ov["story_quote"] || (lang === "en" ? "« Photographing is knowing how to wait. »" : "« Photographier, c’est savoir attendre. »")}
                 </div>
               </div>
             </Rise>

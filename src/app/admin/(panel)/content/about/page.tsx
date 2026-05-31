@@ -29,6 +29,10 @@ function flatAboutDefaults(lang: "fr" | "en"): Record<string, string> {
     out[`process_${i}_title`] = t; out[`process_${i}_body`] = b;
   });
   (about.gear as string[] | undefined)?.forEach((g, i) => { out[`gear_${i}`] = g; });
+  // Small italic quote box overlapping the story photo.
+  out["story_quote"] = lang === "en"
+    ? "« Photographing is knowing how to wait. »"
+    : "« Photographier, c’est savoir attendre. »";
   // CTA block at the end of the page (shared default strings).
   const cta = STRINGS[lang].cta as { question: string; line1: string; line2: string };
   out["cta_question"] = cta.question;

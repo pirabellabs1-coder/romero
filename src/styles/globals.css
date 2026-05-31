@@ -353,10 +353,16 @@ section { position: relative; }
   .footer-grid { grid-template-columns: 1fr; gap: 36px; }
 }
 
-/* Process timeline */
+/* Process timeline — the gold line drawn through the 4 step circles.
+   Span the full grid (col 1 → end) AND row 1 so it never claims a track,
+   guaranteeing the 4 step items stay in a single row aligned together. */
 .process-line {
   position: absolute; top: 28px; left: 12.5%; right: 12.5%;
   height: 1px; background: var(--gold); opacity: .4; z-index: 0;
+  grid-column: 1 / -1; grid-row: 1;
+}
+.process-grid {
+  align-items: start;
 }
 .process-grid > * { padding: 0 22px; text-align: center; position: relative; z-index: 1; }
 @media (max-width: 900px) { .process-line { display: none; } }
