@@ -49,6 +49,10 @@ export const metadata: Metadata = {
   // icon.tsx + apple-icon.tsx auto-generate the icons via next/og — Next adds
   // <link rel="icon" href="/icon"> automatically; no /favicon.ico needed.
   robots: { index: true, follow: true },
+  // Google Search Console domain verification.
+  verification: {
+    google: "tFjtHMsRCgA_-HZynAe4oFK86m74IDjHMUUJLh01Kdk",
+  },
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
