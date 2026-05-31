@@ -17,9 +17,19 @@ type Row = {
   place: string;
   message: string;
   lang: string;
-  read_at: string | null;
-  created_at: string;
+  read_at: string | Date | null;
+  created_at: string | Date;
 };
+
+function fmtDate(v: string | Date | null | undefined): string {
+  if (!v) return "—";
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("fr-FR", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
 
 export default async function MessageDetail({ params }: { params: { id: string } }) {
   const id = Number(params.id);
@@ -40,7 +50,7 @@ export default async function MessageDetail({ params }: { params: { id: string }
       <h1 className="admin-h1" style={{ marginTop: 10 }}>
         {m.first_name} {m.last_name}
       </h1>
-      <p className="admin-sub">Reçu le {m.created_at}</p>
+      <p className="admin-sub">Reçu le {fmtDate(m.created_at)}</p>
 
       <div className="admin-card">
         <div className="admin-grid cols-2" style={{ marginBottom: 24 }}>

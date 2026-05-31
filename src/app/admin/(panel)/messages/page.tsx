@@ -13,9 +13,19 @@ type Row = {
   place: string;
   message: string;
   lang: string;
-  read_at: string | null;
-  created_at: string;
+  read_at: string | Date | null;
+  created_at: string | Date;
 };
+
+function fmtDate(v: string | Date | null | undefined): string {
+  if (!v) return "—";
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("fr-FR", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
 
 export default async function MessagesAdmin() {
   const rows = await query<Row>(
@@ -48,7 +58,7 @@ export default async function MessagesAdmin() {
             <tbody>
               {rows.map((m) => (
                 <tr key={m.id} style={{ background: m.read_at ? "transparent" : "rgba(184, 151, 90, 0.06)" }}>
-                  <td>{m.created_at}</td>
+                  <td style={{ whiteSpace: "nowrap", fontSize: 12, color: "var(--muted)" }}>{fmtDate(m.created_at)}</td>
                   <td>
                     <Link href={`/admin/messages/${m.id}`}>
                       {m.first_name} {m.last_name}

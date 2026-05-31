@@ -101,8 +101,10 @@ function frenchDate(d: Date): string {
   return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-function timeAgo(iso: string): string {
-  const d = new Date(iso);
+function timeAgo(iso: string | Date | null | undefined): string {
+  if (!iso) return "—";
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (isNaN(d.getTime())) return "—";
   const ms = Date.now() - d.getTime();
   const mins = Math.round(ms / 60_000);
   if (mins < 1) return "À l'instant";
