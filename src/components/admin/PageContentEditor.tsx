@@ -245,7 +245,7 @@ export default function PageContentEditor({
                 {dirtyKeys.length} modification{dirtyKeys.length > 1 ? "s" : ""} non enregistrée{dirtyKeys.length > 1 ? "s" : ""}
               </span>
             )}
-            {saveStatus.kind === "idle" && !dirty && <span style={{ color: "var(--muted)" }}>Aucune modification en attente.</span>}
+            {saveStatus.kind === "idle" && !dirty && <span style={{ color: "var(--muted)" }}>Aucune modification de texte en attente. <span style={{ color: "var(--sage-deep)", marginLeft: 6 }}>(Photos et cadrages s’enregistrent automatiquement.)</span></span>}
           </div>
           <button
             type="button"

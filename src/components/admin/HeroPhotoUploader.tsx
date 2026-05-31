@@ -92,14 +92,20 @@ export default function HeroPhotoUploader({
   function pillOf(s: Status) {
     switch (s.kind) {
       case "idle":      return null;
-      case "uploading": return { color: "var(--gold-deep)",  text: `⏳ Téléversement de ${s.name}…` };
-      case "saving":    return { color: "var(--muted)",       text: "Enregistrement…" };
-      case "saved":     return { color: "var(--sage-deep)",   text: "✓ Enregistré" };
-      case "error":     return { color: "#8B2E2E",            text: `❌ ${s.message}` };
+      case "uploading": return { color: "var(--gold-deep)",  text: `⏳ Téléversement de ${s.name}…`, bg: "rgba(184,151,90,.12)" };
+      case "saving":    return { color: "var(--muted)",       text: "Enregistrement…", bg: "rgba(0,0,0,.04)" };
+      case "saved":     return { color: "var(--sage-deep)",   text: "✓ Enregistré", bg: "rgba(157,178,154,.18)" };
+      case "error":     return { color: "#8B2E2E",            text: `❌ ${s.message}`, bg: "rgba(139,46,46,.08)" };
     }
   }
   const pill = pillOf(status);
   const focalPill = pillOf(focalStatus);
+
+  // Floating toast on the photo whenever a focal-point or upload save lands.
+  // Disappears in 1.6s. Shown ONLY for saved/error states so it doesn't
+  // distract during normal interaction.
+  const showFocalToast = focalStatus.kind === "saved" || focalStatus.kind === "error" || focalStatus.kind === "saving";
+  const showUrlToast = status.kind === "saved" || status.kind === "error";
 
   const focalEnabled = Boolean(saveFocalAction);
 
@@ -115,6 +121,29 @@ export default function HeroPhotoUploader({
             ratio={ratio}
             onChange={handleFocalChange}
           />
+          {/* Floating "saved/saving" toast over the photo — much more
+              prominent than the small pill in the foot. Disappears auto. */}
+          {(showFocalToast || showUrlToast) && (focalPill || pill) && (
+            <div
+              style={{
+                position: "absolute",
+                top: 10, right: 10,
+                padding: "8px 14px",
+                background: ((showFocalToast ? focalPill : pill) || pill)?.bg,
+                color: ((showFocalToast ? focalPill : pill) || pill)?.color,
+                border: `1px solid ${((showFocalToast ? focalPill : pill) || pill)?.color}`,
+                borderRadius: 4,
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: 0.4,
+                pointerEvents: "none",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              {showFocalToast ? `Cadrage ${focalPill?.text}` : pill?.text}
+            </div>
+          )}
           <label className="hero-photo-uploader__overlay" style={{ borderRadius: "0 0 4px 4px" }}>
             {status.kind === "uploading" ? "⏳ Envoi…" : "📷 Remplacer la photo"}
             <input

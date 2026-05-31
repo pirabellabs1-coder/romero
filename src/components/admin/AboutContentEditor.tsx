@@ -315,7 +315,7 @@ export default function AboutContentEditor({
             {saveStatus.kind === "ok" && <span style={{ color: "var(--sage-deep)" }}>✓ {saveStatus.count} champ{saveStatus.count > 1 ? "s" : ""} enregistré{saveStatus.count > 1 ? "s" : ""}</span>}
             {saveStatus.kind === "err" && <span style={{ color: "#8B2E2E" }}>❌ {saveStatus.message}</span>}
             {saveStatus.kind === "idle" && dirty && <span style={{ color: "var(--gold-deep)" }}>{dirtyKeys.length} modification{dirtyKeys.length > 1 ? "s" : ""} non enregistrée{dirtyKeys.length > 1 ? "s" : ""}</span>}
-            {saveStatus.kind === "idle" && !dirty && <span style={{ color: "var(--muted)" }}>Aucune modification en attente.</span>}
+            {saveStatus.kind === "idle" && !dirty && <span style={{ color: "var(--muted)" }}>Aucune modification de texte en attente. <span style={{ color: "var(--sage-deep)", marginLeft: 6 }}>(Photos et cadrages s’enregistrent automatiquement.)</span></span>}
           </div>
           <button type="button" className="admin-btn" onClick={handleSave} disabled={!dirty || saving} style={{ opacity: !dirty || saving ? 0.5 : 1 }}>
             {saving ? "Enregistrement…" : "ENREGISTRER"}
