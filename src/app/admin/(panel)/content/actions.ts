@@ -22,9 +22,12 @@ function revalidateForPage(page: string) {
 }
 
 /**
- * Save a one-off photo URL for a page section (e.g. home hero). Stored
- * in page_content with lang='fr' since the same image is used in both
- * locales. Use saveContentFields for plain text.
+ * Save a one-off photo URL for a page section (e.g. home hero). A photo
+ * is language-agnostic — the same image is displayed on both FR and EN
+ * locales — but our page_content table is keyed by lang, so we write
+ * the same row for BOTH `fr` and `en`. Without this the EN site would
+ * fall back to the i18n default photo while the FR site shows the
+ * updated one.
  */
 export async function saveContentPhoto(
   page: string,
@@ -37,6 +40,7 @@ export async function saveContentPhoto(
       return { ok: false, error: "URL non reconnue" };
     }
     await setPageContent(page, key, "fr", url);
+    await setPageContent(page, key, "en", url);
     revalidateForPage(page);
     return { ok: true };
   } catch (e) {
@@ -76,7 +80,9 @@ export async function saveContentPhotoFocal(
   try {
     requireUser();
     const safe = sanitizeFocal(focal);
+    // Focal point applies to the language-agnostic photo, so write both locales.
     await setPageContent(page, `${key}_focal`, "fr", safe);
+    await setPageContent(page, `${key}_focal`, "en", safe);
     revalidateForPage(page);
     return { ok: true };
   } catch (e) {
