@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PageEyebrow from "@/components/PageEyebrow";
+import PageSections from "@/components/PageSections";
 
 export const metadata: Metadata = {
   title: "Le journal",
@@ -48,9 +49,11 @@ export default async function BlogPage() {
 
   return (
     <main>
+      <PageSections page="blog" slot="top" lang={lang} />
       <PageEyebrow eyebrow={tt.blog.eyebrow} title={tt.blog.title} accent={tt.blog.titleAccent} lead={tt.blog.lead} />
       <BlogList posts={postsWithCover} t={tt} lang={lang} />
       <CTABlock t={tt} />
+      <PageSections page="blog" slot="bottom" lang={lang} />
     </main>
   );
 }

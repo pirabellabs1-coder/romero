@@ -17,6 +17,14 @@ import {
 type Props = {
   page: string;
   initialSections: PageSection[];
+  /**
+   * Which slots are exposed on this page. Defaults to the home's 6 slots
+   * (top, after-hero, after-values, after-featured, after-quote, bottom).
+   * For simpler pages, pass a subset like ["top", "bottom"].
+   */
+  availableSlots?: SectionSlot[];
+  /** Override the display label for a slot (defaults to home labels). */
+  slotLabels?: Partial<Record<SectionSlot, string>>;
   addAction: (page: string, type: SectionType, slot: SectionSlot) => Promise<{ ok: true; id: number } | { ok: false; error: string }>;
   updateAction: (id: number, data: SectionData) => Promise<{ ok: true } | { ok: false; error: string }>;
   deleteAction: (id: number) => Promise<{ ok: true } | { ok: false; error: string }>;
@@ -43,6 +51,8 @@ const SLOT_SHORT: Record<SectionSlot, string> = {
 export default function SectionsEditor({
   page,
   initialSections,
+  availableSlots,
+  slotLabels,
   addAction,
   updateAction,
   deleteAction,
@@ -54,10 +64,9 @@ export default function SectionsEditor({
   const [pickerForSlot, setPickerForSlot] = useState<SectionSlot | null>(null);
   const [openSection, setOpenSection] = useState<number | null>(null);
 
-  // Use the home's standard 6 slots for now. Other-page slot variations
-  // can be added later if/when needed.
-  const SLOTS = DEFAULT_SLOTS;
-  const LABELS = DEFAULT_LABELS;
+  // Each page declares which slots it exposes (defaults to home's 6).
+  const SLOTS = availableSlots && availableSlots.length > 0 ? availableSlots : DEFAULT_SLOTS;
+  const LABELS = { ...DEFAULT_LABELS, ...(slotLabels || {}) } as Record<SectionSlot, string>;
 
   async function refresh() {
     window.location.reload();

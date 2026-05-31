@@ -2,8 +2,15 @@ import Link from "next/link";
 import { getPageContentBilingual, getPageContent } from "@/lib/page-content";
 import { STRINGS } from "@/lib/i18n";
 import { pickShowcasePhotos, photoUrl } from "@/lib/content";
+import { listSectionsForPage } from "@/lib/page-sections";
+import { PAGE_SLOTS } from "@/lib/page-slots";
 import ServicesContentEditor from "@/components/admin/ServicesContentEditor";
+import SectionsEditor from "@/components/admin/SectionsEditor";
 import { saveContentFields, saveContentPhoto } from "../actions";
+import {
+  addSectionAction, updateSectionAction, deleteSectionAction,
+  moveSectionAction, changeSectionSlotAction,
+} from "../sections-actions";
 import { cmsPageGuard } from "../cms-guard";
 
 export const dynamic = "force-dynamic";
@@ -40,11 +47,13 @@ async function savePhotoGallery3(url: string) { "use server"; return saveContent
 
 export default async function ServicesContentPage() {
   cmsPageGuard("services");
-  const [overrides, frOnly, fallbackPool] = await Promise.all([
+  const [overrides, frOnly, fallbackPool, sections] = await Promise.all([
     getPageContentBilingual("services"),
     getPageContent("services", "fr"),
     pickShowcasePhotos(10, "prestations-v3"),
+    listSectionsForPage("services"),
   ]);
+  const slotCfg = PAGE_SLOTS["services"];
   const pick = (key: string, fallbackIdx: number) =>
     frOnly[key] || photoUrl(fallbackPool[fallbackIdx]) || "/uploads/hero.jpg";
   const heroPhoto    = pick("photo_hero", 0);
@@ -83,6 +92,25 @@ export default async function ServicesContentPage() {
         savePhotoGallery2={savePhotoGallery2}
         savePhotoGallery3={savePhotoGallery3}
       />
+
+      {/* ─── Sections personnalisées ─── */}
+      <div className="admin-card">
+        <div className="content-section-head">
+          <h2>➕ Sections personnalisées</h2>
+          <p>Ajoutez vos propres sections en haut ou en bas de la page.</p>
+        </div>
+        <SectionsEditor
+          page="services"
+          initialSections={sections}
+          availableSlots={slotCfg.slots}
+          slotLabels={slotCfg.labels}
+          addAction={addSectionAction}
+          updateAction={updateSectionAction}
+          deleteAction={deleteSectionAction}
+          moveAction={moveSectionAction}
+          changeSlotAction={changeSectionSlotAction}
+        />
+      </div>
     </>
   );
 }

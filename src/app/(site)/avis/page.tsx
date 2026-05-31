@@ -10,6 +10,7 @@ import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { getSettings } from "@/lib/settings";
 import { listReviews } from "@/lib/content";
+import PageSections from "@/components/PageSections";
 
 export const metadata: Metadata = {
   title: "Avis clients",
@@ -49,6 +50,7 @@ export default async function ReviewsPage() {
 
   return (
     <main>
+      <PageSections page="reviews" slot="top" lang={lang} />
       <PageEyebrow eyebrow={r.eyebrow} title={r.title} accent={r.titleAccent} lead={r.lead} />
 
       {reviews.length > 0 ? (
@@ -136,6 +138,7 @@ export default async function ReviewsPage() {
       )}
 
       <CTABlock t={t} />
+      <PageSections page="reviews" slot="bottom" lang={lang} />
     </main>
   );
 }

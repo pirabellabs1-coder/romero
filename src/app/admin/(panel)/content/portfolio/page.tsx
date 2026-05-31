@@ -3,6 +3,13 @@ import { getPageContentBilingual } from "@/lib/page-content";
 import { STRINGS } from "@/lib/i18n";
 import PageContentEditor, { type SectionSpec } from "@/components/admin/PageContentEditor";
 import { saveContentFields } from "../actions";
+import { listSectionsForPage } from "@/lib/page-sections";
+import { PAGE_SLOTS } from "@/lib/page-slots";
+import SectionsEditor from "@/components/admin/SectionsEditor";
+import {
+  addSectionAction, updateSectionAction, deleteSectionAction,
+  moveSectionAction, changeSectionSlotAction,
+} from "../sections-actions";
 import { cmsPageGuard } from "../cms-guard";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +47,8 @@ function flatDefaults(lang: "fr" | "en"): Record<string, string> {
 export default async function PortfolioContentPage() {
   cmsPageGuard("portfolio");
   const overrides = await getPageContentBilingual("portfolio");
+  const sections = await listSectionsForPage("portfolio");
+  const slotCfg = PAGE_SLOTS["portfolio"];
   return (
     <>
       <Link href="/admin/content" className="cap-tracked-sm gold">← TOUS LES CONTENUS</Link>
@@ -55,6 +64,25 @@ export default async function PortfolioContentPage() {
         defaultsEn={flatDefaults("en")}
         saveAction={saveContentFields}
       />
+    
+      <div className="admin-card">
+        <div className="content-section-head">
+          <h2>➕ Sections personnalisées</h2>
+          <p>Ajoutez vos propres sections en haut ou en bas de la page.</p>
+        </div>
+        <SectionsEditor
+          page="portfolio"
+          initialSections={sections}
+          availableSlots={slotCfg.slots}
+          slotLabels={slotCfg.labels}
+          addAction={addSectionAction}
+          updateAction={updateSectionAction}
+          deleteAction={deleteSectionAction}
+          moveAction={moveSectionAction}
+          changeSlotAction={changeSectionSlotAction}
+        />
+      </div>
+
     </>
   );
 }

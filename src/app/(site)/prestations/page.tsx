@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import PageEyebrow from "@/components/PageEyebrow";
+import PageSections from "@/components/PageSections";
 
 export const metadata: Metadata = {
   title: "Prestations & tarifs",
@@ -81,6 +82,7 @@ export default async function ServicesPage() {
 
   return (
     <main>
+      <PageSections page="services" slot="top" lang={lang} />
       <PageEyebrow
         eyebrow={t.services.eyebrow}
         title={t.services.title}
@@ -211,6 +213,7 @@ export default async function ServicesPage() {
       </section>
 
       <CTABlock t={t} />
+      <PageSections page="services" slot="bottom" lang={lang} />
     </main>
   );
 }

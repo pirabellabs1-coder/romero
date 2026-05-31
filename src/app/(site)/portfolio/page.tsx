@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PageEyebrow from "@/components/PageEyebrow";
+import PageSections from "@/components/PageSections";
 
 export const metadata: Metadata = {
   title: "Portfolio mariages",
@@ -35,8 +36,10 @@ export default async function PortfolioPage() {
 
   return (
     <main>
+      <PageSections page="portfolio" slot="top" lang={lang} />
       <PageEyebrow eyebrow={portfolio.eyebrow} title={portfolio.title} accent={portfolio.titleAccent} lead={portfolio.lead} />
       <PortfolioGrid filters={filters} galleries={galleries} />
+      <PageSections page="portfolio" slot="bottom" lang={lang} />
     </main>
   );
 }

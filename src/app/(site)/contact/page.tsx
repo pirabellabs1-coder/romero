@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PageEyebrow from "@/components/PageEyebrow";
+import PageSections from "@/components/PageSections";
 
 export const metadata: Metadata = {
   title: "Contact & réservation",
@@ -69,6 +70,7 @@ export default async function ContactPage() {
 
   return (
     <main>
+      <PageSections page="contact" slot="top" lang={lang} />
       <PageEyebrow eyebrow={t.contact.eyebrow} title={t.contact.title} accent={t.contact.titleAccent} lead={t.contact.lead} />
 
       <section className="contact-section" style={{ background: "#fff" }}>
@@ -143,6 +145,7 @@ export default async function ContactPage() {
           </Rise>
         </div>
       </section>
+      <PageSections page="contact" slot="bottom" lang={lang} />
     </main>
   );
 }
