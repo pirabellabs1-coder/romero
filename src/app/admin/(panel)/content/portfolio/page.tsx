@@ -27,11 +27,12 @@ const SECTIONS: SectionSpec[] = [
   },
   {
     title: "Filtres de la grille",
-    description: "Boutons au-dessus des galeries (Tous, France, International).",
+    description: "Boutons de catégories au-dessus des galeries.",
     fields: [
-      { key: "filters_0", label: "Filtre 1 (« TOUS »)" },
-      { key: "filters_1", label: "Filtre 2 (« FRANCE »)" },
-      { key: "filters_2", label: "Filtre 3 (« INTERNATIONAL »)" },
+      { key: "filters_0", label: "Filtre 1 (« MARIAGES »)" },
+      { key: "filters_1", label: "Filtre 2 (« SÉANCE D'ENGAGEMENT »)" },
+      { key: "filters_2", label: "Filtre 3 (« PORTRAITS »)" },
+      { key: "filters_3", label: "Filtre 4 (« LIFESTYLE »)" },
     ],
   },
 ];
