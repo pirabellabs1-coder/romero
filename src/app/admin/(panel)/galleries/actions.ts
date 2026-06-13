@@ -403,6 +403,58 @@ export async function updatePhotoAlt(photoId: number, alt: string) {
   if (row?.gallery_id) revalidatePath(`/admin/galleries/${row.gallery_id}`);
 }
 
+/**
+ * Bulk-reorder photos by passing the IDs in their new desired order.
+ * Used by the drag-and-drop grid so a single drop call rewrites every
+ * sort_order in one transaction instead of N "swap" round-trips.
+ *
+ * Safe-by-construction: we re-fetch the gallery's current photo IDs and
+ * intersect with the input, so callers can't promote a foreign photo or
+ * accidentally drop rows.
+ */
+export async function reorderGalleryPhotos(
+  galleryId: number,
+  orderedPhotoIds: number[]
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    requireUser();
+    if (!Array.isArray(orderedPhotoIds) || orderedPhotoIds.length === 0) {
+      return { ok: false, error: "Liste vide" };
+    }
+    const existing = await query<{ id: number }>(
+      "SELECT id FROM photos WHERE gallery_id = $1",
+      [galleryId]
+    );
+    const allowed = new Set(existing.map((r) => r.id));
+    const clean = orderedPhotoIds.filter((id) => Number.isInteger(id) && allowed.has(id));
+    if (clean.length === 0) return { ok: false, error: "Aucune photo valide" };
+
+    const client = await pool().connect();
+    try {
+      await client.query("BEGIN");
+      for (let i = 0; i < clean.length; i++) {
+        await client.query(
+          "UPDATE photos SET sort_order = $1 WHERE id = $2 AND gallery_id = $3",
+          [i, clean[i], galleryId]
+        );
+      }
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    revalidatePath(`/admin/galleries/${galleryId}`);
+    const slug = (await queryOne<{ slug: string }>("SELECT slug FROM galleries WHERE id = $1", [galleryId]))?.slug;
+    if (slug) revalidatePath(`/portfolio/${slug}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function movePhoto(photoId: number, direction: "up" | "down") {
   requireUser();
   const me = await queryOne<{ id: number; gallery_id: number; sort_order: number }>(

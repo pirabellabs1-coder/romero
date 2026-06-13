@@ -7,8 +7,10 @@ import ConfirmDelete from "@/components/admin/ConfirmDelete";
 import {
   updateGallery, deleteGallery, registerUploadedPhotos,
   setCover, setGalleryCoverPosition, deletePhoto, updatePhotoSpan, updatePhotoAlt, movePhoto,
+  reorderGalleryPhotos,
 } from "../actions";
 import GalleryCoverPosition from "@/components/admin/GalleryCoverPosition";
+import SortablePhotoGrid from "@/components/admin/SortablePhotoGrid";
 
 export const dynamic = "force-dynamic";
 
@@ -134,11 +136,14 @@ export default async function GalleryEdit({
 
         <UploadDropzone galleryId={id} registerAction={registerUploadedPhotos} />
 
-        {photos.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 20, marginTop: 28 }}>
-            {photos.map((p, i) => (
+        {photos.length > 0 && (() => {
+          // Build server-rendered tiles indexed by id so the client-side
+          // sortable wrapper can reorder them without re-rendering server
+          // actions. Each PhotoTile keeps its own arrow-button fallback.
+          const tilesById: Record<string, React.ReactElement> = {};
+          photos.forEach((p, i) => {
+            tilesById[String(p.id)] = (
               <PhotoTile
-                key={p.id}
                 id={p.id}
                 filename={p.filename}
                 alt={p.alt}
@@ -165,9 +170,17 @@ export default async function GalleryEdit({
                   await movePhoto(p.id, "down");
                 }}
               />
-            ))}
-          </div>
-        )}
+            );
+          });
+          return (
+            <SortablePhotoGrid
+              galleryId={id}
+              initialOrder={photos.map((p) => p.id)}
+              reorderAction={reorderGalleryPhotos}
+              tilesById={tilesById}
+            />
+          );
+        })()}
       </div>
 
       <div className="admin-card" style={{ borderColor: "#E3C5C5" }}>
