@@ -21,6 +21,7 @@ import CTABlock from "@/components/CTABlock";
 import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { pickShowcasePhotos, photoUrl } from "@/lib/content";
+import { servicesSchema, jsonLdScript } from "@/lib/jsonld";
 
 const HERO_PHOTO = "/uploads/hero.jpg";
 
@@ -94,8 +95,21 @@ export default async function ServicesPage() {
   const CATEGORY_LABELS_EN = ["Wedding", "Engagement session", "Portrait", "Lifestyle"];
   const labels = lang === "en" ? CATEGORY_LABELS_EN : CATEGORY_LABELS_FR;
 
+  // SEO — Service schema for each card so Google understands the
+  // offer catalogue and can surface them as service rich results.
+  const ldServices = servicesSchema(
+    t.services.cards.map(([title, sub, , body]) => ({
+      name: `${title}${sub ? ` — ${sub}` : ""}`,
+      description: body,
+    }))
+  );
+
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(ldServices) }}
+      />
       <PageSections page="services" slot="top" lang={lang} />
       <PageEyebrow
         eyebrow={t.services.eyebrow}

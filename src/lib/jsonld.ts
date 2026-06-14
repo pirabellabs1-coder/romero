@@ -73,28 +73,51 @@ export function imageGallerySchema(g: {
   };
 }
 
-export function localBusinessSchema(settings: {
-  contact_email: string;
-  contact_phone: string;
-  contact_city: string;
-  instagram_handle: string;
-}): Record<string, unknown> {
-  return {
+export function localBusinessSchema(
+  settings: {
+    contact_email: string;
+    contact_phone: string;
+    contact_city: string;
+    instagram_handle: string;
+  },
+  /** Optional aggregate rating computed from the reviews table — drives the star snippet in Google. */
+  rating?: { count: number; average: number }
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
+    // Use the most specific applicable type so Google can categorise correctly.
+    "@type": ["LocalBusiness", "ProfessionalService"],
     "@id": `${siteUrl}#business`,
     name: "Romero Photography",
+    legalName: "Romero Photography",
+    description:
+      "Photographe de mariage à Nice et sur la Côte d'Azur. Reportages élégants, lumineux, intemporels — France et international.",
     url: siteUrl,
     image: `${siteUrl}/uploads/hero.jpg`,
+    logo: `${siteUrl}/uploads/hero.jpg`,
     priceRange: "€€€",
     address: {
       "@type": "PostalAddress",
       addressLocality: settings.contact_city,
+      addressRegion: "Provence-Alpes-Côte d'Azur",
       addressCountry: "FR",
     },
     telephone: settings.contact_phone,
     email: settings.contact_email,
-    areaServed: ["Nice", "Côte d'Azur", "France", "Worldwide"],
+    areaServed: [
+      { "@type": "City", name: "Nice" },
+      { "@type": "AdministrativeArea", name: "Côte d'Azur" },
+      { "@type": "Country", name: "France" },
+      "Worldwide",
+    ],
+    knowsAbout: [
+      "Photographe de mariage",
+      "Wedding photographer",
+      "Photographe Côte d'Azur",
+      "Reportage de mariage",
+      "Séance d'engagement",
+      "Photographe Nice",
+    ],
     sameAs: [
       `https://www.instagram.com/${(settings.instagram_handle || "").replace(/^@/, "")}`,
     ],
@@ -107,6 +130,87 @@ export function localBusinessSchema(settings: {
         closes: "19:00",
       },
     ],
+  };
+  if (rating && rating.count > 0) {
+    out.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: rating.average.toFixed(1),
+      reviewCount: rating.count,
+      bestRating: "5",
+      worstRating: "1",
+    };
+  }
+  return out;
+}
+
+/**
+ * Service schema for the /prestations page — lets Google understand each
+ * offer (mariage, séance, événement) as a distinct service with its own
+ * provider and area served.
+ */
+export function servicesSchema(items: Array<{
+  name: string;
+  description: string;
+  url?: string;
+}>): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Prestations photo de mariage",
+    itemListElement: items.map((s, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      item: {
+        "@type": "Service",
+        name: s.name,
+        description: s.description,
+        url: s.url || `${siteUrl}/prestations`,
+        provider: { "@type": "Person", name: "Mickael Romero", "@id": `${siteUrl}#business` },
+        areaServed: [
+          { "@type": "City", name: "Nice" },
+          { "@type": "AdministrativeArea", name: "Côte d'Azur" },
+          { "@type": "Country", name: "France" },
+        ],
+        serviceType: "Photographe de mariage",
+      },
+    })),
+  };
+}
+
+/**
+ * Reviews aggregate + individual entries for the /avis page. Each Review
+ * becomes a rich result eligible snippet for Google.
+ */
+export function reviewsSchema(
+  reviews: Array<{ author: string; rating: number; text: string; date?: string }>,
+  aggregate: { count: number; average: number }
+): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: "Reportage de mariage — Romero Photography",
+    description:
+      "Photographe de mariage à Nice & sur la Côte d'Azur — voir les avis clients.",
+    brand: { "@type": "Brand", name: "Romero Photography" },
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: aggregate.average.toFixed(1),
+      reviewCount: aggregate.count,
+      bestRating: "5",
+      worstRating: "1",
+    },
+    review: reviews.slice(0, 24).map((r) => ({
+      "@type": "Review",
+      author: { "@type": "Person", name: r.author },
+      reviewRating: {
+        "@type": "Rating",
+        ratingValue: String(r.rating),
+        bestRating: "5",
+        worstRating: "1",
+      },
+      reviewBody: r.text,
+      datePublished: r.date,
+    })),
   };
 }
 

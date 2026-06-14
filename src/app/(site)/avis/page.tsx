@@ -11,6 +11,7 @@ import { getLangFromCookies } from "@/lib/lang";
 import { getSettings } from "@/lib/settings";
 import { listReviews } from "@/lib/content";
 import PageSections from "@/components/PageSections";
+import { reviewsSchema, jsonLdScript } from "@/lib/jsonld";
 
 export const metadata: Metadata = {
   title: "Avis clients",
@@ -48,8 +49,32 @@ export default async function ReviewsPage() {
     ] as [string, string]),
   };
 
+  // SEO — surface every published review as a Review schema entry +
+  // an AggregateRating so Google can render stars + review snippets.
+  const ratedReviews = reviews.filter((r) => (r.rating || 0) > 0);
+  const ldReviews = ratedReviews.length > 0
+    ? reviewsSchema(
+        ratedReviews.map((r) => ({
+          author: r.name,
+          rating: r.rating,
+          text: (lang === "en" ? r.text_en : r.text_fr) || r.text_fr || "",
+          date: r.date_label || undefined,
+        })),
+        {
+          count: ratedReviews.length,
+          average: ratedReviews.reduce((a, b) => a + (b.rating || 0), 0) / ratedReviews.length,
+        }
+      )
+    : null;
+
   return (
     <main>
+      {ldReviews && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(ldReviews) }}
+        />
+      )}
       <PageSections page="reviews" slot="top" lang={lang} />
       <PageEyebrow eyebrow={r.eyebrow} title={r.title} accent={r.titleAccent} lead={r.lead} />
 

@@ -4,6 +4,7 @@ import { getSettings, buildTokenStyle } from "@/lib/settings";
 import ModalProvider from "@/components/ui/Modal";
 import { localBusinessSchema, personSchema, websiteSchema, jsonLdScript } from "@/lib/jsonld";
 import { cormorant, inter } from "@/app/fonts";
+import { queryOne } from "@/lib/db";
 
 // Use ISR with short revalidation — settings have a 15s memory cache anyway, and admin actions call revalidatePath()
 export const revalidate = 60;
@@ -59,7 +60,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const settings = await getSettings();
   const { css, googleFontHref } = buildTokenStyle(settings);
 
-  const ldLocalBusiness = localBusinessSchema(settings);
+  // Aggregate rating feeds the LocalBusiness schema so Google can show
+  // stars in search results. Computed at request time; settings.ts caches
+  // for 60s so the read is cheap.
+  const ratingRow = await queryOne<{ n: number; avg: number }>(
+    "SELECT COUNT(*)::int AS n, COALESCE(ROUND(AVG(rating)::numeric, 2), 0)::float AS avg FROM reviews WHERE published = 1"
+  ).catch(() => null);
+  const aggregateRating = ratingRow && ratingRow.n > 0
+    ? { count: ratingRow.n, average: ratingRow.avg }
+    : undefined;
+
+  const ldLocalBusiness = localBusinessSchema(settings, aggregateRating);
   const ldPerson = personSchema();
   const ldWebsite = websiteSchema();
 
