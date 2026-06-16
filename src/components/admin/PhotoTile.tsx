@@ -50,7 +50,7 @@ export default function PhotoTile({
     <article className={`photo-card${isCover ? " is-cover" : ""}${pending ? " is-pending" : ""}`}>
       <div className="photo-card__media">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt || `Photo ${id}`} />
+        <img src={src} alt={alt || `Photo ${id}`} draggable={false} />
 
         {isCover && (
           <span className="photo-card__cover-ribbon" aria-label="Photo de couverture">

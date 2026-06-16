@@ -272,6 +272,15 @@ export default function SortablePhotoGrid({ galleryId, reorderAction, children }
           50% { opacity: 1; }
         }
 
+        /* Defense in depth: disable native drag on everything inside the
+           tile EXCEPT the gold handle. Without this, dragging the <img>
+           itself triggers a native image drag (visible as a ghost) but
+           bypasses our React handlers, so the user sees "the photo went
+           grey but didn't move". */
+        .spg-item *:not(.spg-handle):not(.spg-handle *) {
+          -webkit-user-drag: none;
+          user-drag: none;
+        }
         .spg-handle {
           position: absolute;
           top: 10px;
