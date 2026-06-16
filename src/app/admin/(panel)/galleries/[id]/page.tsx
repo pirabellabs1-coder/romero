@@ -10,7 +10,7 @@ import {
   reorderGalleryPhotos,
 } from "../actions";
 import GalleryCoverPosition from "@/components/admin/GalleryCoverPosition";
-import SortablePhotoGrid from "@/components/admin/SortablePhotoGrid";
+import SortablePhotoGrid, { SortablePhotoItem } from "@/components/admin/SortablePhotoGrid";
 
 export const dynamic = "force-dynamic";
 
@@ -136,51 +136,41 @@ export default async function GalleryEdit({
 
         <UploadDropzone galleryId={id} registerAction={registerUploadedPhotos} />
 
-        {photos.length > 0 && (() => {
-          // Build server-rendered tiles indexed by id so the client-side
-          // sortable wrapper can reorder them without re-rendering server
-          // actions. Each PhotoTile keeps its own arrow-button fallback.
-          const tilesById: Record<string, React.ReactElement> = {};
-          photos.forEach((p, i) => {
-            tilesById[String(p.id)] = (
-              <PhotoTile
-                id={p.id}
-                filename={p.filename}
-                alt={p.alt}
-                span={p.span}
-                isCover={g.cover_photo_id === p.id}
-                isFirst={i === 0}
-                isLast={i === photos.length - 1}
-                onSetCover={setCover.bind(null, id, p.id)}
-                onDelete={deletePhoto.bind(null, p.id)}
-                onSpanChange={async (span: string) => {
-                  "use server";
-                  await updatePhotoSpan(p.id, span);
-                }}
-                onAltChange={async (alt: string) => {
-                  "use server";
-                  await updatePhotoAlt(p.id, alt);
-                }}
-                onMoveUp={async () => {
-                  "use server";
-                  await movePhoto(p.id, "up");
-                }}
-                onMoveDown={async () => {
-                  "use server";
-                  await movePhoto(p.id, "down");
-                }}
-              />
-            );
-          });
-          return (
-            <SortablePhotoGrid
-              galleryId={id}
-              initialOrder={photos.map((p) => p.id)}
-              reorderAction={reorderGalleryPhotos}
-              tilesById={tilesById}
-            />
-          );
-        })()}
+        {photos.length > 0 && (
+          <SortablePhotoGrid galleryId={id} reorderAction={reorderGalleryPhotos}>
+            {photos.map((p, i) => (
+              <SortablePhotoItem key={p.id} id={p.id}>
+                <PhotoTile
+                  id={p.id}
+                  filename={p.filename}
+                  alt={p.alt}
+                  span={p.span}
+                  isCover={g.cover_photo_id === p.id}
+                  isFirst={i === 0}
+                  isLast={i === photos.length - 1}
+                  onSetCover={setCover.bind(null, id, p.id)}
+                  onDelete={deletePhoto.bind(null, p.id)}
+                  onSpanChange={async (span: string) => {
+                    "use server";
+                    await updatePhotoSpan(p.id, span);
+                  }}
+                  onAltChange={async (alt: string) => {
+                    "use server";
+                    await updatePhotoAlt(p.id, alt);
+                  }}
+                  onMoveUp={async () => {
+                    "use server";
+                    await movePhoto(p.id, "up");
+                  }}
+                  onMoveDown={async () => {
+                    "use server";
+                    await movePhoto(p.id, "down");
+                  }}
+                />
+              </SortablePhotoItem>
+            ))}
+          </SortablePhotoGrid>
+        )}
       </div>
 
       <div className="admin-card" style={{ borderColor: "#E3C5C5" }}>
