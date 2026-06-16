@@ -2,15 +2,19 @@
 /**
  * Drag-and-drop wrapper for the gallery photo grid.
  *
- * Each child is wrapped in a draggable shell. On drop we optimistically
- * reorder the local list AND call the bulk reorder server action so the
- * change persists. Arrow buttons inside PhotoTile keep working as a
- * fallback (and for keyboard users).
+ * Each tile gets a dedicated drag handle (grip icon, top-left corner)
+ * so the rest of the tile keeps working normally — clicking the cover
+ * button, editing the alt text, picking a span, etc. never accidentally
+ * starts a drag. The handle is the only draggable surface.
  *
- * Native HTML5 DnD only — no extra dependency. Mouse + trackpad on
- * desktop; touch devices fall back to the arrow buttons.
+ * On drop the local order is updated optimistically and persisted via a
+ * single bulk server action that rewrites every sort_order in one
+ * transaction. The arrow buttons inside PhotoTile remain as a fallback.
+ *
+ * Native HTML5 DnD — no extra dependency. Mouse + trackpad only;
+ * touch devices fall back to the arrow buttons.
  */
-import { useMemo, useState, useTransition, type ReactElement } from "react";
+import { useMemo, useRef, useState, useTransition, type ReactElement } from "react";
 
 type ReorderAction = (
   galleryId: number,
@@ -41,21 +45,9 @@ export default function SortablePhotoGrid({
     | { kind: "ok" }
     | { kind: "err"; msg: string }
   >({ kind: "idle" });
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const ids = useMemo(() => order, [order]);
-
-  function moveLocal(fromId: number, toId: number) {
-    if (fromId === toId) return;
-    setOrder((prev) => {
-      const from = prev.indexOf(fromId);
-      const to = prev.indexOf(toId);
-      if (from === -1 || to === -1) return prev;
-      const next = prev.slice();
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
-      return next;
-    });
-  }
 
   function persist(next: number[]) {
     setStatus({ kind: "saving" });
@@ -63,27 +55,51 @@ export default function SortablePhotoGrid({
       const res = await reorderAction(galleryId, next);
       if (res.ok) {
         setStatus({ kind: "ok" });
-        setTimeout(() => setStatus({ kind: "idle" }), 1800);
+        setTimeout(() => setStatus({ kind: "idle" }), 2200);
       } else {
         setStatus({ kind: "err", msg: res.error });
       }
     });
   }
 
+  function commitReorder(fromId: number, toId: number) {
+    if (fromId === toId) return;
+    setOrder((prev) => {
+      const fIdx = prev.indexOf(fromId);
+      const tIdx = prev.indexOf(toId);
+      if (fIdx === -1 || tIdx === -1) return prev;
+      const next = prev.slice();
+      const [moved] = next.splice(fIdx, 1);
+      next.splice(tIdx, 0, moved);
+      persist(next);
+      return next;
+    });
+  }
+
   return (
     <>
-      <div className="sortable-photo-grid__hint">
-        <span>↕</span>
-        <span>
-          Glissez-déposez les photos pour les réorganiser. Les flèches restent disponibles pour un ajustement précis.
+      <div className="spg-hint">
+        <span className="spg-hint-icon" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="5" r="1" />
+            <circle cx="9" cy="12" r="1" />
+            <circle cx="9" cy="19" r="1" />
+            <circle cx="15" cy="5" r="1" />
+            <circle cx="15" cy="12" r="1" />
+            <circle cx="15" cy="19" r="1" />
+          </svg>
         </span>
-        {status.kind === "saving" && <span className="sortable-photo-grid__pill saving">Enregistrement…</span>}
-        {status.kind === "ok" && <span className="sortable-photo-grid__pill ok">✓ Ordre enregistré</span>}
-        {status.kind === "err" && <span className="sortable-photo-grid__pill err">❌ {status.msg}</span>}
+        <span className="spg-hint-text">
+          Saisissez la poignée <strong>⋮⋮</strong> en haut à gauche d&apos;une photo pour la glisser-déposer à la position voulue.
+          Les flèches restent disponibles pour un ajustement fin.
+        </span>
+        {status.kind === "saving" && <span className="spg-pill spg-pill--saving">Enregistrement…</span>}
+        {status.kind === "ok" && <span className="spg-pill spg-pill--ok">✓ Ordre enregistré</span>}
+        {status.kind === "err" && <span className="spg-pill spg-pill--err">❌ {status.msg}</span>}
       </div>
 
       <div
-        className={`sortable-photo-grid${pending ? " is-pending" : ""}`}
+        className={`spg-grid${pending ? " is-pending" : ""}`}
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
@@ -99,17 +115,13 @@ export default function SortablePhotoGrid({
           return (
             <div
               key={pid}
-              draggable
-              onDragStart={(e) => {
-                setDragId(pid);
-                e.dataTransfer.effectAllowed = "move";
-                // Required for Firefox to start the drag.
-                e.dataTransfer.setData("text/plain", String(pid));
-              }}
+              ref={(el) => { itemRefs.current[String(pid)] = el; }}
+              className={`spg-item${isDragging ? " is-dragging" : ""}${isOver ? " is-over" : ""}`}
               onDragOver={(e) => {
+                if (dragId === null) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
-                if (dragId !== null && overId !== pid) setOverId(pid);
+                if (overId !== pid) setOverId(pid);
               }}
               onDragLeave={() => {
                 if (overId === pid) setOverId(null);
@@ -119,33 +131,48 @@ export default function SortablePhotoGrid({
                 const from = dragId;
                 setDragId(null);
                 setOverId(null);
-                if (from === null || from === pid) return;
-                // Commit the new order locally first, then persist.
-                setOrder((prev) => {
-                  const fIdx = prev.indexOf(from);
-                  const tIdx = prev.indexOf(pid);
-                  if (fIdx === -1 || tIdx === -1) return prev;
-                  const next = prev.slice();
-                  const [moved] = next.splice(fIdx, 1);
-                  next.splice(tIdx, 0, moved);
-                  persist(next);
-                  return next;
-                });
+                if (from === null) return;
+                commitReorder(from, pid);
               }}
-              onDragEnd={() => {
-                setDragId(null);
-                setOverId(null);
-              }}
-              className={`sortable-photo-grid__item${isDragging ? " is-dragging" : ""}${isOver ? " is-over" : ""}`}
-              style={{
-                opacity: isDragging ? 0.4 : 1,
-                outline: isOver ? "2px dashed var(--gold)" : "none",
-                outlineOffset: 4,
-                transition: "outline-color 120ms",
-                cursor: "grab",
-              }}
-              aria-grabbed={isDragging}
             >
+              {/* Drag handle — the ONLY draggable surface. The rest of the
+                  tile (buttons, inputs, selects) stays normally clickable. */}
+              <button
+                type="button"
+                className="spg-handle"
+                title="Glisser pour déplacer"
+                aria-label="Glisser pour déplacer cette photo"
+                draggable
+                onDragStart={(e) => {
+                  setDragId(pid);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(pid));
+                  // Make the drag preview the whole tile, not just the handle.
+                  const node = itemRefs.current[String(pid)];
+                  if (node) {
+                    const rect = node.getBoundingClientRect();
+                    e.dataTransfer.setDragImage(
+                      node,
+                      Math.min(40, rect.width / 2),
+                      Math.min(40, rect.height / 2)
+                    );
+                  }
+                }}
+                onDragEnd={() => {
+                  setDragId(null);
+                  setOverId(null);
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="9" cy="5" r="1" />
+                  <circle cx="9" cy="12" r="1" />
+                  <circle cx="9" cy="19" r="1" />
+                  <circle cx="15" cy="5" r="1" />
+                  <circle cx="15" cy="12" r="1" />
+                  <circle cx="15" cy="19" r="1" />
+                </svg>
+              </button>
+
               {tile}
             </div>
           );
@@ -153,34 +180,88 @@ export default function SortablePhotoGrid({
       </div>
 
       <style>{`
-        .sortable-photo-grid__hint {
+        .spg-hint {
           display: flex;
           align-items: center;
           gap: 10px;
-          font-size: 12px;
-          color: var(--muted);
-          padding: 10px 14px;
-          background: var(--cream);
-          border: 1px dashed var(--rule);
+          font-size: 12.5px;
+          color: var(--ink);
+          padding: 12px 16px;
+          background: rgba(184, 151, 90, 0.08);
+          border: 1px solid rgba(184, 151, 90, 0.35);
           border-radius: 6px;
           margin: 22px 0 0;
         }
-        .sortable-photo-grid__hint > span:first-child {
-          font-size: 14px;
+        .spg-hint-icon {
+          flex-shrink: 0;
           color: var(--gold);
+          display: inline-flex;
+          align-items: center;
         }
-        .sortable-photo-grid__pill {
-          margin-left: auto;
-          padding: 3px 10px;
+        .spg-hint-text { flex: 1; line-height: 1.5; }
+        .spg-hint-text strong { color: var(--gold-deep); font-weight: 600; }
+        .spg-pill {
+          flex-shrink: 0;
+          padding: 4px 12px;
           border-radius: 999px;
           font-size: 11px;
           font-weight: 500;
+          letter-spacing: 0.04em;
         }
-        .sortable-photo-grid__pill.saving { background: var(--cream-deep); color: var(--muted); }
-        .sortable-photo-grid__pill.ok { background: rgba(46, 61, 46, 0.08); color: var(--sage-deep); }
-        .sortable-photo-grid__pill.err { background: rgba(139, 46, 46, 0.08); color: #8B2E2E; }
-        .sortable-photo-grid__item:active { cursor: grabbing; }
-        .sortable-photo-grid.is-pending { pointer-events: none; }
+        .spg-pill--saving { background: var(--cream-deep); color: var(--muted); }
+        .spg-pill--ok { background: rgba(46, 61, 46, 0.1); color: var(--sage-deep); }
+        .spg-pill--err { background: rgba(139, 46, 46, 0.1); color: #8B2E2E; }
+
+        .spg-grid.is-pending { opacity: 0.85; }
+
+        .spg-item {
+          position: relative;
+          transition: transform 140ms ease, opacity 140ms ease, box-shadow 140ms ease;
+        }
+        .spg-item.is-dragging {
+          opacity: 0.35;
+          transform: scale(0.97);
+        }
+        .spg-item.is-over::before {
+          content: "";
+          position: absolute;
+          inset: -6px;
+          border: 2px dashed var(--gold);
+          border-radius: 8px;
+          pointer-events: none;
+          z-index: 5;
+        }
+
+        .spg-handle {
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          z-index: 4;
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(46, 61, 46, 0.85);
+          color: #F4EFE3;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 6px;
+          cursor: grab;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+          backdrop-filter: blur(4px);
+          transition: background 120ms, transform 120ms;
+        }
+        .spg-handle:hover {
+          background: var(--gold);
+          color: #FFFFFF;
+          transform: scale(1.06);
+        }
+        .spg-handle:active { cursor: grabbing; transform: scale(0.96); }
+        .spg-handle:focus-visible {
+          outline: 2px solid var(--gold);
+          outline-offset: 2px;
+        }
       `}</style>
     </>
   );
