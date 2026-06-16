@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { upload } from "@vercel/blob/client";
+import { uploadToStorage } from "@/lib/storage-client";
 import { photoUrl } from "@/lib/photo-url";
 import FocalPointPicker from "@/components/admin/FocalPointPicker";
 
@@ -65,13 +65,10 @@ export default function CoverPicker({ postId, currentCover, currentPosition, gal
       const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 60);
       const pathname = `posts/post${postId}-${ts}-${safeName}`;
-      // Client → Blob direct, bypasses Vercel's 4.5 MB serverless body cap.
-      const blob = await upload(pathname, file, {
-        access: "public",
-        handleUploadUrl: "/api/blob/upload-token",
-      });
-      setCover(blob.url);
-      await persist(blob.url, position);
+      // Client → Supabase Storage direct, bypasses Vercel's 4.5 MB serverless body cap.
+      const { publicUrl } = await uploadToStorage(pathname, file);
+      setCover(publicUrl);
+      await persist(publicUrl, position);
     } catch (e) {
       setStatus({ kind: "error", message: e instanceof Error ? e.message : String(e) });
     }

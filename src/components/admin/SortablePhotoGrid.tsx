@@ -257,8 +257,6 @@ function SortableTile({ id, children }: { id: number; children: ReactNode }) {
     <div ref={setNodeRef} style={style} className={`spg-tile${isDragging ? " is-dragging" : ""}`}>
       <div
         className="spg-handle"
-        role="button"
-        tabIndex={0}
         aria-label="Glisser pour déplacer cette photo"
         title="Glisser pour déplacer"
         {...attributes}

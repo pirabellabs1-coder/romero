@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
-import { upload } from "@vercel/blob/client";
+import { uploadToStorage } from "@/lib/storage-client";
 
 type UploadResult = {
   inserted: number;
@@ -67,11 +67,8 @@ export default function UploadDropzone({ galleryId, registerAction }: Props) {
           const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
           const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 60);
           const pathname = `galleries/g${galleryId}/p${ts}-${safeName}`;
-          const blob = await upload(pathname, f, {
-            access: "public",
-            handleUploadUrl: "/api/blob/upload-token",
-          });
-          uploaded.push({ url: blob.url, name: f.name });
+          const { publicUrl } = await uploadToStorage(pathname, f);
+          uploaded.push({ url: publicUrl, name: f.name });
         } catch (e) {
           errors.push({
             name: f.name,

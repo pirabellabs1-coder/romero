@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { upload } from "@vercel/blob/client";
+import { uploadToStorage } from "@/lib/storage-client";
 import FocalPointPicker from "@/components/admin/FocalPointPicker";
 
 type Status =
@@ -57,15 +57,12 @@ export default function HeroPhotoUploader({
     try {
       const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
       const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 60);
-      const pathname = `posts/hero-${ts}-${safe}`;
-      const blob = await upload(pathname, f, {
-        access: "public",
-        handleUploadUrl: "/api/blob/upload-token",
-      });
+      const pathname = `content/hero-${ts}-${safe}`;
+      const { publicUrl } = await uploadToStorage(pathname, f);
       setStatus({ kind: "saving" });
-      const res = await saveAction(blob.url);
+      const res = await saveAction(publicUrl);
       if (res.ok) {
-        setUrl(blob.url);
+        setUrl(publicUrl);
         setStatus({ kind: "saved" });
         setTimeout(() => setStatus({ kind: "idle" }), 1800);
       } else {

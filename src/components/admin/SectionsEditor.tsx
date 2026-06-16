@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { upload } from "@vercel/blob/client";
+import { uploadToStorage } from "@/lib/storage-client";
 import {
   type PageSection,
   type SectionType,
@@ -259,12 +259,9 @@ function SectionEditorBody({
     try {
       const ts = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 60);
-      const pathname = `posts/section-${section.id}-${ts}-${safe}`;
-      const blob = await upload(pathname, file, {
-        access: "public",
-        handleUploadUrl: "/api/blob/upload-token",
-      });
-      return blob.url;
+      const pathname = `content/section-${section.id}-${ts}-${safe}`;
+      const { publicUrl } = await uploadToStorage(pathname, file);
+      return publicUrl;
     } catch (e) {
       alert("❌ " + (e instanceof Error ? e.message : String(e)));
       return null;

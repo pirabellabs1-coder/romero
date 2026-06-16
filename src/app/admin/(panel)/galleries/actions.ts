@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
-import { put, del } from "@vercel/blob";
+import { uploadPhotoServer, deletePhoto as deleteFromStorage } from "@/lib/storage";
 import { query, queryOne, execute, pool } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { sanitizePosition } from "@/lib/cover-position";
@@ -23,7 +23,7 @@ const GALS_DIR = path.join(UPLOADS_DIR, "galleries");
 // Use Vercel Blob in production (filesystem is read-only there). Dev keeps
 // the local public/uploads folder so the developer can iterate without
 // touching cloud storage.
-const USE_BLOB = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+const USE_BLOB = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 function ensureDirs() {
   if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -31,9 +31,33 @@ function ensureDirs() {
 }
 
 // A stored filename can be either a relative local path (e.g.
-// "galleries/g2/foo.webp") or a full Blob URL ("https://...blob...webp").
+// "galleries/g2/foo.webp") or a full storage URL ("https://...supabase.../photos/...").
 function isBlobUrl(filename: string): boolean {
   return filename.startsWith("https://") || filename.startsWith("http://");
+}
+
+/**
+ * Take whatever we kept in the photos.filename column and extract the
+ * bucket-relative path for Supabase deletes. Examples:
+ *   "https://<ref>.supabase.co/storage/v1/object/public/photos/galleries/g1/x.webp"
+ *     → "galleries/g1/x.webp"
+ *   "https://<old-vercel-blob>.../galleries/g1/x.webp" (legacy)
+ *     → "galleries/g1/x.webp"
+ *   "galleries/g1/x.webp" (already a path)
+ *     → "galleries/g1/x.webp"
+ */
+function extractStoragePath(stored: string): string {
+  if (!stored) return "";
+  const supaMatch = stored.match(/\/storage\/v1\/object\/public\/photos\/(.+)$/);
+  if (supaMatch) return supaMatch[1];
+  if (!isBlobUrl(stored)) return stored;
+  // Best-effort for legacy Vercel Blob URLs — take the path part after the host.
+  try {
+    const u = new URL(stored);
+    return u.pathname.replace(/^\/+/, "");
+  } catch {
+    return stored;
+  }
 }
 
 function slugify(s: string): string {
@@ -114,7 +138,7 @@ export async function deleteGallery(id: number) {
     if (p.filename.startsWith("hero")) continue;
     if (isBlobUrl(p.filename)) {
       if (USE_BLOB) {
-        try { await del(p.filename); } catch {}
+        try { await deleteFromStorage(extractStoragePath(p.filename)); } catch {}
       }
     } else {
       const fp = path.join(UPLOADS_DIR, p.filename);
@@ -259,12 +283,11 @@ export async function uploadPhoto(galleryId: number, formData: FormData): Promis
 
       let storedFilename: string;
       if (USE_BLOB) {
-        const blob = await put(`${galleryFolder}/p${ts}.webp`, webpBuf, {
-          access: "public",
-          contentType: "image/webp",
-          addRandomSuffix: false,
-        });
-        storedFilename = blob.url;
+        storedFilename = await uploadPhotoServer(
+          `${galleryFolder}/p${ts}.webp`,
+          webpBuf,
+          "image/webp"
+        );
       } else {
         const filename = `${galleryFolder}/p${ts}.webp`;
         fs.writeFileSync(path.join(UPLOADS_DIR, filename), webpBuf);
@@ -367,7 +390,7 @@ export async function deletePhoto(photoId: number) {
   if (!row.filename.startsWith("hero")) {
     if (isBlobUrl(row.filename)) {
       if (USE_BLOB) {
-        try { await del(row.filename); } catch {}
+        try { await deleteFromStorage(extractStoragePath(row.filename)); } catch {}
       }
     } else {
       const fp = path.join(UPLOADS_DIR, row.filename);
