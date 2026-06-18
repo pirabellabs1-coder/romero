@@ -142,7 +142,7 @@ export const STRINGS: Record<Lang, Strings> = {
       lead: "Quatre univers, une exigence : que chaque image vous ressemble, et que chaque souvenir vous accompagne longtemps.",
       cards: [
         ["MARIAGE", "Reportage adapté à votre journée", "Sur devis", "Plusieurs formules sur-mesure selon votre journée — demi-journée, journée complète, multi-jours, mariage destination. Chaque devis est construit avec vous, autour de votre projet et de votre budget."],
-        ["SÉANCE D'ENGAGEMENT", "Une parenthèse intime avant le grand jour", "À partir de 299 €", "Une heure et demie en duo, en bord de mer ou dans un lieu qui vous est cher. Idéal pour apprivoiser l'objectif avant le mariage."],
+        ["SÉANCE D'ENGAGEMENT", "Une parenthèse intime avant le grand jour", "À partir de 299 €", "Une heure et demie en duo, en bord de mer ou dans un lieu qui vous est cher. Idéal pour apprivoiser l'objectif avant le mariage."],
         ["PORTRAIT", "Individuel, couple ou famille", "Sur devis", "Une séance dédiée à votre image — portrait artistique, photo de famille, shooting professionnel. Lumière naturelle, direction bienveillante, retouches haut de gamme."],
         ["LIFESTYLE", "Moments de vie, ambiance naturelle", "Sur devis", "Reportage authentique d'un moment ou d'un projet de vie — grossesse, naissance, anniversaire, escapade en couple. Une approche douce, sincère et intemporelle."]
       ],
@@ -205,7 +205,7 @@ export const STRINGS: Record<Lang, Strings> = {
         date: "DATE DU MARIAGE",
         place: "LIEU PRESSENTI",
         message: "VOTRE MESSAGE",
-        messagePh: "Racontez-moi votre projet, votre histoire, votre vision...",
+        messagePh: "Racontez-moi votre projet, votre histoire, votre vision…",
         submit: "ENVOYER MA DEMANDE",
         sent: "Merci ! Votre message est bien parti. Je reviens vers vous très vite.",
         error: "Désolé, une erreur est survenue. Réessayez ou écrivez-moi directement."
