@@ -54,6 +54,35 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         data-connection-id="75e59a0a-2736-48d8-8cdd-d308a9343775"
         strategy="lazyOnload"
       />
+
+      {/* Meta Pixel (Facebook) — public site only. Marked afterInteractive so
+          the loader is queued right after hydration, giving accurate PageView
+          fires without blocking the LCP. The <noscript> fallback fires a 1x1
+          pixel image for visitors with JavaScript disabled. */}
+      <Script id="meta-pixel" strategy="afterInteractive">
+        {`
+          !function(f,b,e,v,n,t,s)
+          {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+          if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+          n.queue=[];t=b.createElement(e);t.async=!0;
+          t.src=v;s=b.getElementsByTagName(e)[0];
+          s.parentNode.insertBefore(t,s)}(window,document,'script',
+          'https://connect.facebook.net/en_US/fbevents.js');
+          fbq('init', '960576553681106');
+          fbq('track', 'PageView');
+        `}
+      </Script>
+      <noscript>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          height="1"
+          width="1"
+          style={{ display: "none" }}
+          src="https://www.facebook.com/tr?id=960576553681106&ev=PageView&noscript=1"
+          alt=""
+        />
+      </noscript>
     </>
   );
 }
