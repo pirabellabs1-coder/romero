@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import OrnamentDivider from "@/components/OrnamentDivider";
 import Rise from "@/components/Rise";
 import ValueIcon, { type ValueKind } from "@/components/ValueIcon";
@@ -193,8 +194,16 @@ export default async function HomePage() {
                 <div style={{ position: "relative", cursor: "pointer" }}>
                   <div style={{ aspectRatio: "4 / 5", overflow: "hidden" }}>
                     {firstCover(0) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={firstCover(0)!} alt={featured[0]?.names ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: featured[0]?.cover_position || "center center" }} />
+                      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                        <Image
+                          src={firstCover(0)!}
+                          alt={featured[0]?.names ?? ""}
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 55vw, 720px"
+                          quality={78}
+                          style={{ objectFit: "cover", objectPosition: featured[0]?.cover_position || "center center" }}
+                        />
+                      </div>
                     ) : (
                       <Photo label={featured[0]?.names ?? "Mariage"} ratio="4 / 5" rounded={false} />
                     )}
@@ -217,9 +226,15 @@ export default async function HomePage() {
                 <Link href={featured[i] ? `/portfolio/${featured[i].slug}` : "/portfolio"}>
                   <div style={{ cursor: "pointer" }}>
                     {firstCover(i) ? (
-                      <div style={{ aspectRatio: "4 / 5", overflow: "hidden" }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={firstCover(i)!} alt={featured[i]?.names ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: featured[i]?.cover_position || "center center" }} />
+                      <div style={{ position: "relative", aspectRatio: "4 / 5", overflow: "hidden" }}>
+                        <Image
+                          src={firstCover(i)!}
+                          alt={featured[i]?.names ?? ""}
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 30vw, 460px"
+                          quality={78}
+                          style={{ objectFit: "cover", objectPosition: featured[i]?.cover_position || "center center" }}
+                        />
                       </div>
                     ) : (
                       <Photo label={`${featured[i]?.names ?? ""} · ${featured[i]?.place ?? ""}`} ratio="4 / 5" />

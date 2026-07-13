@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { listSectionsForSlot, type PageSection, type SectionSlot, type TextSectionData, type TextImageSectionData, type QuoteSectionData, type FullImageSectionData } from "@/lib/page-sections";
 import OrnamentDivider from "@/components/OrnamentDivider";
 import Monogram from "@/components/Monogram";
@@ -92,10 +93,16 @@ function TextImageSection({ data, lang }: { data: TextImageSectionData; lang: La
     </div>
   );
   const imgCol = (
-    <div style={{ aspectRatio: "4 / 5", overflow: "hidden", borderRadius: 4 }}>
+    <div style={{ position: "relative", aspectRatio: "4 / 5", overflow: "hidden", borderRadius: 4 }}>
       {url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={title || ""} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: focal }} />
+        <Image
+          src={url}
+          alt={title || ""}
+          fill
+          sizes="(max-width: 768px) 100vw, 50vw"
+          quality={78}
+          style={{ objectFit: "cover", objectPosition: focal }}
+        />
       )}
     </div>
   );
@@ -134,12 +141,14 @@ function FullImageSection({ data, lang }: { data: FullImageSectionData; lang: La
   if (!data.image_url) return null;
   return (
     <section style={{ background: "var(--cream)" }}>
-      <div style={{ width: "100%", aspectRatio: "16 / 9", overflow: "hidden", maxHeight: 720 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+      <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", overflow: "hidden", maxHeight: 720 }}>
+        <Image
           src={data.image_url}
           alt={caption || "Photo"}
-          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: data.image_focal || "center center" }}
+          fill
+          sizes="100vw"
+          quality={78}
+          style={{ objectFit: "cover", objectPosition: data.image_focal || "center center" }}
         />
       </div>
       {caption && (

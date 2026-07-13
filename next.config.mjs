@@ -17,7 +17,14 @@ const nextConfig = {
       // Vercel Blob uploaded photos
       { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
       { protocol: "https", hostname: "*.blob.vercel-storage.com" },
+      // Supabase Storage (photos + media buckets)
+      { protocol: "https", hostname: "igzotmjfvbfnzxstdvpm.supabase.co" },
     ],
+    // Sert AVIF quand supporté (30 % plus petit que WebP à qualité égale),
+    // WebP sinon, JPEG en dernier recours.
+    formats: ["image/avif", "image/webp"],
+    // Cache les rendus optimisés 30 jours au niveau du CDN edge.
+    minimumCacheTTL: 60 * 60 * 24 * 30,
   },
 };
 

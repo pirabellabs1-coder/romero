@@ -1,8 +1,8 @@
 "use client";
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import Rise from "@/components/Rise";
-import Photo from "@/components/Photo";
 import type { GalleryRow } from "@/lib/content";
 
 type GalleryWithCover = GalleryRow & { coverUrl: string };
@@ -73,15 +73,15 @@ export default function PortfolioGrid({ filters, galleries }: Props) {
                 <Link href={`/portfolio/${g.slug}`}>
                   <div style={{ cursor: "pointer" }}>
                     <div style={{ position: "relative", overflow: "hidden" }}>
-                      <div style={{ aspectRatio: i % 4 === 0 ? "3 / 4" : "4 / 5", overflow: "hidden" }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                      <div style={{ position: "relative", aspectRatio: i % 4 === 0 ? "3 / 4" : "4 / 5", overflow: "hidden" }}>
+                        <Image
                           src={g.coverUrl}
                           alt={g.names}
-                          loading={i < 3 ? "eager" : "lazy"}
-                          fetchPriority={i < 3 ? "high" : "low"}
-                          decoding="async"
-                          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: g.cover_position || "center center", transition: "transform 1.2s ease" }}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1200px) 50vw, 460px"
+                          priority={i < 3}
+                          quality={75}
+                          style={{ objectFit: "cover", objectPosition: g.cover_position || "center center", transition: "transform 1.2s ease" }}
                         />
                       </div>
                     </div>

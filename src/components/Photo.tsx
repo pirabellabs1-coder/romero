@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 type Props = {
   src?: string | null;
   label?: string;
@@ -9,9 +11,17 @@ type Props = {
   fallback?: string | null;
   /** CSS object-position when img is rendered (use to vary the crop on fallback) */
   objectPosition?: string;
+  /**
+   * Hint for next/image → sert la bonne taille selon le viewport.
+   * Défaut : 100 vw sur mobile, 50 vw sur desktop (grosse majorité des cas).
+   */
+  sizes?: string;
+  /** Priorité de chargement — active pour le LCP (hero, cover de page). */
+  priority?: boolean;
 };
 
 const DEFAULT_FALLBACK = "/uploads/hero.jpg";
+const DEFAULT_SIZES = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 640px";
 
 export default function Photo({
   src,
@@ -22,6 +32,8 @@ export default function Photo({
   alt = "",
   fallback = DEFAULT_FALLBACK,
   objectPosition = "center center",
+  sizes = DEFAULT_SIZES,
+  priority = false,
 }: Props) {
   const effectiveSrc = src || fallback || null;
   return (
@@ -40,17 +52,14 @@ export default function Photo({
           <span>{label || "image"}</span>
         </div>
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={effectiveSrc}
           alt={alt || label || ""}
-          loading="lazy"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition,
-          }}
+          fill
+          sizes={sizes}
+          priority={priority}
+          quality={78}
+          style={{ objectFit: "cover", objectPosition }}
         />
       )}
     </div>

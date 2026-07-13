@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import sanitizeHtml from "sanitize-html";
 import OrnamentDivider from "@/components/OrnamentDivider";
@@ -147,9 +148,15 @@ export default async function PostDetail({ params }: { params: { slug: string } 
                 <Link key={p.id} href={`/blog/${p.slug}`}>
                   <article className="card" style={{ padding: 0, overflow: "hidden", height: "100%" }}>
                     {p.cover_filename && (
-                      <div style={{ aspectRatio: "4 / 3", overflow: "hidden" }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={photoUrl(p.cover_filename)!} alt={postTitle(p, lang)} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: p.cover_position || "center center" }} />
+                      <div style={{ position: "relative", aspectRatio: "4 / 3", overflow: "hidden" }}>
+                        <Image
+                          src={photoUrl(p.cover_filename)!}
+                          alt={postTitle(p, lang)}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                          quality={78}
+                          style={{ objectFit: "cover", objectPosition: p.cover_position || "center center" }}
+                        />
                       </div>
                     )}
                     <div style={{ padding: "24px 26px 28px" }}>
