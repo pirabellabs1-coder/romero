@@ -4,9 +4,13 @@ import Image from "next/image";
 import OrnamentDivider from "@/components/OrnamentDivider";
 import Rise from "@/components/Rise";
 import StepNumber from "@/components/StepNumber";
-import PageSections from "@/components/PageSections";
 import ConcoursVideo from "@/components/ConcoursVideo";
-import { getLangFromCookies } from "@/lib/lang";
+
+// Page 100 % statique — aucun appel DB, pré-rendue au build.
+// Le contenu est un blob marketing figé pour cette édition du concours ;
+// pas besoin d'ISR ni de CMS. La photographe modifie le texte via PR
+// puis push. Le CDN edge Vercel sert la page en < 50 ms.
+export const dynamic = "force-static";
 
 export const metadata: Metadata = {
   title: "Le Grand Concours — Romero Photography",
@@ -58,13 +62,9 @@ const timeline = [
   },
 ];
 
-export default async function ConcoursPage() {
-  const lang = getLangFromCookies();
-
+export default function ConcoursPage() {
   return (
     <main>
-      <PageSections page="concours" slot="top" lang={lang} />
-
       {/* ─────────────────────────── HERO ─────────────────────────── */}
       <section
         className="concours-hero-section"
@@ -426,8 +426,6 @@ export default async function ConcoursPage() {
           </Rise>
         </div>
       </section>
-
-      <PageSections page="concours" slot="bottom" lang={lang} />
 
       <style>{`
         .concours-formules-grid {
