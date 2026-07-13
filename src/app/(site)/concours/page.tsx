@@ -70,9 +70,9 @@ const formules = [
 
 const timeline = [
   {
-    eyebrow: "01 · Salon du mariage de Nice",
-    title: "Venez me rencontrer",
-    body: "Je serai présent au Salon du Mariage de Nice au début du mois de novembre. Ce sera l’occasion de découvrir mon travail et d’échanger sur votre projet.",
+    eyebrow: "01 · Une belle occasion de se rencontrer",
+    title: "Salon du Mariage de Nice",
+    body: "Je serai présent au Salon du Mariage de Nice début novembre pour échanger avec les futurs mariés qui souhaitent me rencontrer.\n\nVous n’avez pas besoin de venir au salon pour participer au concours : une réservation à distance est tout aussi éligible.",
   },
   {
     eyebrow: "02 · Clôture des participations",
@@ -286,7 +286,7 @@ export default function ConcoursPage() {
                   <div className="serif" style={{ fontSize: 22, color: "var(--forest)", fontStyle: "italic", marginBottom: 12 }}>
                     {t.title}
                   </div>
-                  <p style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.7, maxWidth: 320, margin: "0 auto" }}>
+                  <p style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.7, maxWidth: 320, margin: "0 auto", whiteSpace: "pre-line" }}>
                     {t.body}
                   </p>
                 </div>
