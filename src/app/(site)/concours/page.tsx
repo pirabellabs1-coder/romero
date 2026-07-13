@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import OrnamentDivider from "@/components/OrnamentDivider";
 import Rise from "@/components/Rise";
-import Photo from "@/components/Photo";
 import StepNumber from "@/components/StepNumber";
 import PageSections from "@/components/PageSections";
+import ConcoursVideo from "@/components/ConcoursVideo";
 import { getLangFromCookies } from "@/lib/lang";
 
 export const metadata: Metadata = {
@@ -21,12 +22,16 @@ export const metadata: Metadata = {
   },
 };
 
-const PORTRAIT = "/uploads/concours/portrait-mickael.jpeg";
-const SAFARI = "/uploads/concours/safari-tanzanie.png";
-const ZANZIBAR = "/uploads/concours/maries-zanzibar.png";
-const LOGO_PARTNER = "/uploads/concours/logo-sansanlaclak.jpeg";
-const VIDEO_URL =
-  "https://crqsj8bzda2jtevv.public.blob.vercel-storage.com/concours/video-concours.mp4";
+// Toutes les images sont pré-optimisées en WebP responsive (script
+// scripts/optimize-concours.mjs). Le poster de la vidéo (portrait-md)
+// pèse ~40 KB : essentiel pour le LCP.
+const PORTRAIT_MD = "/uploads/concours/portrait-mickael-md.webp";
+const SAFARI = "/uploads/concours/safari-tanzanie.webp";
+const ZANZIBAR = "/uploads/concours/maries-zanzibar.webp";
+const LOGO_PARTNER = "/uploads/concours/logo-sansanlaclak.webp";
+// Vidéo compressée H.264 720p CRF 28 (~4,4 MB, +faststart), servie
+// depuis le même origin pour bénéficier du CDN edge Vercel.
+const VIDEO_URL = "/uploads/concours/video-concours.mp4";
 
 const formules = [
   { num: 1, title: "L’Essentielle", participations: 1, hint: "Reportage cœur de journée" },
@@ -115,13 +120,12 @@ export default async function ConcoursPage() {
               <div className="concours-hero-video-frame" style={{ position: "relative", aspectRatio: "9 / 16", maxWidth: 420, marginLeft: "auto", background: "#000" }}>
                 {/* cadre doré */}
                 <div aria-hidden style={{ position: "absolute", inset: -18, border: "1px solid var(--gold)", opacity: 0.55, pointerEvents: "none", zIndex: 2 }} />
-                <video
+                <ConcoursVideo
                   src={VIDEO_URL}
-                  poster={PORTRAIT}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", position: "relative", zIndex: 1 }}
+                  posterSrc={PORTRAIT_MD}
+                  posterAlt="Mickael Romero — photographe de mariage"
+                  posterWidth={900}
+                  posterHeight={1600}
                 />
                 {/* badge */}
                 <div className="concours-hero-edition-badge" style={{ position: "absolute", bottom: -32, left: -32, background: "var(--forest)", color: "#F4EFE3", padding: "18px 22px", textAlign: "center", boxShadow: "0 12px 30px rgba(46, 61, 46, 0.28)", zIndex: 3 }}>
@@ -291,8 +295,14 @@ export default async function ConcoursPage() {
           <div className="concours-prize-grid">
             <Rise>
               <div style={{ position: "relative" }}>
-                <div style={{ overflow: "hidden" }}>
-                  <Photo src={SAFARI} label="Safari en Tanzanie" ratio="4 / 5" objectPosition="center center" />
+                <div style={{ overflow: "hidden", aspectRatio: "4 / 5", position: "relative" }}>
+                  <Image
+                    src={SAFARI}
+                    alt="Safari en Tanzanie au coucher du soleil"
+                    fill
+                    sizes="(max-width: 900px) 100vw, 640px"
+                    style={{ objectFit: "cover", objectPosition: "center" }}
+                  />
                 </div>
                 <div style={{ marginTop: 28, textAlign: "center" }}>
                   <div className="cap-tracked" style={{ color: "var(--gold-light)", fontSize: 11 }}>ÉTAPE 01 · 🏕️</div>
@@ -309,8 +319,14 @@ export default async function ConcoursPage() {
 
             <Rise delay={140}>
               <div style={{ position: "relative" }}>
-                <div style={{ overflow: "hidden" }}>
-                  <Photo src={ZANZIBAR} label="Deux nuits à Zanzibar" ratio="4 / 5" objectPosition="center center" />
+                <div style={{ overflow: "hidden", aspectRatio: "4 / 5", position: "relative" }}>
+                  <Image
+                    src={ZANZIBAR}
+                    alt="Couple de mariés sur une plage de Zanzibar"
+                    fill
+                    sizes="(max-width: 900px) 100vw, 640px"
+                    style={{ objectFit: "cover", objectPosition: "center" }}
+                  />
                 </div>
                 <div style={{ marginTop: 28, textAlign: "center" }}>
                   <div className="cap-tracked" style={{ color: "var(--gold-light)", fontSize: 11 }}>ÉTAPE 02 · 🏝️</div>
@@ -334,9 +350,14 @@ export default async function ConcoursPage() {
           <Rise>
             <div className="concours-partner" style={{ background: "#FFFFFF", border: "1px solid var(--rule)", padding: "44px 46px", display: "flex", gap: 40, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ flex: "0 0 auto", textAlign: "center" }}>
-                <div className="concours-partner-logo" style={{ width: 160, height: 160, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--gold)", margin: "0 auto", boxShadow: "0 8px 22px rgba(184, 151, 90, 0.20)" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={LOGO_PARTNER} alt="Logo SansanLaclak Travel" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                <div className="concours-partner-logo" style={{ width: 160, height: 160, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--gold)", margin: "0 auto", boxShadow: "0 8px 22px rgba(184, 151, 90, 0.20)", position: "relative" }}>
+                  <Image
+                    src={LOGO_PARTNER}
+                    alt="Logo SansanLaclak Travel"
+                    fill
+                    sizes="160px"
+                    style={{ objectFit: "cover" }}
+                  />
                 </div>
                 <div className="cap-tracked-sm gold" style={{ marginTop: 16 }}>NOTRE PARTENAIRE</div>
                 <div className="serif" style={{ fontSize: 22, color: "var(--forest)", marginTop: 6, fontStyle: "italic" }}>
