@@ -8,11 +8,12 @@ import type { Strings, Lang } from "@/lib/i18n";
 
 type Props = { t: Strings; lang: Lang };
 
-const NAV: Array<{ key: string; path: string; label: (t: Strings) => string }> = [
+const NAV: Array<{ key: string; path: string; label: (t: Strings, lang: Lang) => string }> = [
   { key: "home", path: "/", label: (t) => t.nav.home },
   { key: "about", path: "/a-propos", label: (t) => t.nav.about },
   { key: "services", path: "/prestations", label: (t) => t.nav.services },
   { key: "portfolio", path: "/portfolio", label: (t) => t.nav.portfolio },
+  { key: "concours", path: "/concours", label: (_t, lang) => (lang === "en" ? "CONTEST" : "CONCOURS") },
   { key: "blog", path: "/blog", label: (t) => t.nav.blog },
   { key: "reviews", path: "/avis", label: (t) => t.nav.reviews },
   { key: "contact", path: "/contact", label: (t) => t.nav.contact },
@@ -83,7 +84,7 @@ export default function MobileDrawer({ t, lang }: Props) {
                   className={`mobile-link ${active ? "active" : ""}`}
                   onClick={() => setOpen(false)}
                 >
-                  {label(t)}
+                  {label(t, lang)}
                 </Link>
               );
             })}

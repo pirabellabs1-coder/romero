@@ -62,6 +62,7 @@ export default async function ConcoursPage() {
 
       {/* ─────────────────────────── HERO ─────────────────────────── */}
       <section
+        className="concours-hero-section"
         style={{
           position: "relative",
           background: "linear-gradient(180deg, var(--cream) 0%, var(--cream-deep) 100%)",
@@ -69,8 +70,8 @@ export default async function ConcoursPage() {
           overflow: "hidden",
         }}
       >
-        <div aria-hidden style={{ position: "absolute", top: -160, right: -160, width: 460, height: 460, border: "1px solid rgba(184, 151, 90, 0.25)", borderRadius: "50%", pointerEvents: "none" }} />
-        <div aria-hidden style={{ position: "absolute", bottom: -220, left: -220, width: 520, height: 520, border: "1px solid rgba(184, 151, 90, 0.18)", borderRadius: "50%", pointerEvents: "none" }} />
+        <div aria-hidden className="concours-hero-decor" style={{ position: "absolute", top: -160, right: -160, width: 460, height: 460, border: "1px solid rgba(184, 151, 90, 0.25)", borderRadius: "50%", pointerEvents: "none" }} />
+        <div aria-hidden className="concours-hero-decor" style={{ position: "absolute", bottom: -220, left: -220, width: 520, height: 520, border: "1px solid rgba(184, 151, 90, 0.18)", borderRadius: "50%", pointerEvents: "none" }} />
 
         <div className="container-wide" style={{ position: "relative" }}>
           <div className="concours-hero-grid" style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 60, alignItems: "center" }}>
@@ -80,7 +81,7 @@ export default async function ConcoursPage() {
                 <div className="cap-tracked gold" style={{ marginBottom: 22 }}>
                   UN CADEAU DE NOËL EXCEPTIONNEL
                 </div>
-                <h1 className="serif" style={{ fontSize: "clamp(48px, 6.5vw, 88px)", lineHeight: 1.02, color: "var(--forest)", fontWeight: 400, margin: 0, letterSpacing: "-0.01em" }}>
+                <h1 className="serif concours-hero-title" style={{ fontSize: "clamp(48px, 6.5vw, 88px)", lineHeight: 1.02, color: "var(--forest)", fontWeight: 400, margin: 0, letterSpacing: "-0.01em" }}>
                   Le grand
                   <br />
                   <span style={{ fontStyle: "italic", color: "var(--gold)" }}>concours</span>
@@ -98,7 +99,7 @@ export default async function ConcoursPage() {
                 <p style={{ fontSize: 15.5, lineHeight: 1.75, color: "var(--muted)", maxWidth: 520, marginTop: 18 }}>
                   Parce qu’un mariage est une aventure unique, j’ai souhaité remercier les couples qui me feront confiance avec une expérience tout aussi inoubliable — un voyage que j’ai moi-même eu la chance de vivre.
                 </p>
-                <div style={{ display: "flex", gap: 14, marginTop: 32, flexWrap: "wrap" }}>
+                <div className="concours-hero-buttons" style={{ display: "flex", gap: 14, marginTop: 32, flexWrap: "wrap" }}>
                   <Link href="#formules" className="btn btn-forest" style={{ fontSize: 11 }}>
                     JE VEUX PARTICIPER
                   </Link>
@@ -111,7 +112,7 @@ export default async function ConcoursPage() {
 
             {/* Colonne vidéo + portrait */}
             <Rise delay={140}>
-              <div style={{ position: "relative", aspectRatio: "9 / 16", maxWidth: 420, marginLeft: "auto", background: "#000" }}>
+              <div className="concours-hero-video-frame" style={{ position: "relative", aspectRatio: "9 / 16", maxWidth: 420, marginLeft: "auto", background: "#000" }}>
                 {/* cadre doré */}
                 <div aria-hidden style={{ position: "absolute", inset: -18, border: "1px solid var(--gold)", opacity: 0.55, pointerEvents: "none", zIndex: 2 }} />
                 <video
@@ -123,7 +124,7 @@ export default async function ConcoursPage() {
                   style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", position: "relative", zIndex: 1 }}
                 />
                 {/* badge */}
-                <div style={{ position: "absolute", bottom: -32, left: -32, background: "var(--forest)", color: "#F4EFE3", padding: "18px 22px", textAlign: "center", boxShadow: "0 12px 30px rgba(46, 61, 46, 0.28)", zIndex: 3 }}>
+                <div className="concours-hero-edition-badge" style={{ position: "absolute", bottom: -32, left: -32, background: "var(--forest)", color: "#F4EFE3", padding: "18px 22px", textAlign: "center", boxShadow: "0 12px 30px rgba(46, 61, 46, 0.28)", zIndex: 3 }}>
                   <div className="serif" style={{ fontStyle: "italic", fontSize: 15, color: "var(--gold-light)" }}>Édition</div>
                   <div className="serif" style={{ fontSize: 34, lineHeight: 1, marginTop: 4 }}>2026</div>
                 </div>
@@ -197,9 +198,9 @@ export default async function ConcoursPage() {
                     {f.title}
                   </div>
                   <div style={{ display: "flex", justifyContent: "center", margin: "28px 0 18px" }}>
-                    <div style={{ width: 88, height: 88, borderRadius: "50%", border: "1px solid var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                    <div className="concours-card-circle" style={{ width: 88, height: 88, borderRadius: "50%", border: "1px solid var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                       <div aria-hidden style={{ position: "absolute", inset: 6, borderRadius: "50%", border: "1px solid var(--gold)", opacity: 0.4 }} />
-                      <span className="serif" style={{ fontStyle: "italic", fontSize: 48, color: "var(--gold-deep)", lineHeight: 1 }}>
+                      <span className="serif concours-card-number" style={{ fontStyle: "italic", fontSize: 48, color: "var(--gold-deep)", lineHeight: 1 }}>
                         {f.participations}
                       </span>
                     </div>
@@ -333,7 +334,7 @@ export default async function ConcoursPage() {
           <Rise>
             <div className="concours-partner" style={{ background: "#FFFFFF", border: "1px solid var(--rule)", padding: "44px 46px", display: "flex", gap: 40, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ flex: "0 0 auto", textAlign: "center" }}>
-                <div style={{ width: 160, height: 160, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--gold)", margin: "0 auto", boxShadow: "0 8px 22px rgba(184, 151, 90, 0.20)" }}>
+                <div className="concours-partner-logo" style={{ width: 160, height: 160, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--gold)", margin: "0 auto", boxShadow: "0 8px 22px rgba(184, 151, 90, 0.20)" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={LOGO_PARTNER} alt="Logo SansanLaclak Travel" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                 </div>
@@ -440,17 +441,53 @@ export default async function ConcoursPage() {
           grid-template-columns: 1fr 1fr;
           gap: 48px;
         }
+
+        /* ── Tablette (< 900px) ── */
         @media (max-width: 900px) {
-          .concours-hero-grid { grid-template-columns: 1fr !important; gap: 70px !important; }
-          .concours-formules-grid { grid-template-columns: repeat(2, 1fr); }
-          .concours-timeline { grid-template-columns: 1fr; gap: 50px; }
+          .concours-hero-grid {
+            grid-template-columns: 1fr !important;
+            gap: 60px !important;
+          }
+          .concours-hero-video-frame { max-width: 360px !important; margin: 0 auto !important; }
+          .concours-formules-grid { grid-template-columns: repeat(2, 1fr); gap: 18px; }
+          .concours-timeline { grid-template-columns: 1fr; gap: 48px; }
           .concours-timeline__line { display: none; }
-          .concours-prize-grid { grid-template-columns: 1fr; gap: 60px; }
-          .concours-partner { padding: 32px 24px !important; gap: 24px !important; }
-          .concours-info { flex-direction: column; text-align: center; padding: 24px 20px !important; }
+          .concours-prize-grid { grid-template-columns: 1fr; gap: 56px; }
+          .concours-partner { padding: 32px 24px !important; gap: 26px !important; }
+          .concours-info { flex-direction: column; text-align: center; padding: 24px 22px !important; gap: 16px !important; }
+          .concours-hero-section { padding: 60px 0 80px !important; }
+          .concours-hero-decor { display: none !important; }
         }
-        @media (max-width: 520px) {
-          .concours-formules-grid { grid-template-columns: 1fr; }
+
+        /* ── Mobile (< 600px) ── */
+        @media (max-width: 600px) {
+          .concours-hero-section { padding: 40px 0 60px !important; }
+          .concours-hero-video-frame {
+            max-width: 100% !important;
+            aspect-ratio: 3 / 4 !important;
+          }
+          .concours-hero-edition-badge {
+            bottom: -18px !important;
+            left: 50% !important;
+            transform: translateX(-50%);
+            padding: 12px 22px !important;
+          }
+          .concours-hero-edition-badge > div:first-child { font-size: 13px !important; }
+          .concours-hero-edition-badge > div:last-child { font-size: 26px !important; }
+          .concours-hero-buttons { flex-direction: column; align-items: stretch; gap: 10px !important; }
+          .concours-hero-buttons > a { width: 100%; text-align: center; }
+          .concours-formules-grid { grid-template-columns: 1fr; gap: 16px; }
+          .concours-card { padding: 30px 22px 28px !important; }
+          .concours-card-circle { width: 72px !important; height: 72px !important; }
+          .concours-card-number { font-size: 40px !important; }
+          .concours-partner-logo { width: 130px !important; height: 130px !important; }
+          .concours-section-pad-mobile { padding: 56px 0 !important; }
+        }
+
+        /* ── Petit mobile (< 380px) ── */
+        @media (max-width: 380px) {
+          .concours-hero-title { font-size: 42px !important; }
+          .concours-hero-buttons > a { font-size: 10.5px !important; padding: 12px 16px !important; }
         }
       `}</style>
     </main>
