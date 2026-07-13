@@ -1,20 +1,16 @@
 "use client";
 /**
- * Hero video for /concours with LCP-friendly autoplay.
+ * Hero video for /concours — click to play, avec son.
  *
- * Séquence de chargement :
- *   1. Le poster WebP (~40 KB) s'affiche instantanément — c'est lui
- *      le LCP.
- *   2. Après le premier idle du navigateur (page interactive et pas
- *      de layout thrash), on monte le <video> avec autoplay/muted/loop.
- *      Le navigateur commence à streamer ; le poster reste visible
- *      pendant la première frame puis fait un fondu vers la vidéo.
- *   3. Un bouton discret « son / muet » permet à l'utilisateur
- *      d'activer l'audio en un clic.
+ * Les navigateurs bloquent tout autoplay accompagné de son (Chrome,
+ * Safari, Firefox) : seule l'action utilisateur autorise la piste
+ * audio à jouer. Plutôt que de forcer un autoplay silencieux, on
+ * affiche un poster léger (WebP 40 KB, LCP-friendly) surmonté d'un
+ * gros bouton play. Au clic, la vidéo remplace le poster et démarre
+ * avec le son.
  *
- * Sans ce délai, le browser download la vidéo en priorité et la LCP
- * s'écroule. Avec, on garde le meilleur des deux : ambience vidéo
- * automatique + LCP < 1 s.
+ * Zéro octet de vidéo n'est téléchargé tant que le play n'a pas été
+ * cliqué — la page reste ultra-rapide au premier rendu.
  */
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -28,141 +24,100 @@ type Props = {
 };
 
 export default function ConcoursVideo({ src, posterSrc, posterAlt, posterWidth, posterHeight }: Props) {
-  const [ready, setReady] = useState(false);
-  const [muted, setMuted] = useState(true);
-  const [videoVisible, setVideoVisible] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Déclenche le montage de la vidéo au premier idle après hydratation,
-  // pour laisser passer le LCP (le poster) avant d'occuper la bande passante.
+  function startPlayback() {
+    setPlaying(true);
+  }
+
+  // Une fois la vidéo montée dans le DOM (après clic), on lance play().
+  // Comme le clic sert de gesture utilisateur, le browser autorise le son.
   useEffect(() => {
-    const trigger = () => setReady(true);
-    // Fallback si requestIdleCallback n'existe pas (Safari).
-    const rIC = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
-    const id = typeof rIC === "function"
-      ? rIC(trigger, { timeout: 1500 })
-      : window.setTimeout(trigger, 800);
-    return () => {
-      const cIC = (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback;
-      if (typeof cIC === "function") cIC(id);
-      else clearTimeout(id);
-    };
-  }, []);
-
-  // Une fois la vidéo prête à jouer (metadata + première frame décodées),
-  // on fond le poster pour éviter tout flash de contenu blanc/noir.
-  function handleCanPlay() {
-    setVideoVisible(true);
+    if (!playing) return;
     videoRef.current?.play().catch(() => {
-      /* autoplay bloqué — l'utilisateur verra les contrôles */
+      /* si le browser refuse quand même, l'utilisateur a les contrôles */
     });
-  }
-
-  function toggleSound() {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    setMuted(v.muted);
-    if (!v.muted) v.play().catch(() => {});
-  }
+  }, [playing]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", background: "#000", overflow: "hidden" }}>
-      {/* Poster : LCP-friendly, reste visible pendant que la vidéo se prépare */}
-      <Image
-        src={posterSrc}
-        alt={posterAlt}
-        width={posterWidth}
-        height={posterHeight}
-        priority
-        sizes="(max-width: 600px) 100vw, 420px"
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          display: "block",
-          position: "absolute",
-          inset: 0,
-          opacity: videoVisible ? 0 : 1,
-          transition: "opacity 350ms ease",
-          zIndex: 1,
-        }}
-      />
-
-      {/* Vidéo montée après l'idle initial */}
-      {ready && (
+      {!playing && (
+        <>
+          <Image
+            src={posterSrc}
+            alt={posterAlt}
+            width={posterWidth}
+            height={posterHeight}
+            priority
+            sizes="(max-width: 600px) 100vw, 420px"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+          <button
+            type="button"
+            onClick={startPlayback}
+            aria-label="Lancer la vidéo"
+            className="concours-play-btn"
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background:
+                "linear-gradient(180deg, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.38) 100%)",
+              border: 0,
+              cursor: "pointer",
+              padding: 0,
+              transition: "background 200ms ease",
+            }}
+          >
+            <span
+              className="concours-play-icon"
+              style={{
+                width: 88,
+                height: 88,
+                borderRadius: "50%",
+                background: "rgba(255, 255, 255, 0.96)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 14px 36px rgba(0, 0, 0, 0.42)",
+                transition: "transform 220ms cubic-bezier(0.2, 0, 0, 1)",
+              }}
+            >
+              <svg
+                width="34"
+                height="34"
+                viewBox="0 0 24 24"
+                fill="var(--forest)"
+                aria-hidden
+                style={{ marginLeft: 4 }}
+              >
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+          </button>
+        </>
+      )}
+      {playing && (
         <video
           ref={videoRef}
           src={src}
-          autoPlay
-          muted
-          loop
+          controls
           playsInline
           preload="auto"
-          onCanPlay={handleCanPlay}
-          aria-label="Vidéo présentant le grand concours"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-            position: "relative",
-            zIndex: 2,
-            opacity: videoVisible ? 1 : 0,
-            transition: "opacity 350ms ease",
-          }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#000" }}
         />
       )}
-
-      {/* Bouton son — discret, en bas à droite */}
-      {ready && (
-        <button
-          type="button"
-          onClick={toggleSound}
-          aria-label={muted ? "Activer le son" : "Couper le son"}
-          title={muted ? "Activer le son" : "Couper le son"}
-          className="concours-video-mute"
-          style={{
-            position: "absolute",
-            right: 14,
-            bottom: 14,
-            width: 42,
-            height: 42,
-            borderRadius: "50%",
-            background: "rgba(46, 61, 46, 0.72)",
-            color: "#F4EFE3",
-            border: "1px solid rgba(255, 255, 255, 0.22)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            zIndex: 3,
-            backdropFilter: "blur(4px)",
-            transition: "background 180ms, transform 180ms",
-          }}
-        >
-          {muted ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <line x1="23" y1="9" x2="17" y2="15" />
-              <line x1="17" y1="9" x2="23" y2="15" />
-            </svg>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-            </svg>
-          )}
-        </button>
-      )}
-
       <style>{`
-        .concours-video-mute:hover {
-          background: rgba(46, 61, 46, 0.9) !important;
-          transform: scale(1.06);
+        .concours-play-btn:hover {
+          background: linear-gradient(180deg, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.44) 100%) !important;
         }
-        .concours-video-mute:active {
+        .concours-play-btn:hover .concours-play-icon {
+          transform: scale(1.08);
+        }
+        .concours-play-btn:active .concours-play-icon {
           transform: scale(0.94);
         }
       `}</style>

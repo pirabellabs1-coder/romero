@@ -49,7 +49,7 @@ export default function Header({ t, lang }: Props) {
     ["portfolio", t.nav.portfolio],
   ];
   const right: [NavKey, string][] = [
-    ["concours", lang === "en" ? "CONTEST" : "CONCOURS"],
+    ["concours", lang === "en" ? "THE GRAND CONTEST" : "LE GRAND CONCOURS"],
     ["blog", t.nav.blog],
     ["reviews", t.nav.reviews],
     ["contact", t.nav.contact],

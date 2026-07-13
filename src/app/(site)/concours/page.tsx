@@ -38,10 +38,34 @@ const LOGO_PARTNER = "/uploads/concours/logo-sansanlaclak.webp";
 const VIDEO_URL = "/uploads/concours/video-concours.mp4";
 
 const formules = [
-  { num: 1, title: "L’Essentielle", participations: 1, hint: "Reportage cœur de journée" },
-  { num: 2, title: "Le Grand Jour", participations: 2, hint: "Reportage journée complète" },
-  { num: 3, title: "Le Grand Classique", participations: 3, hint: "Journée complète + préparatifs" },
-  { num: 4, title: "Prestige Éternel", participations: 5, hint: "Reportage intégral + album fine art" },
+  {
+    num: 1,
+    title: "L’Essentielle",
+    participations: 1,
+    hint: "Reportage des moments clés",
+    detail: "Cérémonie civile, laïque ou religieuse jusqu’au vin d’honneur",
+  },
+  {
+    num: 2,
+    title: "Le Grand Jour",
+    participations: 2,
+    hint: "Reportage de la journée de mariage",
+    detail: "Des préparatifs au vin d’honneur",
+  },
+  {
+    num: 3,
+    title: "Le Grand Classique",
+    participations: 3,
+    hint: "Une journée complète jusqu’à la première danse",
+    detail: "Des préparatifs à l’ouverture de bal",
+  },
+  {
+    num: 4,
+    title: "Prestige Éternel",
+    participations: 5,
+    hint: "L’expérience mariage la plus complète",
+    detail: "Séance d’engagement, deux photographes, second shooter, des préparatifs à la première danse",
+  },
 ];
 
 const timeline = [
@@ -212,7 +236,8 @@ export default function ConcoursPage() {
                   <div className="cap-tracked-sm" style={{ color: "var(--gold-deep)", fontSize: 10, marginBottom: 12 }}>
                     {f.participations > 1 ? "PARTICIPATIONS" : "PARTICIPATION"}
                   </div>
-                  <p style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.6, margin: 0 }}>{f.hint}</p>
+                  <p style={{ color: "var(--ink)", fontSize: 13.5, lineHeight: 1.55, margin: 0, fontWeight: 500 }}>{f.hint}</p>
+                  <p style={{ color: "var(--muted)", fontSize: 12, lineHeight: 1.6, margin: "8px 0 0", fontStyle: "italic" }}>{f.detail}</p>
                 </article>
               </Rise>
             ))}

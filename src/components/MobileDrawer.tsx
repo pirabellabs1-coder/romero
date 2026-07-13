@@ -13,7 +13,7 @@ const NAV: Array<{ key: string; path: string; label: (t: Strings, lang: Lang) =>
   { key: "about", path: "/a-propos", label: (t) => t.nav.about },
   { key: "services", path: "/prestations", label: (t) => t.nav.services },
   { key: "portfolio", path: "/portfolio", label: (t) => t.nav.portfolio },
-  { key: "concours", path: "/concours", label: (_t, lang) => (lang === "en" ? "CONTEST" : "CONCOURS") },
+  { key: "concours", path: "/concours", label: (_t, lang) => (lang === "en" ? "THE GRAND CONTEST" : "LE GRAND CONCOURS") },
   { key: "blog", path: "/blog", label: (t) => t.nav.blog },
   { key: "reviews", path: "/avis", label: (t) => t.nav.reviews },
   { key: "contact", path: "/contact", label: (t) => t.nav.contact },
