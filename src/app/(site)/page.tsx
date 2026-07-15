@@ -102,7 +102,8 @@ export default async function HomePage() {
             <div className="hero-cta-row" style={{ marginTop: 36, display: "flex", gap: 18, flexWrap: "wrap" }}>
               <Link href="/portfolio" className="btn btn-sage">
                 {home.cta}
-            <TrackReserveLink href="/contact" className="btn btn-ghost">
+              </Link>
+              <TrackReserveLink href="/contact" className="btn btn-ghost">
                 {t.book}
               </TrackReserveLink>
             </div>
