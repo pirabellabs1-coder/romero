@@ -1,4 +1,5 @@
 import Link from "next/link";
+import TrackReserveLink from "@/components/TrackReserveLink";
 import Image from "next/image";
 import OrnamentDivider from "@/components/OrnamentDivider";
 import Rise from "@/components/Rise";
@@ -101,10 +102,9 @@ export default async function HomePage() {
             <div className="hero-cta-row" style={{ marginTop: 36, display: "flex", gap: 18, flexWrap: "wrap" }}>
               <Link href="/portfolio" className="btn btn-sage">
                 {home.cta}
-              </Link>
-              <Link href="/contact" className="btn btn-ghost">
+            <TrackReserveLink href="/contact" className="btn btn-ghost">
                 {t.book}
-              </Link>
+              </TrackReserveLink>
             </div>
 
             <div className="hero-cta-row" style={{ marginTop: 44, display: "flex", alignItems: "center", gap: 14, color: "var(--muted)", flexWrap: "wrap" }}>
