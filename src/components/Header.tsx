@@ -80,13 +80,16 @@ export default function Header({ t, lang }: Props) {
             <Link
               href="/contact"
               className="btn btn-gold-outline header-book-btn"
+             <Link
+              href="/contact"
+              className="btn btn-gold-outline header-book-btn"
               aria-label={t.book}
               onClick={() => {
                 if (typeof window !== "undefined" && (window as any).fbq) {
                   (window as any).fbq("trackCustom", "ClicReserver");
                 }
               }}
-            >               
+            >
               <span className="hide-on-tight">{t.book}</span>
               <span className="show-on-tight" aria-hidden>{lang === "en" ? "BOOK" : "RÉSERVER"}</span>
             </Link>
