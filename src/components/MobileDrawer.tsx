@@ -90,8 +90,17 @@ export default function MobileDrawer({ t, lang }: Props) {
             })}
           </nav>
           <div style={{ padding: "20px 28px 30px", display: "flex", flexDirection: "column", gap: 18 }}>
-            <Link href="/contact" className="btn btn-sage" onClick={() => setOpen(false)} style={{ width: "100%" }}>
-              {t.book}
+<Link
+              href="/contact"
+              className="btn btn-sage"
+              onClick={() => {
+                setOpen(false);
+                if (typeof window !== "undefined" && (window as any).fbq) {
+                  (window as any).fbq("trackCustom", "ClicReserver");
+                }
+              }}
+              style={{ width: "100%" }}
+            >              {t.book}
             </Link>
             <div style={{ display: "flex", justifyContent: "center" }}>
               <LangSwitcher lang={lang} />
