@@ -43,6 +43,9 @@ export default function ContactForm({ t, lang }: Props) {
       });
       if (!res.ok) throw new Error("Request failed");
       setSent(true);
+      if (typeof window !== "undefined" && (window as any).fbq) {
+        (window as any).fbq("track", "Lead");
+      }
     } catch {
       setError(t.contact.form.error);
     } finally {
