@@ -86,7 +86,8 @@ export default function Header({ t, lang }: Props) {
                   (window as any).fbq("trackCustom", "ClicReserver");
                 }
               }}
-            >ssName="hide-on-tight">{t.book}</span>
+            >               
+              <span className="hide-on-tight">{t.book}</span>
               <span className="show-on-tight" aria-hidden>{lang === "en" ? "BOOK" : "RÉSERVER"}</span>
             </Link>
             <LangSwitcher lang={lang} />
