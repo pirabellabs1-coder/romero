@@ -80,9 +80,6 @@ export default function Header({ t, lang }: Props) {
             <Link
               href="/contact"
               className="btn btn-gold-outline header-book-btn"
-             <Link
-              href="/contact"
-              className="btn btn-gold-outline header-book-btn"
               aria-label={t.book}
               onClick={() => {
                 if (typeof window !== "undefined" && (window as any).fbq) {
