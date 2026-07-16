@@ -69,6 +69,32 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           fbq('track', 'PageView');
         `}
       </Script>
+
+      {/* Meta Pixel — custom events (ajout Mushido).
+          Placé ici dans le layout (fichier stable) pour survivre à toute
+          régénération des composants. Délégation d'événements globale :
+          - clic sur un bouton "RÉSERVER" (tout <a class="btn" href="/contact">) => ClicReserver
+          - envoi du formulaire de contact (form.contact-form) => Lead */}
+      <Script id="meta-pixel-events" strategy="afterInteractive">
+        {`
+          (function () {
+            document.addEventListener('click', function (e) {
+              var t = e.target;
+              var el = (t && t.closest) ? t.closest('a.btn[href$="/contact"]') : null;
+              if (el && typeof window.fbq === 'function') {
+                window.fbq('trackCustom', 'ClicReserver');
+              }
+            }, true);
+            document.addEventListener('submit', function (e) {
+              var f = e.target;
+              if (f && f.classList && f.classList.contains('contact-form') && typeof window.fbq === 'function') {
+                window.fbq('track', 'Lead');
+              }
+            }, true);
+          })();
+        `}
+      </Script>
+
       <noscript>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
