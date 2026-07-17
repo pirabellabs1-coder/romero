@@ -16,6 +16,7 @@ const LINKS: Array<{ href: string; label: string }> = [
   { href: "/admin/reviews", label: "Avis" },
   { href: "/admin/messages", label: "Messages" },
   { href: "/admin/mail-preview", label: "Email" },
+  { href: "/admin/agents", label: "Agents IA" },
   { href: "/admin/settings", label: "Paramètres" },
   { href: "/admin/design", label: "Design" },
   { href: "/admin/account", label: "Compte" },

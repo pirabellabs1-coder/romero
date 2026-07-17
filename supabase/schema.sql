@@ -141,6 +141,27 @@ INSERT INTO public.settings (key, value) VALUES
   ('button_style', 'sage')
 ON CONFLICT (key) DO NOTHING;
 
+-- ── Agents IA (installation & configuration) ─────────────────────────────
+-- Chaque ligne = un agent installable dans le dashboard. La config est
+-- stockée en JSONB pour rester souple (clés API, prompts, params par
+-- plateforme…). Idempotent : les 4 agents de base sont insérés si absents.
+CREATE TABLE IF NOT EXISTS public.agent_installations (
+  slug          TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'not_installed'
+                CHECK (status IN ('not_installed','installing','installed','error','paused')),
+  config        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  installed_at  TIMESTAMPTZ,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO public.agent_installations (slug, name) VALUES
+  ('site',      'Agent site — chatbot & prise de RDV'),
+  ('whatsapp',  'Assistant WhatsApp + Agenda'),
+  ('marketing', 'Agent Marketing — IG / LinkedIn / Blog'),
+  ('admin',     'Agent Administratif & Juridique')
+ON CONFLICT (slug) DO NOTHING;
+
 -- ── Sanity check ─────────────────────────────────────────────────────────
 SELECT 'tables created:' AS status,
   (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public') AS public_tables_count;
