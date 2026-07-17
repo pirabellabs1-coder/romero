@@ -1,7 +1,7 @@
 import Script from "next/script";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import LimovaChat from "@/components/LimovaChat";
+import SiteChat from "@/components/SiteChat";
 import { getStrings } from "@/lib/i18n";
 import { getLangFromCookies } from "@/lib/lang";
 import { getSettings } from "@/lib/settings";
@@ -46,10 +46,11 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       <Header t={t} lang={lang} />
       {children}
       <Footer t={t} lang={lang} settings={settings} />
-      {/* Limova chatbot — chargé sur toutes les pages publiques SAUF /concours
-          (voir components/LimovaChat.tsx). Le composant client-side filtre
-          via usePathname pour ne pas polluer la landing du concours. */}
-      <LimovaChat />
+      {/* Chatbot du studio — assistant Claude qui répond aux visiteurs,
+          qualifie les prospects, prend leurs coordonnées et déclenche
+          un e-mail récap à Mickael. Exclusions gérées côté composant
+          (/concours et /admin/*). Config via /admin/agents/site. */}
+      <SiteChat />
 
       {/* Meta Pixel (Facebook) — public site only. Marked afterInteractive so
           the loader is queued right after hydration, giving accurate PageView

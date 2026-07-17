@@ -115,6 +115,71 @@ export function renderContactEmailHtml(data: ContactMail): string {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+   Lead notification (from the site chatbot)
+   Utilisée par /api/chat quand l'agent appelle send_lead_notification.
+   ────────────────────────────────────────────────────────────────────────── */
+
+export type LeadMail = {
+  subject: string;
+  html: string;
+  text: string;
+  replyToEmail?: string;
+  replyToName?: string;
+};
+
+export async function sendLeadNotification(mail: LeadMail): Promise<SendResult> {
+  const settings = await getSettings();
+  const to = (process.env.MAIL_TO || settings.contact_email || "").trim();
+  const from = (process.env.MAIL_FROM || "Romero Photography <onboarding@resend.dev>").trim();
+  if (!to) return { sent: false, error: "no_recipient" };
+  const replyTo =
+    mail.replyToEmail && mail.replyToName
+      ? `${mail.replyToName} <${mail.replyToEmail}>`
+      : mail.replyToEmail || undefined;
+
+  const resend = getResend();
+  if (resend) {
+    try {
+      const { data: res, error } = await resend.emails.send({
+        from,
+        to: [to],
+        replyTo,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+      });
+      if (error) throw new Error(error.message || "resend_error");
+      return { sent: true, provider: "resend", id: res?.id };
+    } catch (e) {
+      console.error(
+        "[mailer/lead] Resend failed:",
+        e instanceof Error ? e.message : e,
+        "— falling back to SMTP if configured."
+      );
+    }
+  }
+
+  const transporter = getSmtp();
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from,
+        to,
+        replyTo,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+      });
+      return { sent: true, provider: "smtp", id: info.messageId };
+    } catch (e) {
+      return { sent: false, error: e instanceof Error ? e.message : "smtp_error" };
+    }
+  }
+
+  return { sent: false, error: "no_provider" };
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
    Templates
    ────────────────────────────────────────────────────────────────────────── */
 

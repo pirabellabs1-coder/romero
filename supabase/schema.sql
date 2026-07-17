@@ -209,6 +209,38 @@ CREATE TABLE IF NOT EXISTS public.agent_test_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_agent_test_msgs_slug_time ON public.agent_test_messages(agent_slug, created_at DESC);
 
+-- ── Chatbot public : conversations & leads ───────────────────────────────
+-- Une conversation = une session visiteur sur le site public. Le lead_data
+-- JSONB s'enrichit au fil des tours via l'outil `record_lead_info` que
+-- Claude appelle quand il détecte une nouvelle info. Les messages
+-- individuels vont dans chat_messages (rôle + contenu + tool_calls).
+CREATE TABLE IF NOT EXISTS public.chat_conversations (
+  id             BIGSERIAL PRIMARY KEY,
+  session_id     TEXT UNIQUE NOT NULL,
+  agent_slug     TEXT NOT NULL DEFAULT 'site' REFERENCES public.agent_installations(slug) ON DELETE CASCADE,
+  lead_data      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  notified       BOOLEAN NOT NULL DEFAULT FALSE,
+  notified_at    TIMESTAMPTZ,
+  user_agent     TEXT,
+  referrer       TEXT,
+  message_count  INTEGER NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_chat_conv_created ON public.chat_conversations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_conv_notified ON public.chat_conversations(notified);
+
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+  id              BIGSERIAL PRIMARY KEY,
+  conversation_id BIGINT NOT NULL REFERENCES public.chat_conversations(id) ON DELETE CASCADE,
+  role            TEXT NOT NULL CHECK (role IN ('user','assistant','tool')),
+  content         TEXT NOT NULL,
+  tool_calls      JSONB,
+  duration_ms     INTEGER,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_chat_msg_conv ON public.chat_messages(conversation_id, created_at);
+
 -- ── Sanity check ─────────────────────────────────────────────────────────
 SELECT 'tables created:' AS status,
   (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public') AS public_tables_count;

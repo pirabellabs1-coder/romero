@@ -21,29 +21,46 @@ import Playground from "./Playground";
 import StatsView from "./StatsView";
 import ActivityFeed from "./ActivityFeed";
 import OverviewTab from "./OverviewTab";
+import ConversationsView from "./ConversationsView";
 
 export const dynamic = "force-dynamic";
 
-type Tab = "overview" | "config" | "prompt" | "knowledge" | "playground" | "stats" | "activity";
+type Tab =
+  | "overview"
+  | "config"
+  | "prompt"
+  | "knowledge"
+  | "playground"
+  | "conversations"
+  | "stats"
+  | "activity";
 const TAB_LABEL: Record<Tab, string> = {
   overview: "Aperçu",
   config: "Configuration",
   prompt: "Entraînement",
   knowledge: "Connaissances",
   playground: "Test",
+  conversations: "Conversations",
   stats: "Statistiques",
   activity: "Activité",
 };
-const TABS: Tab[] = ["overview", "config", "prompt", "knowledge", "playground", "stats", "activity"];
+// L'onglet Conversations n'existe que pour l'agent 'site' (les autres
+// agents auront leur propre onglet spécialisé plus tard).
+function tabsFor(slug: AgentSlug): Tab[] {
+  const base: Tab[] = ["overview", "config", "prompt", "knowledge", "playground"];
+  if (slug === "site") base.push("conversations");
+  base.push("stats", "activity");
+  return base;
+}
 
-function normalizeTab(raw: string | undefined): Tab {
-  if (raw && (TABS as string[]).includes(raw)) return raw as Tab;
+function normalizeTab(raw: string | undefined, allowed: Tab[]): Tab {
+  if (raw && (allowed as string[]).includes(raw)) return raw as Tab;
   return "overview";
 }
 
 type PageProps = {
   params: { slug: string };
-  searchParams?: { tab?: string; ok?: string; err?: string };
+  searchParams?: { tab?: string; ok?: string; err?: string; conv?: string };
 };
 
 export async function generateMetadata({
@@ -61,7 +78,9 @@ export default async function AgentDetailPage({
   if (!AGENT_ORDER.includes(params.slug as AgentSlug)) notFound();
   const slug = params.slug as AgentSlug;
   const def = AGENT_CATALOG[slug];
-  const tab = normalizeTab(searchParams?.tab);
+  const availableTabs = tabsFor(slug);
+  const tab = normalizeTab(searchParams?.tab, availableTabs);
+  const convId = searchParams?.conv ? Number(searchParams.conv) : undefined;
 
   // On tolère le cas « migration pas encore jouée » : chaque appel est
   // try/catch pour ne pas casser toute la page si UNE table manque.
@@ -101,7 +120,7 @@ export default async function AgentDetailPage({
 
       {/* ── Tabs ── */}
       <nav className="agent-tabs" role="tablist">
-        {TABS.map((t) => (
+        {availableTabs.map((t) => (
           <Link
             key={t}
             role="tab"
@@ -195,6 +214,10 @@ export default async function AgentDetailPage({
 
       {tab === "playground" ? (
         <PlaygroundTabWrapper slug={slug} />
+      ) : null}
+
+      {tab === "conversations" && slug === "site" ? (
+        <ConversationsView activeConvId={convId} />
       ) : null}
 
       {tab === "stats" ? <StatsTabWrapper slug={slug} /> : null}
