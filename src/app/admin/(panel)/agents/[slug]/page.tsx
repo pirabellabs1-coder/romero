@@ -5,16 +5,45 @@ import {
   AGENT_CATALOG,
   AGENT_ORDER,
   AgentSlug,
+  effectivePrompt,
   getAgent,
+  getStats,
+  listEvents,
+  listKnowledge,
+  listTestMessages,
 } from "@/lib/agents";
+import { DEFAULT_PROMPTS } from "@/lib/agent-prompts";
 import AgentConfigForm from "./AgentConfigForm";
 import AgentStatusControls from "./AgentStatusControls";
+import PromptEditor from "./PromptEditor";
+import KnowledgeManager from "./KnowledgeManager";
+import Playground from "./Playground";
+import StatsView from "./StatsView";
+import ActivityFeed from "./ActivityFeed";
+import OverviewTab from "./OverviewTab";
 
 export const dynamic = "force-dynamic";
 
+type Tab = "overview" | "config" | "prompt" | "knowledge" | "playground" | "stats" | "activity";
+const TAB_LABEL: Record<Tab, string> = {
+  overview: "Aperçu",
+  config: "Configuration",
+  prompt: "Entraînement",
+  knowledge: "Connaissances",
+  playground: "Test",
+  stats: "Statistiques",
+  activity: "Activité",
+};
+const TABS: Tab[] = ["overview", "config", "prompt", "knowledge", "playground", "stats", "activity"];
+
+function normalizeTab(raw: string | undefined): Tab {
+  if (raw && (TABS as string[]).includes(raw)) return raw as Tab;
+  return "overview";
+}
+
 type PageProps = {
   params: { slug: string };
-  searchParams?: { ok?: string; err?: string };
+  searchParams?: { tab?: string; ok?: string; err?: string };
 };
 
 export async function generateMetadata({
@@ -32,9 +61,10 @@ export default async function AgentDetailPage({
   if (!AGENT_ORDER.includes(params.slug as AgentSlug)) notFound();
   const slug = params.slug as AgentSlug;
   const def = AGENT_CATALOG[slug];
+  const tab = normalizeTab(searchParams?.tab);
 
-  // Si la table n'existe pas encore, on reste utilisable : on affiche
-  // les infos catalogue en lecture seule et un message de migration.
+  // On tolère le cas « migration pas encore jouée » : chaque appel est
+  // try/catch pour ne pas casser toute la page si UNE table manque.
   let installation: Awaited<ReturnType<typeof getAgent>> = null;
   let migrationError: string | null = null;
   try {
@@ -43,8 +73,12 @@ export default async function AgentDetailPage({
     migrationError = e instanceof Error ? e.message : String(e);
   }
 
-  const config = (installation?.config ?? {}) as Record<string, string>;
   const status = installation?.status ?? "not_installed";
+  const config = (installation?.config ?? {}) as Record<string, string>;
+  const currentPrompt =
+    installation?.system_prompt && installation.system_prompt.trim().length > 0
+      ? installation.system_prompt
+      : DEFAULT_PROMPTS[slug];
 
   return (
     <div>
@@ -52,24 +86,37 @@ export default async function AgentDetailPage({
         ← Retour aux agents
       </Link>
 
-      {/* Hero réduit — le contexte est déjà donné par la landing */}
-      <section className="agents-hero" style={{ marginBottom: 28, padding: "32px 34px" }}>
+      {/* ── Hero réduit ── */}
+      <section className="agents-hero" style={{ marginBottom: 24, padding: "28px 32px" }}>
         <div className="agents-hero__eyebrow">
-          Agent 0{def.order} · {status === "installed" ? "Installé" : "Installation"}
+          Agent 0{def.order} · {status === "installed" ? "Actif" : "En installation"}
         </div>
-        <h1 className="agents-hero__title" style={{ fontSize: "clamp(26px, 3vw, 34px)" }}>
+        <h1 className="agents-hero__title" style={{ fontSize: "clamp(24px, 2.8vw, 32px)" }}>
           {def.name.split(" — ")[0]}
-          <em style={{ display: "block", fontSize: "0.7em", marginTop: 4 }}>
+          <em style={{ display: "block", fontSize: "0.72em", marginTop: 4 }}>
             {def.name.split(" — ")[1] ?? def.tagline}
           </em>
         </h1>
-        <p className="agents-hero__lead">{def.description}</p>
       </section>
 
+      {/* ── Tabs ── */}
+      <nav className="agent-tabs" role="tablist">
+        {TABS.map((t) => (
+          <Link
+            key={t}
+            role="tab"
+            aria-selected={tab === t}
+            href={`/admin/agents/${slug}?tab=${t}`}
+            className={`agent-tab ${tab === t ? "agent-tab--active" : ""}`}
+          >
+            {TAB_LABEL[t]}
+          </Link>
+        ))}
+      </nav>
+
+      {/* ── Flash messages ── */}
       {searchParams?.ok ? (
-        <div className="agent-flash agent-flash--ok">
-          ✓ Modifications enregistrées.
-        </div>
+        <div className="agent-flash agent-flash--ok">✓ Modifications enregistrées.</div>
       ) : null}
       {searchParams?.err ? (
         <div className="agent-flash agent-flash--err">
@@ -80,48 +127,106 @@ export default async function AgentDetailPage({
         <div className="agent-flash agent-flash--err">
           <strong>Migration DB requise.</strong> Exécutez{" "}
           <code>supabase/schema.sql</code> sur Supabase, puis rafraîchissez.
+          <div style={{ marginTop: 6, opacity: 0.6, fontSize: 12 }}>{migrationError}</div>
         </div>
       ) : null}
 
-      <div className="agent-detail">
-        {/* ─── Colonne gauche : formulaire de configuration ─── */}
-        <div className="agent-panel">
-          <h2>Configuration</h2>
-          <p style={{ marginTop: -8, marginBottom: 20 }}>
-            Renseignez les identifiants et paramètres nécessaires. Les valeurs sont
-            chiffrées au repos côté base de données.
-          </p>
-          <AgentConfigForm slug={slug} fields={def.configFields} current={config} />
-        </div>
+      {/* ── Contenu du tab ── */}
+      {tab === "overview" ? (
+        <OverviewTab slug={slug} def={def} installation={installation} />
+      ) : null}
 
-        {/* ─── Colonne droite : étapes + statut ─── */}
-        <div>
-          <div className="agent-panel" style={{ marginBottom: 22 }}>
-            <h2>Étapes d'installation</h2>
-            <ol className="agent-steps">
-              {def.steps.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ol>
-          </div>
-
+      {tab === "config" ? (
+        <div className="agent-detail">
           <div className="agent-panel">
-            <h2>Statut</h2>
-            <p style={{ marginTop: -8, marginBottom: 16 }}>
-              {status === "installed"
-                ? "L'agent est actif et opérationnel."
-                : status === "paused"
-                ? "L'agent est temporairement désactivé."
-                : status === "installing"
-                ? "Installation en cours…"
-                : status === "error"
-                ? "Une erreur est survenue lors de la dernière opération."
-                : "L'agent n'est pas encore actif."}
+            <h2>Configuration technique</h2>
+            <p style={{ marginTop: -8, marginBottom: 20 }}>
+              Identifiants et paramètres nécessaires au fonctionnement de l'agent.
             </p>
-            <AgentStatusControls slug={slug} status={status} />
+            <AgentConfigForm
+              slug={slug}
+              fields={def.configFields}
+              current={config}
+            />
+          </div>
+          <div>
+            <div className="agent-panel" style={{ marginBottom: 22 }}>
+              <h2>Étapes d'installation</h2>
+              <ol className="agent-steps">
+                {def.steps.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ol>
+            </div>
+            <div className="agent-panel">
+              <h2>Statut</h2>
+              <p style={{ marginTop: -8, marginBottom: 16 }}>
+                {status === "installed"
+                  ? "L'agent est actif et opérationnel."
+                  : status === "paused"
+                  ? "L'agent est temporairement désactivé."
+                  : status === "installing"
+                  ? "Installation en cours…"
+                  : status === "error"
+                  ? "Une erreur est survenue lors de la dernière opération."
+                  : "L'agent n'est pas encore actif."}
+              </p>
+              <AgentStatusControls slug={slug} status={status} />
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
+
+      {tab === "prompt" ? (
+        <PromptEditor
+          slug={slug}
+          current={currentPrompt}
+          isDefault={
+            !installation?.system_prompt ||
+            installation.system_prompt.trim().length === 0
+          }
+          defaultPrompt={DEFAULT_PROMPTS[slug]}
+        />
+      ) : null}
+
+      {tab === "knowledge" ? (
+        <KnowledgeTabWrapper slug={slug} />
+      ) : null}
+
+      {tab === "playground" ? (
+        <PlaygroundTabWrapper slug={slug} />
+      ) : null}
+
+      {tab === "stats" ? <StatsTabWrapper slug={slug} /> : null}
+
+      {tab === "activity" ? <ActivityTabWrapper slug={slug} /> : null}
     </div>
   );
+}
+
+// ── Wrappers server-side qui chargent la data et passent au client component
+async function KnowledgeTabWrapper({ slug }: { slug: AgentSlug }) {
+  const entries = await listKnowledge(slug).catch(() => []);
+  return <KnowledgeManager slug={slug} entries={entries} />;
+}
+
+async function PlaygroundTabWrapper({ slug }: { slug: AgentSlug }) {
+  const history = await listTestMessages(slug, 10).catch(() => []);
+  return <Playground slug={slug} history={history} />;
+}
+
+async function StatsTabWrapper({ slug }: { slug: AgentSlug }) {
+  const stats = await getStats(slug).catch(() => ({
+    total_events: 0,
+    success_events: 0,
+    failure_events: 0,
+    by_type: [],
+    daily: [],
+  }));
+  return <StatsView stats={stats} />;
+}
+
+async function ActivityTabWrapper({ slug }: { slug: AgentSlug }) {
+  const events = await listEvents(slug, 100).catch(() => []);
+  return <ActivityFeed events={events} />;
 }

@@ -1,5 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache";
-import { query, execute } from "@/lib/db";
+import { query, queryOne, execute } from "@/lib/db";
+import { DEFAULT_PROMPTS } from "@/lib/agent-prompts";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 export type AgentSlug = "site" | "whatsapp" | "marketing" | "admin";
@@ -16,8 +17,40 @@ export type AgentInstallation = {
   name: string;
   status: AgentStatus;
   config: Record<string, unknown>;
+  system_prompt: string;
   installed_at: string | null;
   updated_at: string;
+};
+
+export type AgentKnowledgeEntry = {
+  id: number;
+  agent_slug: AgentSlug;
+  title: string;
+  content: string;
+  category: string;
+  updated_at: string;
+  created_at: string;
+};
+
+export type AgentEvent = {
+  id: number;
+  agent_slug: AgentSlug;
+  event_type: string;
+  payload: Record<string, unknown>;
+  success: boolean;
+  created_at: string;
+};
+
+export type AgentTestMessage = {
+  id: number;
+  agent_slug: AgentSlug;
+  input_text: string;
+  output_text: string;
+  prompt_snapshot: string;
+  duration_ms: number;
+  success: boolean;
+  error_message: string | null;
+  created_at: string;
 };
 
 // ─── Catalog (source de vérité pour l'UI, indépendant de la DB) ─────────
@@ -142,7 +175,7 @@ export const AGENT_ORDER: AgentSlug[] = (
 export async function getAgents(): Promise<AgentInstallation[]> {
   noStore();
   const rows = await query<AgentInstallation>(
-    `SELECT slug, name, status, config, installed_at, updated_at
+    `SELECT slug, name, status, config, system_prompt, installed_at, updated_at
      FROM agent_installations
      ORDER BY slug`
   );
@@ -158,11 +191,19 @@ export async function getAgent(
 ): Promise<AgentInstallation | null> {
   noStore();
   const rows = await query<AgentInstallation>(
-    `SELECT slug, name, status, config, installed_at, updated_at
+    `SELECT slug, name, status, config, system_prompt, installed_at, updated_at
      FROM agent_installations WHERE slug = $1`,
     [slug]
   );
   return rows[0] ?? null;
+}
+
+// Renvoie le prompt personnalisé si non vide, sinon le prompt par défaut.
+// Utilisé partout où on a besoin du prompt effectif (playground, appels).
+export function effectivePrompt(inst: AgentInstallation): string {
+  return inst.system_prompt && inst.system_prompt.trim().length > 0
+    ? inst.system_prompt
+    : DEFAULT_PROMPTS[inst.slug];
 }
 
 export async function setAgentStatus(
@@ -197,5 +238,194 @@ export async function updateAgentConfig(
          updated_at = NOW()
      WHERE slug = $2`,
     [JSON.stringify(cleaned), slug]
+  );
+}
+
+export async function setAgentPrompt(
+  slug: AgentSlug,
+  prompt: string
+): Promise<void> {
+  await execute(
+    `UPDATE agent_installations
+     SET system_prompt = $1, updated_at = NOW()
+     WHERE slug = $2`,
+    [prompt, slug]
+  );
+}
+
+// ─── Base de connaissances ─────────────────────────────────────────────
+export async function listKnowledge(
+  slug: AgentSlug
+): Promise<AgentKnowledgeEntry[]> {
+  noStore();
+  return query<AgentKnowledgeEntry>(
+    `SELECT id, agent_slug, title, content, category, updated_at, created_at
+     FROM agent_knowledge WHERE agent_slug = $1
+     ORDER BY category, title`,
+    [slug]
+  );
+}
+
+export async function addKnowledge(
+  slug: AgentSlug,
+  entry: { title: string; content: string; category?: string }
+): Promise<number> {
+  const row = await queryOne<{ id: number }>(
+    `INSERT INTO agent_knowledge (agent_slug, title, content, category)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id`,
+    [slug, entry.title, entry.content, entry.category ?? "general"]
+  );
+  return row?.id ?? 0;
+}
+
+export async function updateKnowledge(
+  id: number,
+  patch: { title?: string; content?: string; category?: string }
+): Promise<void> {
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  let i = 1;
+  if (typeof patch.title === "string") {
+    sets.push(`title = $${i++}`);
+    params.push(patch.title);
+  }
+  if (typeof patch.content === "string") {
+    sets.push(`content = $${i++}`);
+    params.push(patch.content);
+  }
+  if (typeof patch.category === "string") {
+    sets.push(`category = $${i++}`);
+    params.push(patch.category);
+  }
+  if (sets.length === 0) return;
+  sets.push("updated_at = NOW()");
+  params.push(id);
+  await execute(
+    `UPDATE agent_knowledge SET ${sets.join(", ")} WHERE id = $${i}`,
+    params
+  );
+}
+
+export async function deleteKnowledge(id: number): Promise<void> {
+  await execute(`DELETE FROM agent_knowledge WHERE id = $1`, [id]);
+}
+
+// ─── Événements (audit + stats) ────────────────────────────────────────
+export async function logEvent(
+  slug: AgentSlug,
+  eventType: string,
+  payload: Record<string, unknown> = {},
+  success = true
+): Promise<void> {
+  await execute(
+    `INSERT INTO agent_events (agent_slug, event_type, payload, success)
+     VALUES ($1, $2, $3::jsonb, $4)`,
+    [slug, eventType, JSON.stringify(payload), success]
+  );
+}
+
+export async function listEvents(
+  slug: AgentSlug,
+  limit = 50
+): Promise<AgentEvent[]> {
+  noStore();
+  return query<AgentEvent>(
+    `SELECT id, agent_slug, event_type, payload, success, created_at
+     FROM agent_events WHERE agent_slug = $1
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [slug, limit]
+  );
+}
+
+export type AgentStats = {
+  total_events: number;
+  success_events: number;
+  failure_events: number;
+  by_type: Array<{ event_type: string; count: number }>;
+  daily: Array<{ day: string; count: number; success: number }>;
+};
+
+export async function getStats(slug: AgentSlug): Promise<AgentStats> {
+  noStore();
+  const [totals, byType, daily] = await Promise.all([
+    queryOne<{
+      total: number;
+      ok: number;
+      fail: number;
+    }>(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE success)::int AS ok,
+              COUNT(*) FILTER (WHERE NOT success)::int AS fail
+       FROM agent_events WHERE agent_slug = $1`,
+      [slug]
+    ),
+    query<{ event_type: string; count: number }>(
+      `SELECT event_type, COUNT(*)::int AS count
+       FROM agent_events WHERE agent_slug = $1
+       GROUP BY event_type ORDER BY count DESC`,
+      [slug]
+    ),
+    query<{ day: string; count: number; success: number }>(
+      `SELECT TO_CHAR(created_at::date, 'YYYY-MM-DD') AS day,
+              COUNT(*)::int AS count,
+              COUNT(*) FILTER (WHERE success)::int AS success
+       FROM agent_events
+       WHERE agent_slug = $1
+         AND created_at >= NOW() - INTERVAL '30 days'
+       GROUP BY 1 ORDER BY 1`,
+      [slug]
+    ),
+  ]);
+  return {
+    total_events: totals?.total ?? 0,
+    success_events: totals?.ok ?? 0,
+    failure_events: totals?.fail ?? 0,
+    by_type: byType,
+    daily,
+  };
+}
+
+// ─── Playground (test) ─────────────────────────────────────────────────
+export async function saveTestMessage(entry: {
+  agent_slug: AgentSlug;
+  input_text: string;
+  output_text: string;
+  prompt_snapshot: string;
+  duration_ms: number;
+  success: boolean;
+  error_message?: string | null;
+}): Promise<number> {
+  const row = await queryOne<{ id: number }>(
+    `INSERT INTO agent_test_messages
+       (agent_slug, input_text, output_text, prompt_snapshot,
+        duration_ms, success, error_message)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id`,
+    [
+      entry.agent_slug,
+      entry.input_text,
+      entry.output_text,
+      entry.prompt_snapshot,
+      entry.duration_ms,
+      entry.success,
+      entry.error_message ?? null,
+    ]
+  );
+  return row?.id ?? 0;
+}
+
+export async function listTestMessages(
+  slug: AgentSlug,
+  limit = 20
+): Promise<AgentTestMessage[]> {
+  noStore();
+  return query<AgentTestMessage>(
+    `SELECT id, agent_slug, input_text, output_text, prompt_snapshot,
+            duration_ms, success, error_message, created_at
+     FROM agent_test_messages WHERE agent_slug = $1
+     ORDER BY created_at DESC LIMIT $2`,
+    [slug, limit]
   );
 }

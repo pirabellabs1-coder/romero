@@ -151,9 +151,13 @@ CREATE TABLE IF NOT EXISTS public.agent_installations (
   status        TEXT NOT NULL DEFAULT 'not_installed'
                 CHECK (status IN ('not_installed','installing','installed','error','paused')),
   config        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  system_prompt TEXT NOT NULL DEFAULT '',
   installed_at  TIMESTAMPTZ,
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- Ajout idempotent de system_prompt si la table préexistait sans.
+ALTER TABLE public.agent_installations
+  ADD COLUMN IF NOT EXISTS system_prompt TEXT NOT NULL DEFAULT '';
 
 INSERT INTO public.agent_installations (slug, name) VALUES
   ('site',      'Agent site — chatbot & prise de RDV'),
@@ -161,6 +165,49 @@ INSERT INTO public.agent_installations (slug, name) VALUES
   ('marketing', 'Agent Marketing — IG / LinkedIn / Blog'),
   ('admin',     'Agent Administratif & Juridique')
 ON CONFLICT (slug) DO NOTHING;
+
+-- Base de connaissances par agent : chaque entrée = un fait, un extrait
+-- de FAQ, une politique, un texte de référence. Utilisé comme contexte
+-- injecté dans le prompt à chaque exécution (RAG basique côté produit ;
+-- on peut passer à un embedding + pgvector plus tard sans casser l'UI).
+CREATE TABLE IF NOT EXISTS public.agent_knowledge (
+  id           BIGSERIAL PRIMARY KEY,
+  agent_slug   TEXT NOT NULL REFERENCES public.agent_installations(slug) ON DELETE CASCADE,
+  title        TEXT NOT NULL,
+  content      TEXT NOT NULL,
+  category     TEXT NOT NULL DEFAULT 'general',
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agent_knowledge_slug ON public.agent_knowledge(agent_slug);
+
+-- Journal d'événements agent (pour statistiques + audit). Un event =
+-- une action visible : conversation, RDV pris, post généré, contrat
+-- signé, erreur… Le payload JSONB accueille les détails.
+CREATE TABLE IF NOT EXISTS public.agent_events (
+  id           BIGSERIAL PRIMARY KEY,
+  agent_slug   TEXT NOT NULL REFERENCES public.agent_installations(slug) ON DELETE CASCADE,
+  event_type   TEXT NOT NULL,
+  payload      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  success      BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agent_events_slug_time ON public.agent_events(agent_slug, created_at DESC);
+
+-- Historique du playground (test des prompts). On garde tout pour que
+-- le photographe puisse comparer avant/après un changement de prompt.
+CREATE TABLE IF NOT EXISTS public.agent_test_messages (
+  id             BIGSERIAL PRIMARY KEY,
+  agent_slug     TEXT NOT NULL REFERENCES public.agent_installations(slug) ON DELETE CASCADE,
+  input_text     TEXT NOT NULL,
+  output_text    TEXT NOT NULL,
+  prompt_snapshot TEXT NOT NULL DEFAULT '',
+  duration_ms    INTEGER NOT NULL DEFAULT 0,
+  success        BOOLEAN NOT NULL DEFAULT TRUE,
+  error_message  TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_agent_test_msgs_slug_time ON public.agent_test_messages(agent_slug, created_at DESC);
 
 -- ── Sanity check ─────────────────────────────────────────────────────────
 SELECT 'tables created:' AS status,
