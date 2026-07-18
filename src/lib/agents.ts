@@ -136,21 +136,28 @@ export const AGENT_CATALOG: Record<AgentSlug, AgentDef> = {
     name: "Agent Marketing — IG / LinkedIn / Blog",
     tagline: "Un brief, trois publications adaptées à chaque plateforme.",
     description:
-      "Vous envoyez un brief (texte, vocal, photos). L'agent génère automatiquement le post Instagram (avec hashtags), le post LinkedIn (ton pro), et l'article de blog complet (SEO inclus). Programmation et publication directes.",
+      "Vous envoyez un brief (texte, vocal, photos). L'agent génère automatiquement le post Instagram (caption + hashtags), le post LinkedIn (ton pro), et l'article de blog complet (SEO inclus). Publication Instagram directe, LinkedIn en 1 clic, blog en brouillon dans votre back-office.",
     order: 3,
     steps: [
-      "Connexion Instagram Business via Meta Graph API",
-      "Configuration du workflow LinkedIn (validation 1-clic)",
-      "Branchement au CMS blog du site",
-      "Personnalisation des templates par plateforme",
-      "Interface de programmation (calendrier éditorial)",
+      "Passer Instagram en Business et le lier à une Page Facebook",
+      "Créer une app Meta Graph API et récupérer le Page Access Token",
+      "Renseigner Claude + OpenAI (transcription vocaux) + Meta",
+      "Personnaliser votre voix éditoriale et vos hashtags signature",
+      "Envoyer votre premier brief pour voir 3 drafts prêts en 20 secondes",
     ],
     configFields: [
-      { key: "meta_access_token", label: "Meta Access Token (Instagram)", type: "password", required: true },
-      { key: "instagram_business_id", label: "ID compte Instagram Business", type: "text", required: true },
-      { key: "linkedin_profile_url", label: "URL profil LinkedIn", type: "url", placeholder: "https://linkedin.com/in/mickael-romero" },
-      { key: "brand_voice", label: "Voix éditoriale (ton, mots-clés, tabous)", type: "textarea", placeholder: "Élégant, chaleureux, jamais racoleur…" },
-      { key: "openai_whisper_key", label: "Clé API Whisper (transcription vocale)", type: "password" },
+      // Claude + Whisper
+      { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", required: true, help: "Peut être la même que celle des autres agents" },
+      { key: "openai_api_key", label: "Clé API OpenAI (Whisper vocaux)", type: "password", help: "Nécessaire pour les briefs vocaux" },
+      // Meta / Instagram
+      { key: "meta_access_token", label: "Meta Page Access Token (long-lived)", type: "password", required: true, help: "Voir developers.facebook.com/apps → votre app → Instagram" },
+      { key: "instagram_business_id", label: "Instagram Business Account ID", type: "text", required: true, help: "ID numérique du compte @romeromomentsphoto en mode Business" },
+      // LinkedIn (reference only, no auto-publish)
+      { key: "linkedin_profile_url", label: "URL profil LinkedIn", type: "url", placeholder: "https://linkedin.com/in/mickael-romero", help: "Pour référence — LinkedIn ne permet pas la publication auto" },
+      // Ton / voix
+      { key: "brand_voice", label: "Voix éditoriale (ton, mots-clés, tabous)", type: "textarea", placeholder: "Élégant, chaleureux, jamais racoleur. Jamais de « swipe up ». Toujours attentif à l'émotion avant l'esthétique." },
+      { key: "signature_hashtags", label: "Hashtags signature (séparés par un espace)", type: "textarea", placeholder: "#photographemariagenice #mariageprovence #weddingphotographer #mariage2027" },
+      { key: "blog_default_lang", label: "Langue par défaut du blog (fr / en)", type: "text", placeholder: "fr" },
     ],
   },
   admin: {

@@ -269,6 +269,45 @@ CREATE TABLE IF NOT EXISTS public.assistant_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_assistant_messages_session ON public.assistant_messages(session_id, created_at);
 
+-- ── Briefs Marketing (agent 3) ───────────────────────────────────────────
+-- Un brief = une intention éditoriale (« photo mariage Sophie et Marc,
+-- ambiance provençale, lumière dorée » + photo(s) éventuelles).
+-- L'agent génère 3 drafts (IG / LinkedIn / Blog) qui sont éditables
+-- avant publication. Chaque draft a son propre statut de publication.
+CREATE TABLE IF NOT EXISTS public.marketing_briefs (
+  id                BIGSERIAL PRIMARY KEY,
+  brief_text        TEXT NOT NULL,
+  brief_source      TEXT NOT NULL DEFAULT 'text' CHECK (brief_source IN ('text','voice')),
+  photo_urls        JSONB NOT NULL DEFAULT '[]'::jsonb,
+
+  -- Drafts générés
+  instagram_caption TEXT,
+  instagram_hashtags TEXT,
+  linkedin_post     TEXT,
+  blog_title        TEXT,
+  blog_slug         TEXT,
+  blog_meta_description TEXT,
+  blog_content_md   TEXT,
+
+  -- Statuts par plateforme
+  instagram_status  TEXT NOT NULL DEFAULT 'draft' CHECK (instagram_status IN ('draft','scheduled','published','failed')),
+  instagram_published_at TIMESTAMPTZ,
+  instagram_post_id TEXT,
+  instagram_error   TEXT,
+
+  linkedin_status   TEXT NOT NULL DEFAULT 'draft' CHECK (linkedin_status IN ('draft','copied','published')),
+  linkedin_copied_at TIMESTAMPTZ,
+
+  blog_status       TEXT NOT NULL DEFAULT 'draft' CHECK (blog_status IN ('draft','published')),
+  blog_post_id      BIGINT,
+
+  -- Meta
+  generation_duration_ms INTEGER,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_marketing_briefs_created ON public.marketing_briefs(created_at DESC);
+
 -- ── Sanity check ─────────────────────────────────────────────────────────
 SELECT 'tables created:' AS status,
   (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public') AS public_tables_count;

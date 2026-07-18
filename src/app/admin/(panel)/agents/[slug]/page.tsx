@@ -25,6 +25,7 @@ import ConversationsView from "./ConversationsView";
 import GoogleAgendaPanel from "./GoogleAgendaPanel";
 import WebhookStatusPanel from "./WebhookStatusPanel";
 import WhatsappSessionsView from "./WhatsappSessionsView";
+import MarketingBriefsView from "./MarketingBriefsView";
 import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,7 @@ type Tab =
   | "conversations"
   | "sessions"
   | "channels"
+  | "briefs"
   | "stats"
   | "activity";
 const TAB_LABEL: Record<Tab, string> = {
@@ -49,16 +51,19 @@ const TAB_LABEL: Record<Tab, string> = {
   conversations: "Conversations",
   sessions: "Sessions",
   channels: "Canaux",
+  briefs: "Briefs & publications",
   stats: "Statistiques",
   activity: "Activité",
 };
 // Onglets spécifiques par agent :
 //   - site : conversations (leads du chatbot)
 //   - whatsapp : channels (Google + Telegram + WhatsApp) et sessions
+//   - marketing : briefs (composer + drafts + publications)
 function tabsFor(slug: AgentSlug): Tab[] {
   const base: Tab[] = ["overview", "config", "prompt", "knowledge", "playground"];
   if (slug === "site") base.push("conversations");
   if (slug === "whatsapp") base.push("channels", "sessions");
+  if (slug === "marketing") base.push("briefs");
   base.push("stats", "activity");
   return base;
 }
@@ -237,6 +242,15 @@ export default async function AgentDetailPage({
       {tab === "sessions" && slug === "whatsapp" ? (
         <WhatsappSessionsView
           activeSessionId={searchParams?.conv ? Number(searchParams.conv) : undefined}
+        />
+      ) : null}
+
+      {tab === "briefs" && slug === "marketing" ? (
+        <MarketingBriefsView
+          activeBriefId={searchParams?.conv ? Number(searchParams.conv) : undefined}
+          hasClaudeKey={Boolean(config.anthropic_api_key)}
+          hasWhisperKey={Boolean(config.openai_api_key)}
+          hasInstagramCreds={Boolean(config.meta_access_token && config.instagram_business_id)}
         />
       ) : null}
 
