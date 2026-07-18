@@ -308,6 +308,78 @@ CREATE TABLE IF NOT EXISTS public.marketing_briefs (
 );
 CREATE INDEX IF NOT EXISTS idx_marketing_briefs_created ON public.marketing_briefs(created_at DESC);
 
+-- ── Documents administratifs (agent 4) ────────────────────────────────────
+-- Table unifiée pour devis, contrats et factures. Les 3 types partagent
+-- 90 % des champs (client, montant, statut de signature/paiement), donc
+-- une seule table avec `doc_type` évite la duplication. Les champs très
+-- spécifiques (numéro de facture séquentiel, ID Yousign, ID Pennylane)
+-- sont stockés dans des colonnes dédiées, nullables selon le type.
+CREATE TABLE IF NOT EXISTS public.admin_documents (
+  id                BIGSERIAL PRIMARY KEY,
+  doc_type          TEXT NOT NULL CHECK (doc_type IN ('quote','contract','invoice')),
+  reference         TEXT NOT NULL,  -- ex: DEV-2027-001, CT-2027-005, FA-2027-042
+
+  -- Client
+  client_name       TEXT NOT NULL,
+  client_email      TEXT,
+  client_phone      TEXT,
+  client_address    TEXT,
+
+  -- Contexte mariage (utilisé par tous les types)
+  wedding_date      DATE,
+  wedding_location  TEXT,
+  guest_count       INTEGER,
+
+  -- Montants (stockés en centimes pour éviter les arrondis flottants)
+  subtotal_cents    INTEGER NOT NULL DEFAULT 0,
+  vat_cents         INTEGER NOT NULL DEFAULT 0,
+  total_cents       INTEGER NOT NULL DEFAULT 0,
+  vat_rate          NUMERIC(4,2) NOT NULL DEFAULT 0.00,
+
+  -- Contenu structuré : lignes du document, formule choisie, options,
+  -- clauses spécifiques, mentions particulières.
+  content           JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+  -- Statuts par étape de vie
+  status            TEXT NOT NULL DEFAULT 'draft' CHECK (status IN (
+    'draft','sent','signed','paid','cancelled','expired'
+  )),
+
+  -- Signature électronique (Yousign)
+  yousign_procedure_id  TEXT,
+  yousign_signed_at     TIMESTAMPTZ,
+  yousign_signed_pdf_url TEXT,
+
+  -- Comptabilité (Pennylane ou Freebe)
+  accounting_invoice_id TEXT,
+  accounting_provider   TEXT,  -- 'pennylane' ou 'freebe'
+  paid_at              TIMESTAMPTZ,
+
+  -- Fichiers générés
+  pdf_url           TEXT,      -- URL Supabase Storage du PDF non signé
+  signed_pdf_url    TEXT,      -- URL du PDF signé (après Yousign)
+
+  -- Meta
+  sent_at           TIMESTAMPTZ,
+  due_date          DATE,      -- pour les devis (validité) et factures (échéance)
+  notes             TEXT,      -- notes internes non visibles côté client
+
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_admin_docs_type_created ON public.admin_documents(doc_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_docs_status ON public.admin_documents(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_docs_reference ON public.admin_documents(reference);
+
+-- Compteur de numérotation par type (garantit qu'aucun trou n'apparaît
+-- même en cas de suppression). Séquence par (type, année).
+CREATE TABLE IF NOT EXISTS public.admin_doc_counters (
+  doc_type    TEXT NOT NULL,
+  year        INTEGER NOT NULL,
+  next_number INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (doc_type, year)
+);
+
 -- ── Sanity check ─────────────────────────────────────────────────────────
 SELECT 'tables created:' AS status,
   (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public') AS public_tables_count;

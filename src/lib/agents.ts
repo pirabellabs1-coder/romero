@@ -165,21 +165,39 @@ export const AGENT_CATALOG: Record<AgentSlug, AgentDef> = {
     name: "Agent Administratif & Juridique",
     tagline: "Devis, contrats, factures — générés et signés en un flux.",
     description:
-      "Génération automatique des devis, contrats de mariage (mentions légales FR incluses) et factures. Signature électronique via Yousign, comptabilité via Pennylane ou Freebe. Suivi centralisé et relances automatiques des impayés.",
+      "Génération automatique des devis, contrats de mariage (mentions légales FR incluses) et factures depuis un brief court. PDF prêts à imprimer ou à signer électroniquement via Yousign. Facturation synchronisée avec Pennylane ou Freebe pour la conformité URSSAF.",
     order: 4,
     steps: [
-      "Connexion Yousign (signature électronique)",
-      "Connexion Pennylane ou Freebe (compta / URSSAF)",
-      "Import des modèles de contrats et devis",
-      "Configuration des mentions légales et CGV",
-      "Activation des relances automatiques",
+      "Renseigner votre profil légal (statut, SIRET, adresse, TVA)",
+      "Ajouter Anthropic (génération) + Yousign (signature) + Pennylane/Freebe (compta)",
+      "Décrire un premier devis en une phrase → PDF prêt en 5 secondes",
+      "Envoyer à signer en 1 clic (Yousign)",
+      "Après signature : la facture est créée automatiquement dans votre compta",
     ],
     configFields: [
-      { key: "yousign_api_key", label: "Clé API Yousign", type: "password", required: true },
-      { key: "accounting_provider", label: "Outil comptable", type: "text", placeholder: "pennylane | freebe", required: true },
-      { key: "accounting_api_key", label: "Clé API compta", type: "password", required: true },
-      { key: "siret", label: "SIRET", type: "text", placeholder: "123 456 789 00012" },
-      { key: "legal_mentions", label: "Mentions légales / CGV (bloc de texte)", type: "textarea" },
+      // Génération
+      { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", required: true, help: "Peut être la même que celle des autres agents" },
+      // Identité entreprise
+      { key: "company_legal_name", label: "Raison sociale complète", type: "text", required: true, placeholder: "Mickael Romero — Photographe" },
+      { key: "company_status", label: "Statut juridique", type: "text", required: true, placeholder: "Micro-entrepreneur / EURL / SASU…" },
+      { key: "company_siret", label: "SIRET (14 chiffres)", type: "text", required: true },
+      { key: "company_rcs", label: "RCS (ex : Nice B 123 456 789)", type: "text" },
+      { key: "company_address", label: "Adresse professionnelle complète", type: "textarea", required: true },
+      { key: "company_email", label: "E-mail professionnel", type: "text", required: true },
+      { key: "company_phone", label: "Téléphone professionnel", type: "text", required: true },
+      { key: "company_iban", label: "IBAN pour paiements", type: "text" },
+      { key: "vat_status", label: "Assujetti TVA ? (yes/no)", type: "text", required: true, placeholder: "no" },
+      { key: "vat_rate", label: "Taux TVA applicable (%)", type: "text", placeholder: "20" },
+      { key: "vat_number", label: "Numéro TVA intracommunautaire", type: "text", placeholder: "FR__ ___________" },
+      // Signature électronique
+      { key: "yousign_api_key", label: "Clé API Yousign", type: "password", help: "Optionnel — sans clé, les documents sont générés en PDF téléchargeables uniquement" },
+      { key: "yousign_environment", label: "Environnement Yousign (production / sandbox)", type: "text", placeholder: "sandbox" },
+      // Comptabilité
+      { key: "accounting_provider", label: "Outil comptable", type: "text", placeholder: "pennylane | freebe | none" },
+      { key: "accounting_api_key", label: "Clé API compta", type: "password" },
+      // Mentions et modèles
+      { key: "legal_mentions", label: "CGV / mentions légales (bloc annexé aux contrats)", type: "textarea" },
+      { key: "contract_extra_clauses", label: "Clauses contractuelles additionnelles (droit à l'image, force majeure…)", type: "textarea" },
     ],
   },
 };

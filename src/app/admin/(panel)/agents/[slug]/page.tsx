@@ -26,6 +26,7 @@ import GoogleAgendaPanel from "./GoogleAgendaPanel";
 import WebhookStatusPanel from "./WebhookStatusPanel";
 import WhatsappSessionsView from "./WhatsappSessionsView";
 import MarketingBriefsView from "./MarketingBriefsView";
+import AdminDocumentsView from "./AdminDocumentsView";
 import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,7 @@ type Tab =
   | "sessions"
   | "channels"
   | "briefs"
+  | "documents"
   | "stats"
   | "activity";
 const TAB_LABEL: Record<Tab, string> = {
@@ -52,6 +54,7 @@ const TAB_LABEL: Record<Tab, string> = {
   sessions: "Sessions",
   channels: "Canaux",
   briefs: "Briefs & publications",
+  documents: "Documents",
   stats: "Statistiques",
   activity: "Activité",
 };
@@ -59,11 +62,13 @@ const TAB_LABEL: Record<Tab, string> = {
 //   - site : conversations (leads du chatbot)
 //   - whatsapp : channels (Google + Telegram + WhatsApp) et sessions
 //   - marketing : briefs (composer + drafts + publications)
+//   - admin : documents (devis + contrats + factures)
 function tabsFor(slug: AgentSlug): Tab[] {
   const base: Tab[] = ["overview", "config", "prompt", "knowledge", "playground"];
   if (slug === "site") base.push("conversations");
   if (slug === "whatsapp") base.push("channels", "sessions");
   if (slug === "marketing") base.push("briefs");
+  if (slug === "admin") base.push("documents");
   base.push("stats", "activity");
   return base;
 }
@@ -251,6 +256,25 @@ export default async function AgentDetailPage({
           hasClaudeKey={Boolean(config.anthropic_api_key)}
           hasWhisperKey={Boolean(config.openai_api_key)}
           hasInstagramCreds={Boolean(config.meta_access_token && config.instagram_business_id)}
+        />
+      ) : null}
+
+      {tab === "documents" && slug === "admin" ? (
+        <AdminDocumentsView
+          subTab={
+            (searchParams as { sub?: string })?.sub === "contract"
+              ? "contract"
+              : (searchParams as { sub?: string })?.sub === "invoice"
+              ? "invoice"
+              : "quote"
+          }
+          hasClaudeKey={Boolean(config.anthropic_api_key && config.company_siret)}
+          hasYousignKey={Boolean(config.yousign_api_key)}
+          hasAccountingKey={Boolean(
+            config.accounting_provider &&
+              config.accounting_provider !== "none" &&
+              config.accounting_api_key
+          )}
         />
       ) : null}
 
