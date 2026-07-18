@@ -241,6 +241,34 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_chat_msg_conv ON public.chat_messages(conversation_id, created_at);
 
+-- ── Assistant WhatsApp/Telegram (agent 2) ────────────────────────────────
+-- Une session = une conversation continue avec un utilisateur (Mickael
+-- typiquement, mais on stocke `platform_user_id` proprement au cas où on
+-- ouvre à d'autres). L'historique conversationnel vit dans
+-- assistant_messages, comme chat_messages pour l'agent site.
+CREATE TABLE IF NOT EXISTS public.assistant_sessions (
+  id                BIGSERIAL PRIMARY KEY,
+  platform          TEXT NOT NULL CHECK (platform IN ('telegram','whatsapp')),
+  platform_user_id  TEXT NOT NULL,
+  display_name      TEXT,
+  message_count     INTEGER NOT NULL DEFAULT 0,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (platform, platform_user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_assistant_sessions_updated ON public.assistant_sessions(updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.assistant_messages (
+  id              BIGSERIAL PRIMARY KEY,
+  session_id      BIGINT NOT NULL REFERENCES public.assistant_sessions(id) ON DELETE CASCADE,
+  role            TEXT NOT NULL CHECK (role IN ('user','assistant','tool')),
+  content         TEXT NOT NULL,
+  tool_calls      JSONB,
+  duration_ms     INTEGER,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_assistant_messages_session ON public.assistant_messages(session_id, created_at);
+
 -- ── Sanity check ─────────────────────────────────────────────────────────
 SELECT 'tables created:' AS status,
   (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public') AS public_tables_count;

@@ -16,6 +16,7 @@ import {
   type LeadData,
 } from "@/lib/site-chat";
 import { sendLeadNotification } from "@/lib/mailer";
+import { withTransaction } from "@/lib/db";
 
 /*
  * POST /api/chat
@@ -226,8 +227,18 @@ export async function POST(req: NextRequest) {
     const systemPrompt = effectivePrompt(inst) + kbBlock;
 
     // Boucle Claude + tool-use
+    // ────────────────────────────────────────────────────────────────
+    // 3 propriétés à préserver :
+    //   (a) tout texte émis par Claude à un tour intermédiaire (souvent
+    //       « Un instant, je note ça… ») doit finir dans finalText.
+    //   (b) chaque assistant-avec-tool_use doit être persisté DANS LA
+    //       MÊME TRANSACTION que ses tool_result correspondants, sinon
+    //       une écriture partielle rend la conversation inutilisable
+    //       (Anthropic 400 : tool_use ids ... were not found).
+    //   (c) une erreur de tool (ex : DB down sur updateLeadData) ne doit
+    //       pas leak son message brut au visiteur, même à travers Claude.
     const toolsUsed: string[] = [];
-    let finalText = "";
+    const collectedText: string[] = [];
     let lastAssistantBlocks: ClaudeContentBlock[] = [];
 
     for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
@@ -241,81 +252,137 @@ export async function POST(req: NextRequest) {
 
       lastAssistantBlocks = resp.content;
 
-      // Cherche des blocs tool_use
       const toolUses = resp.content.filter(
         (b): b is ClaudeToolUse => b.type === "tool_use"
       );
       const textBlocks = resp.content.filter(
         (b): b is ClaudeText => b.type === "text"
       );
+      const turnText = textBlocks.map((b) => b.text).join("\n").trim();
+      if (turnText) collectedText.push(turnText);
 
       if (toolUses.length === 0) {
-        // Réponse finale
-        finalText = textBlocks.map((b) => b.text).join("\n").trim();
+        // Tour terminal : plus de tool_use → on persiste juste l'assistant.
         await addMessage({
           conversation_id: conv.id,
           role: "assistant",
-          content: finalText || "(vide)",
+          content: turnText || "(vide)",
           duration_ms: duration,
         });
         break;
       }
 
-      // On enregistre l'assistant message (avec ses tool_use blocks) puis
-      // on exécute chaque tool et ajoute des tool_result.
-      await addMessage({
-        conversation_id: conv.id,
-        role: "assistant",
-        content: textBlocks.map((b) => b.text).join("\n"),
-        tool_calls: resp.content,
-        duration_ms: duration,
-      });
-      claudeMessages.push({ role: "assistant", content: resp.content });
+      // Tour intermédiaire : exécute chaque tool en amont, puis persiste
+      // atomiquement (assistant + tous les tool_result) dans UNE
+      // transaction. Si l'insert échoue à mi-chemin, rien n'est écrit.
+      const toolExecutions: Array<{
+        tu: ClaudeToolUse;
+        publicResult: string; // ce qu'on montre à Claude
+        eventName: string | null; // event stats à logger après commit
+        eventPayload: Record<string, unknown>;
+        eventSuccess: boolean;
+      }> = [];
 
-      const toolResults: Array<Record<string, unknown>> = [];
       for (const tu of toolUses) {
         toolsUsed.push(tu.name);
-        let result = "";
+        let publicResult = "";
+        let eventName: string | null = null;
+        let eventPayload: Record<string, unknown> = {};
+        let eventSuccess = true;
         try {
           if (tu.name === "record_lead_info") {
             await updateLeadData(conv.id, tu.input as LeadData);
-            result = "OK · info enregistrée";
-            await logEvent("site", "lead_info_recorded", { fields: Object.keys(tu.input) });
+            publicResult = "OK · info enregistrée";
+            eventName = "lead_info_recorded";
+            eventPayload = { fields: Object.keys(tu.input) };
           } else if (tu.name === "send_lead_notification") {
             const summary =
               typeof tu.input.summary === "string" ? tu.input.summary : "";
             const sendResult = await handleSendLead(conv.id, summary);
-            result = sendResult.sent
+            publicResult = sendResult.sent
               ? "OK · e-mail envoyé à Mickael"
-              : `Échec envoi : ${sendResult.error}`;
-            await logEvent(
-              "site",
-              "lead_email_sent",
-              { conversation_id: conv.id, sent: sendResult.sent, error: sendResult.error },
-              sendResult.sent
-            );
+              : "Échec de l'envoi — merci de réessayer";
+            eventName = "lead_email_sent";
+            eventPayload = { sent: sendResult.sent };
+            eventSuccess = sendResult.sent;
           } else {
-            result = `ERREUR · outil inconnu ${tu.name}`;
+            publicResult = "ERREUR · outil inconnu";
+            eventSuccess = false;
           }
         } catch (e) {
-          result = `ERREUR · ${e instanceof Error ? e.message : String(e)}`;
+          // Message contenant potentiellement du SQL brut → on log en
+          // interne mais on ne le repasse pas à Claude / au visiteur.
+          console.error(`[chat/tool ${tu.name}]`, e);
+          publicResult = "ERREUR · échec technique, la conversation continue";
+          eventName = `${tu.name}_error`;
+          eventPayload = { error: e instanceof Error ? e.message : String(e) };
+          eventSuccess = false;
         }
-        toolResults.push({
-          type: "tool_result",
-          tool_use_id: tu.id,
-          content: result,
-        });
-        await addMessage({
-          conversation_id: conv.id,
-          role: "tool",
-          content: JSON.stringify({ tool_use_id: tu.id, content: result }),
+        toolExecutions.push({
+          tu,
+          publicResult,
+          eventName,
+          eventPayload,
+          eventSuccess,
         });
       }
-      // Prochain tour : injecte les tool_results comme message user
-      claudeMessages.push({ role: "user", content: toolResults });
+
+      // Persistance atomique : assistant + tous les tool_result. Si un
+      // insert plante, ROLLBACK et la conversation reste dans un état
+      // cohérent (pas d'assistant orphelin avec tool_use pending).
+      await withTransaction(async (tx) => {
+        await tx.execute(
+          `INSERT INTO chat_messages (conversation_id, role, content, tool_calls, duration_ms)
+           VALUES ($1, 'assistant', $2, $3::jsonb, $4)`,
+          [
+            conv.id,
+            turnText,
+            JSON.stringify(resp.content),
+            duration,
+          ]
+        );
+        for (const ex of toolExecutions) {
+          await tx.execute(
+            `INSERT INTO chat_messages (conversation_id, role, content)
+             VALUES ($1, 'tool', $2)`,
+            [
+              conv.id,
+              JSON.stringify({
+                tool_use_id: ex.tu.id,
+                content: ex.publicResult,
+              }),
+            ]
+          );
+        }
+      });
+
+      // Events stats — hors transaction, best-effort.
+      for (const ex of toolExecutions) {
+        if (ex.eventName) {
+          try {
+            await logEvent("site", ex.eventName, ex.eventPayload, ex.eventSuccess);
+          } catch {
+            /* stats hors chemin critique */
+          }
+        }
+      }
+
+      // Alimente les messages pour le prochain tour Claude.
+      claudeMessages.push({ role: "assistant", content: resp.content });
+      claudeMessages.push({
+        role: "user",
+        content: toolExecutions.map((ex) => ({
+          type: "tool_result",
+          tool_use_id: ex.tu.id,
+          content: ex.publicResult,
+        })),
+      });
     }
 
-    // Failsafe : si aucun texte final produit après MAX_TOOL_TURNS
+    // Compose la réponse finale : concaténation de tout texte émis
+    // (pas seulement le dernier tour). Failsafe si Claude a bouclé
+    // sans jamais produire de texte.
+    let finalText = collectedText.join("\n\n").trim();
     if (!finalText) {
       const fallback = lastAssistantBlocks
         .filter((b): b is ClaudeText => b.type === "text")

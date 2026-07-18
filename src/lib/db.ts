@@ -94,3 +94,69 @@ export async function execute(
   const res = await pool().query(text, params as unknown[]);
   return res.rowCount ?? 0;
 }
+
+/**
+ * Run a callback inside a transaction with a dedicated pooled client.
+ * Rolls back automatically on throw. Use for multi-write sequences that
+ * must all succeed or fail together (e.g. tool_use assistant message +
+ * associated tool_result rows for the /api/chat endpoint).
+ *
+ * The pooled client is released to the pool in the finally block — safe
+ * for both success and failure paths.
+ */
+export async function withTransaction<T>(
+  fn: (client: {
+    query: <R extends QueryResultRow = QueryResultRow>(
+      text: string,
+      params?: ReadonlyArray<unknown>
+    ) => Promise<R[]>;
+    queryOne: <R extends QueryResultRow = QueryResultRow>(
+      text: string,
+      params?: ReadonlyArray<unknown>
+    ) => Promise<R | null>;
+    execute: (
+      text: string,
+      params?: ReadonlyArray<unknown>
+    ) => Promise<number>;
+  }) => Promise<T>
+): Promise<T> {
+  const client = await pool().connect();
+  try {
+    await client.query("BEGIN");
+    const wrapper = {
+      query: async <R extends QueryResultRow = QueryResultRow>(
+        text: string,
+        params?: ReadonlyArray<unknown>
+      ): Promise<R[]> => {
+        const r = await client.query<R>(text, params as unknown[]);
+        return r.rows;
+      },
+      queryOne: async <R extends QueryResultRow = QueryResultRow>(
+        text: string,
+        params?: ReadonlyArray<unknown>
+      ): Promise<R | null> => {
+        const r = await client.query<R>(text, params as unknown[]);
+        return r.rows[0] ?? null;
+      },
+      execute: async (
+        text: string,
+        params?: ReadonlyArray<unknown>
+      ): Promise<number> => {
+        const r = await client.query(text, params as unknown[]);
+        return r.rowCount ?? 0;
+      },
+    };
+    const result = await fn(wrapper);
+    await client.query("COMMIT");
+    return result;
+  } catch (e) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      /* ignore rollback failure — original error wins */
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}

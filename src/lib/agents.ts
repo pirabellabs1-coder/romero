@@ -102,21 +102,33 @@ export const AGENT_CATALOG: Record<AgentSlug, AgentDef> = {
     name: "Assistant WhatsApp + Agenda",
     tagline: "Un vocal WhatsApp = un rendez-vous créé dans votre calendrier.",
     description:
-      "Assistant personnel accessible depuis WhatsApp et Claude Desktop via un serveur MCP unique. Il comprend les vocaux, crée / modifie / consulte vos événements Google Calendar, et vous répond en langage naturel.",
+      "Assistant personnel accessible depuis WhatsApp et Telegram. Il comprend les vocaux, crée / modifie / consulte vos événements Google Calendar, et vous répond en langage naturel.",
     order: 2,
     steps: [
-      "Validation Meta WhatsApp Business (ou Twilio en fallback)",
-      "OAuth Google Calendar",
-      "Déploiement du serveur MCP",
-      "Configuration Telegram fallback (le temps de la validation Meta)",
-      "Test end-to-end (vocal → événement)",
+      "Créer un compte Meta Business + valider le numéro WhatsApp",
+      "OAuth Google Calendar (bouton « Connecter » dans l'onglet Configuration)",
+      "Configurer le bot Telegram (fallback pendant la validation Meta)",
+      "Renseigner la clé API Claude + la clé Whisper (transcription vocale)",
+      "Test end-to-end (envoyer un vocal → événement créé)",
     ],
     configFields: [
-      { key: "whatsapp_provider", label: "Fournisseur WhatsApp", type: "text", placeholder: "meta | twilio", required: true },
-      { key: "whatsapp_number", label: "Numéro WhatsApp Business", type: "text", placeholder: "+33 6 04 03 70 76" },
-      { key: "google_calendar_id", label: "ID du calendrier Google", type: "text", placeholder: "primary" },
-      { key: "telegram_bot_token", label: "Token bot Telegram (fallback)", type: "password", help: "Créé via @BotFather sur Telegram" },
-      { key: "mcp_endpoint", label: "Endpoint MCP (pour Claude Desktop)", type: "url", placeholder: "https://agents.romerophotography.fr/mcp" },
+      // Claude
+      { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", required: true, help: "Peut être la même que celle de l'agent site" },
+      // Google Calendar
+      { key: "google_client_id", label: "Google OAuth Client ID", type: "text", required: true, help: "Créé dans Google Cloud Console → APIs & Services → Credentials" },
+      { key: "google_client_secret", label: "Google OAuth Client Secret", type: "password", required: true },
+      { key: "google_calendar_id", label: "ID du calendrier Google", type: "text", placeholder: "primary", help: "Laisser « primary » pour l'agenda par défaut" },
+      { key: "google_timezone", label: "Fuseau horaire", type: "text", placeholder: "Europe/Paris" },
+      // Whisper (transcription)
+      { key: "openai_api_key", label: "Clé API OpenAI (Whisper vocaux)", type: "password", help: "Optionnel si vous n'envoyez que du texte" },
+      // Telegram
+      { key: "telegram_bot_token", label: "Token bot Telegram", type: "password", help: "Créé via @BotFather sur Telegram" },
+      { key: "telegram_allowed_user_id", label: "Votre ID utilisateur Telegram", type: "text", help: "Empêche que quelqu'un d'autre parle à votre bot. Récupérer via @userinfobot" },
+      // WhatsApp Cloud API (Meta)
+      { key: "whatsapp_verify_token", label: "WhatsApp verify token (chaîne libre)", type: "text", help: "Choisir une valeur secrète, la renseigner ici puis dans Meta lors du setup du webhook" },
+      { key: "whatsapp_phone_number_id", label: "WhatsApp Phone Number ID", type: "text" },
+      { key: "whatsapp_access_token", label: "WhatsApp Access Token (Meta)", type: "password" },
+      { key: "whatsapp_allowed_from", label: "Votre numéro WhatsApp autorisé", type: "text", placeholder: "+33604037076" },
     ],
   },
   marketing: {

@@ -1,0 +1,586 @@
+// ──────────────────────────────────────────────────────────────────────
+// Boucle assistant WhatsApp/Telegram — Claude + outils Google Calendar
+// ──────────────────────────────────────────────────────────────────────
+//
+// Point d'entrée unique appelé par les 2 webhooks (Telegram + WhatsApp).
+// Reçoit un message texte + un identifiant de session (platform + user id),
+// appelle Claude Haiku 4.5 avec 5 outils calendar, exécute les outils,
+// boucle jusqu'à réponse finale, persiste tout.
+//
+// Principes :
+//   1. Une session par (platform, platform_user_id) → l'historique est
+//      conservé et injecté dans chaque appel Claude.
+//   2. Les outils modifient réellement Google Calendar via la lib
+//      google-calendar. Aucun mock, aucun dry-run.
+//   3. Transaction pour chaque tour (assistant + tool_result groupés).
+//   4. Si les creds Google manquent → l'outil renvoie une erreur claire
+//      que Claude verbalise sans planter.
+//   5. Limite 4 tours de tool_use — au-delà, on tronque et on prévient.
+//
+// Sécurité :
+//   Le prompt système précise que le seul interlocuteur légitime est
+//   Mickael. En prod, on ajoutera un filtrage par platform_user_id
+//   (whitelist configurable depuis /admin/agents/whatsapp).
+
+import { withTransaction, query } from "@/lib/db";
+import {
+  buildClient,
+  createEvent,
+  deleteEvent,
+  isFreeSlot,
+  listEvents,
+  updateEvent,
+  type AuthedClient,
+} from "@/lib/google-calendar";
+import {
+  effectivePrompt,
+  getAgent,
+  listKnowledge,
+  logEvent,
+} from "@/lib/agents";
+
+const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
+const MAX_TOOL_TURNS = 4;
+const MAX_HISTORY_MESSAGES = 40; // fenêtre glissante — évite les prompts trop longs
+
+// ─── Types Claude (subset) ─────────────────────────────────────────────
+type ClaudeToolUse = {
+  type: "tool_use";
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+};
+type ClaudeText = { type: "text"; text: string };
+type ClaudeContentBlock = ClaudeText | ClaudeToolUse;
+type ClaudeMessage =
+  | { role: "user"; content: string | Array<Record<string, unknown>> }
+  | { role: "assistant"; content: ClaudeContentBlock[] | string };
+type ClaudeResponse = {
+  content: ClaudeContentBlock[];
+  stop_reason: string;
+  usage?: { input_tokens?: number; output_tokens?: number };
+};
+
+// ─── Types métier ──────────────────────────────────────────────────────
+export type Platform = "telegram" | "whatsapp";
+
+export type AssistantSession = {
+  id: number;
+  platform: Platform;
+  platform_user_id: string;
+  display_name: string | null;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AssistantMessage = {
+  id: number;
+  session_id: number;
+  role: "user" | "assistant" | "tool";
+  content: string;
+  tool_calls: unknown | null;
+  duration_ms: number | null;
+  created_at: string;
+};
+
+// ─── Persistance sessions ──────────────────────────────────────────────
+export async function getOrCreateSession(input: {
+  platform: Platform;
+  platformUserId: string;
+  displayName?: string | null;
+}): Promise<AssistantSession> {
+  const found = await query<AssistantSession>(
+    `SELECT * FROM assistant_sessions WHERE platform = $1 AND platform_user_id = $2`,
+    [input.platform, input.platformUserId]
+  );
+  if (found.length > 0) return found[0];
+  const created = await query<AssistantSession>(
+    `INSERT INTO assistant_sessions (platform, platform_user_id, display_name)
+     VALUES ($1, $2, $3)
+     RETURNING *`,
+    [input.platform, input.platformUserId, input.displayName ?? null]
+  );
+  return created[0];
+}
+
+async function listSessionMessages(
+  sessionId: number,
+  limit = MAX_HISTORY_MESSAGES
+): Promise<AssistantMessage[]> {
+  // On veut les N plus récents mais dans l'ordre chronologique croissant
+  // pour Claude. Sous-requête : SELECT ... ORDER BY id DESC LIMIT + inverse.
+  return query<AssistantMessage>(
+    `WITH tail AS (
+       SELECT * FROM assistant_messages
+       WHERE session_id = $1
+       ORDER BY id DESC
+       LIMIT $2
+     )
+     SELECT * FROM tail ORDER BY id ASC`,
+    [sessionId, limit]
+  );
+}
+
+// ─── Définition des outils Claude ──────────────────────────────────────
+// Chaque outil est décrit avec un input_schema strict. Claude utilise ces
+// descriptions pour décider quand appeler chaque outil.
+const TOOLS = [
+  {
+    name: "get_current_datetime",
+    description:
+      "Renvoie la date et heure actuelles au format ISO 8601 dans le fuseau horaire de Mickael. À appeler AVANT toute autre opération temporelle pour connaître le contexte (aujourd'hui, demain, cette semaine).",
+    input_schema: { type: "object" as const, properties: {} },
+  },
+  {
+    name: "list_calendar_events",
+    description:
+      "Liste les événements de l'agenda entre deux datetimes ISO. À utiliser pour répondre à « qu'est-ce que j'ai demain / cette semaine / le 15 juin ». Les datetimes doivent être en ISO 8601 avec fuseau (ex : 2027-06-15T00:00:00+02:00).",
+    input_schema: {
+      type: "object" as const,
+      required: ["time_min", "time_max"],
+      properties: {
+        time_min: { type: "string", description: "Début de la fenêtre (ISO 8601 avec fuseau)" },
+        time_max: { type: "string", description: "Fin de la fenêtre (ISO 8601 avec fuseau)" },
+        query: { type: "string", description: "Recherche textuelle optionnelle dans les titres" },
+      },
+    },
+  },
+  {
+    name: "check_availability",
+    description:
+      "Vérifie si un créneau précis est libre (aucun événement le chevauche). Renvoie true/false. À utiliser AVANT de créer un événement quand la disponibilité est incertaine.",
+    input_schema: {
+      type: "object" as const,
+      required: ["start", "end"],
+      properties: {
+        start: { type: "string", description: "Début du créneau (ISO 8601 avec fuseau)" },
+        end: { type: "string", description: "Fin du créneau (ISO 8601 avec fuseau)" },
+      },
+    },
+  },
+  {
+    name: "create_event",
+    description:
+      "Crée un nouvel événement dans l'agenda. Demander confirmation à l'utilisateur AVANT de créer, sauf si la demande est totalement explicite (« crée un RDV demain 16 h avec Sophie »). Après création, confirmer en une ligne avec l'heure et le titre.",
+    input_schema: {
+      type: "object" as const,
+      required: ["title", "start", "end"],
+      properties: {
+        title: { type: "string", description: "Titre de l'événement" },
+        start: { type: "string", description: "Début (ISO 8601 avec fuseau)" },
+        end: { type: "string", description: "Fin (ISO 8601 avec fuseau)" },
+        description: { type: "string", description: "Notes libres" },
+        location: { type: "string", description: "Lieu (adresse, salle, visioconférence)" },
+        attendee_emails: {
+          type: "array",
+          items: { type: "string" },
+          description: "E-mails des participants — invitation NON envoyée automatiquement",
+        },
+      },
+    },
+  },
+  {
+    name: "update_event",
+    description:
+      "Modifie un événement existant. Nécessite l'event_id, obtenu via list_calendar_events. Les champs non-fournis restent inchangés.",
+    input_schema: {
+      type: "object" as const,
+      required: ["event_id"],
+      properties: {
+        event_id: { type: "string", description: "ID Google Calendar de l'événement" },
+        title: { type: "string" },
+        start: { type: "string" },
+        end: { type: "string" },
+        description: { type: "string" },
+        location: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "delete_event",
+    description:
+      "Supprime un événement. NE JAMAIS appeler sans confirmation explicite de l'utilisateur (« oui, supprime »).",
+    input_schema: {
+      type: "object" as const,
+      required: ["event_id"],
+      properties: {
+        event_id: { type: "string" },
+      },
+    },
+  },
+];
+
+// ─── Exécution d'un tool call ──────────────────────────────────────────
+async function runTool(
+  tu: ClaudeToolUse,
+  client: AuthedClient | null,
+  timeZone: string
+): Promise<{ result: string; ok: boolean; eventDetails?: Record<string, unknown> }> {
+  // get_current_datetime ne nécessite pas de client Google.
+  if (tu.name === "get_current_datetime") {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat("fr-FR", {
+      timeZone,
+      dateStyle: "full",
+      timeStyle: "long",
+    }).format(now);
+    return {
+      ok: true,
+      result: `ISO: ${now.toISOString()}\nLisible: ${parts}\nTimeZone: ${timeZone}`,
+    };
+  }
+
+  if (!client) {
+    return {
+      ok: false,
+      result:
+        "ERREUR · Google Calendar n'est pas encore relié. Merci de connecter votre compte via /admin/agents/whatsapp avant d'utiliser cet outil.",
+    };
+  }
+
+  try {
+    switch (tu.name) {
+      case "list_calendar_events": {
+        const { time_min, time_max, query: q } = tu.input as {
+          time_min?: string;
+          time_max?: string;
+          query?: string;
+        };
+        if (!time_min || !time_max)
+          return { ok: false, result: "ERREUR · time_min et time_max sont obligatoires" };
+        const r = await listEvents(client, {
+          timeMinISO: time_min,
+          timeMaxISO: time_max,
+          query: q,
+          maxResults: 30,
+        });
+        if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
+        if (r.events.length === 0)
+          return { ok: true, result: "Aucun événement sur cette période." };
+        const lines = r.events.map((e) => {
+          const s = e.start.dateTime || e.start.date || "?";
+          const end = e.end.dateTime || e.end.date || "?";
+          return `- [${e.id}] ${s} → ${end} · ${e.summary || "(sans titre)"}${e.location ? ` · ${e.location}` : ""}`;
+        });
+        return { ok: true, result: lines.join("\n") };
+      }
+      case "check_availability": {
+        const { start, end } = tu.input as { start?: string; end?: string };
+        if (!start || !end)
+          return { ok: false, result: "ERREUR · start et end obligatoires" };
+        const r = await isFreeSlot(client, { startISO: start, endISO: end });
+        if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
+        return {
+          ok: true,
+          result: r.free
+            ? "OK · le créneau est libre"
+            : "OCCUPÉ · il y a déjà quelque chose sur ce créneau (list_calendar_events pour détail)",
+        };
+      }
+      case "create_event": {
+        const {
+          title,
+          start,
+          end,
+          description,
+          location,
+          attendee_emails,
+        } = tu.input as {
+          title?: string;
+          start?: string;
+          end?: string;
+          description?: string;
+          location?: string;
+          attendee_emails?: string[];
+        };
+        if (!title || !start || !end)
+          return { ok: false, result: "ERREUR · title, start et end obligatoires" };
+        const r = await createEvent(client, {
+          summary: title,
+          startISO: start,
+          endISO: end,
+          description,
+          location,
+          attendeeEmails: attendee_emails,
+        });
+        if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
+        return {
+          ok: true,
+          result: `OK · événement créé (id=${r.event.id}) — ${r.event.summary || title}`,
+          eventDetails: { id: r.event.id, summary: r.event.summary, htmlLink: r.event.htmlLink },
+        };
+      }
+      case "update_event": {
+        const { event_id, title, start, end, description, location } = tu.input as {
+          event_id?: string;
+          title?: string;
+          start?: string;
+          end?: string;
+          description?: string;
+          location?: string;
+        };
+        if (!event_id) return { ok: false, result: "ERREUR · event_id requis" };
+        const r = await updateEvent(client, event_id, {
+          summary: title,
+          startISO: start,
+          endISO: end,
+          description,
+          location,
+        });
+        if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
+        return { ok: true, result: `OK · événement modifié (${r.event.summary || event_id})` };
+      }
+      case "delete_event": {
+        const { event_id } = tu.input as { event_id?: string };
+        if (!event_id) return { ok: false, result: "ERREUR · event_id requis" };
+        const r = await deleteEvent(client, event_id);
+        if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
+        return { ok: true, result: "OK · événement supprimé" };
+      }
+      default:
+        return { ok: false, result: `ERREUR · outil inconnu ${tu.name}` };
+    }
+  } catch (e) {
+    console.error(`[assistant/tool ${tu.name}]`, e);
+    return { ok: false, result: "ERREUR · échec technique, la conversation continue" };
+  }
+}
+
+// ─── Boucle principale ─────────────────────────────────────────────────
+export type RunResult =
+  | { ok: true; reply: string; tools_used: string[] }
+  | { ok: false; error: string };
+
+export async function runAssistant(input: {
+  platform: Platform;
+  platformUserId: string;
+  displayName?: string | null;
+  message: string;
+}): Promise<RunResult> {
+  try {
+    if (!input.message.trim()) return { ok: false, error: "Message vide" };
+
+    // 1. Configuration de l'agent
+    const inst = await getAgent("whatsapp");
+    if (!inst) return { ok: false, error: "Agent WhatsApp indisponible" };
+    const cfg = inst.config as {
+      anthropic_api_key?: string;
+      google_client_id?: string;
+      google_client_secret?: string;
+      google_refresh_token?: string;
+      google_calendar_id?: string;
+      google_timezone?: string;
+    };
+    if (!cfg.anthropic_api_key)
+      return {
+        ok: false,
+        error: "Clé API Claude manquante — configurez-la dans /admin/agents/whatsapp.",
+      };
+
+    // 2. Client Google (peut être absent — les outils renverront une
+    // erreur explicite que Claude verbalisera).
+    let calClient: AuthedClient | null = null;
+    let calError: string | null = null;
+    if (cfg.google_client_id && cfg.google_client_secret && cfg.google_refresh_token) {
+      const client = await buildClient({
+        refreshToken: cfg.google_refresh_token,
+        clientId: cfg.google_client_id,
+        clientSecret: cfg.google_client_secret,
+        calendarId: cfg.google_calendar_id,
+        timeZone: cfg.google_timezone,
+      });
+      if (client.ok) calClient = client.client;
+      else calError = client.error;
+    }
+    const timeZone = cfg.google_timezone || "Europe/Paris";
+
+    // 3. Session
+    const session = await getOrCreateSession({
+      platform: input.platform,
+      platformUserId: input.platformUserId,
+      displayName: input.displayName,
+    });
+
+    // 4. Historique (limité, ordre chronologique)
+    const history = await listSessionMessages(session.id);
+
+    // 5. Reconstruit messages pour Claude
+    const claudeMessages: ClaudeMessage[] = [];
+    for (const m of history) {
+      if (m.role === "user") {
+        claudeMessages.push({ role: "user", content: m.content });
+      } else if (m.role === "assistant") {
+        if (m.tool_calls && Array.isArray(m.tool_calls)) {
+          claudeMessages.push({ role: "assistant", content: m.tool_calls as ClaudeContentBlock[] });
+        } else {
+          claudeMessages.push({ role: "assistant", content: m.content });
+        }
+      } else if (m.role === "tool") {
+        try {
+          const parsed = JSON.parse(m.content) as { tool_use_id: string; content: string };
+          claudeMessages.push({
+            role: "user",
+            content: [
+              { type: "tool_result", tool_use_id: parsed.tool_use_id, content: parsed.content },
+            ],
+          });
+        } catch {
+          /* ignore tool_result corrompu */
+        }
+      }
+    }
+    claudeMessages.push({ role: "user", content: input.message });
+
+    // 6. Persistance du user message
+    await query(
+      `INSERT INTO assistant_messages (session_id, role, content) VALUES ($1, 'user', $2)`,
+      [session.id, input.message]
+    );
+
+    // 7. System prompt
+    const kb = await listKnowledge("whatsapp");
+    const kbBlock = kb.length
+      ? "\n\n# BASE DE CONNAISSANCES\n" +
+        kb.map((k) => `## ${k.title} [${k.category}]\n${k.content}`).join("\n\n")
+      : "";
+    let systemPrompt =
+      effectivePrompt(inst) +
+      `\n\n## CONTEXTE TECHNIQUE\n- Fuseau horaire : ${timeZone}\n- Plateforme : ${input.platform}\n- Nom de l'utilisateur : ${input.displayName ?? "(inconnu)"}` +
+      kbBlock;
+    if (!calClient && calError) {
+      systemPrompt += `\n\n## AVERTISSEMENT\nGoogle Calendar n'est PAS connecté (${calError}). Réponds à Mickael que la connexion agenda doit être établie via /admin/agents/whatsapp avant que tu puisses gérer ses rendez-vous.`;
+    } else if (!calClient) {
+      systemPrompt += `\n\n## AVERTISSEMENT\nGoogle Calendar n'est PAS encore connecté. Réponds à Mickael de connecter son compte via /admin/agents/whatsapp.`;
+    }
+
+    // 8. Boucle Claude + tool-use
+    const toolsUsed: string[] = [];
+    const collectedText: string[] = [];
+    let lastAssistantBlocks: ClaudeContentBlock[] = [];
+
+    for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
+      const t0 = Date.now();
+      const resp = await callClaude({
+        apiKey: cfg.anthropic_api_key,
+        system: systemPrompt,
+        messages: claudeMessages,
+      });
+      const duration = Date.now() - t0;
+      lastAssistantBlocks = resp.content;
+
+      const toolUses = resp.content.filter(
+        (b): b is ClaudeToolUse => b.type === "tool_use"
+      );
+      const textBlocks = resp.content.filter(
+        (b): b is ClaudeText => b.type === "text"
+      );
+      const turnText = textBlocks.map((b) => b.text).join("\n").trim();
+      if (turnText) collectedText.push(turnText);
+
+      if (toolUses.length === 0) {
+        await query(
+          `INSERT INTO assistant_messages (session_id, role, content, duration_ms)
+           VALUES ($1, 'assistant', $2, $3)`,
+          [session.id, turnText || "(vide)", duration]
+        );
+        break;
+      }
+
+      // Exécute les tools EN AMONT (avant persistance) pour ne rien
+      // écrire si l'API Claude nous a menti sur le format.
+      const executions: Array<{ tu: ClaudeToolUse; result: string; ok: boolean }> = [];
+      for (const tu of toolUses) {
+        toolsUsed.push(tu.name);
+        const r = await runTool(tu, calClient, timeZone);
+        executions.push({ tu, result: r.result, ok: r.ok });
+      }
+
+      // Transaction : assistant + tous les tool_results
+      await withTransaction(async (tx) => {
+        await tx.execute(
+          `INSERT INTO assistant_messages (session_id, role, content, tool_calls, duration_ms)
+           VALUES ($1, 'assistant', $2, $3::jsonb, $4)`,
+          [session.id, turnText, JSON.stringify(resp.content), duration]
+        );
+        for (const ex of executions) {
+          await tx.execute(
+            `INSERT INTO assistant_messages (session_id, role, content) VALUES ($1, 'tool', $2)`,
+            [session.id, JSON.stringify({ tool_use_id: ex.tu.id, content: ex.result })]
+          );
+        }
+      });
+
+      // Events stats (hors chemin critique)
+      for (const ex of executions) {
+        logEvent("whatsapp", ex.tu.name, { input: ex.tu.input }, ex.ok).catch(() => {});
+      }
+
+      claudeMessages.push({ role: "assistant", content: resp.content });
+      claudeMessages.push({
+        role: "user",
+        content: executions.map((ex) => ({
+          type: "tool_result",
+          tool_use_id: ex.tu.id,
+          content: ex.result,
+        })),
+      });
+    }
+
+    let finalText = collectedText.join("\n\n").trim();
+    if (!finalText) {
+      const fallback = lastAssistantBlocks
+        .filter((b): b is ClaudeText => b.type === "text")
+        .map((b) => b.text)
+        .join("\n")
+        .trim();
+      finalText = fallback || "Je n'ai pas pu formuler de réponse — reformule ta demande ?";
+    }
+
+    // Compteur + log turn
+    await query(
+      `UPDATE assistant_sessions SET message_count = message_count + 2, updated_at = NOW() WHERE id = $1`,
+      [session.id]
+    );
+    logEvent("whatsapp", "assistant_turn", {
+      session_id: session.id,
+      tools_used: toolsUsed,
+      reply_chars: finalText.length,
+    }).catch(() => {});
+
+    return { ok: true, reply: finalText, tools_used: toolsUsed };
+  } catch (e) {
+    const err = e instanceof Error ? e.message : String(e);
+    console.error("[assistant] error:", err);
+    logEvent("whatsapp", "assistant_error", { error: err }, false).catch(() => {});
+    return { ok: false, error: err };
+  }
+}
+
+// ─── Claude API ────────────────────────────────────────────────────────
+async function callClaude(input: {
+  apiKey: string;
+  system: string;
+  messages: ClaudeMessage[];
+}): Promise<ClaudeResponse> {
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": input.apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 1024,
+      system: input.system,
+      tools: TOOLS,
+      messages: input.messages,
+    }),
+  });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`Anthropic HTTP ${resp.status} · ${txt.slice(0, 400)}`);
+  }
+  return (await resp.json()) as ClaudeResponse;
+}

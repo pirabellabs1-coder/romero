@@ -22,6 +22,10 @@ import StatsView from "./StatsView";
 import ActivityFeed from "./ActivityFeed";
 import OverviewTab from "./OverviewTab";
 import ConversationsView from "./ConversationsView";
+import GoogleAgendaPanel from "./GoogleAgendaPanel";
+import WebhookStatusPanel from "./WebhookStatusPanel";
+import WhatsappSessionsView from "./WhatsappSessionsView";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +36,8 @@ type Tab =
   | "knowledge"
   | "playground"
   | "conversations"
+  | "sessions"
+  | "channels"
   | "stats"
   | "activity";
 const TAB_LABEL: Record<Tab, string> = {
@@ -41,14 +47,18 @@ const TAB_LABEL: Record<Tab, string> = {
   knowledge: "Connaissances",
   playground: "Test",
   conversations: "Conversations",
+  sessions: "Sessions",
+  channels: "Canaux",
   stats: "Statistiques",
   activity: "Activité",
 };
-// L'onglet Conversations n'existe que pour l'agent 'site' (les autres
-// agents auront leur propre onglet spécialisé plus tard).
+// Onglets spécifiques par agent :
+//   - site : conversations (leads du chatbot)
+//   - whatsapp : channels (Google + Telegram + WhatsApp) et sessions
 function tabsFor(slug: AgentSlug): Tab[] {
   const base: Tab[] = ["overview", "config", "prompt", "knowledge", "playground"];
   if (slug === "site") base.push("conversations");
+  if (slug === "whatsapp") base.push("channels", "sessions");
   base.push("stats", "activity");
   return base;
 }
@@ -220,9 +230,38 @@ export default async function AgentDetailPage({
         <ConversationsView activeConvId={convId} />
       ) : null}
 
+      {tab === "channels" && slug === "whatsapp" ? (
+        <ChannelsTabWrapper config={config} />
+      ) : null}
+
+      {tab === "sessions" && slug === "whatsapp" ? (
+        <WhatsappSessionsView
+          activeSessionId={searchParams?.conv ? Number(searchParams.conv) : undefined}
+        />
+      ) : null}
+
       {tab === "stats" ? <StatsTabWrapper slug={slug} /> : null}
 
       {tab === "activity" ? <ActivityTabWrapper slug={slug} /> : null}
+    </div>
+  );
+}
+
+// Détermine l'origine (protocol + host) pour afficher les URL webhook à
+// copier dans Telegram/Meta. Fallback sur NEXT_PUBLIC_SITE_URL.
+function ChannelsTabWrapper({ config }: { config: Record<string, string> }) {
+  const h = headers();
+  const forwardedHost = h.get("x-forwarded-host") || h.get("host");
+  const forwardedProto = h.get("x-forwarded-proto") || "https";
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (forwardedHost ? `${forwardedProto}://${forwardedHost}` : "https://romerophotography.fr");
+  return (
+    <div className="agent-detail">
+      <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 0 }}>
+        <GoogleAgendaPanel config={config} />
+        <WebhookStatusPanel config={config} origin={origin} />
+      </div>
     </div>
   );
 }
