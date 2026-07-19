@@ -247,6 +247,60 @@ function trimCaption(s: string): string {
   return lastSpace > 2000 ? cut.slice(0, lastSpace) + "…" : cut + "…";
 }
 
+// ─── Récupérer les métriques d'un post publié ────────────────────
+// Trois indicateurs simples : likes, comments, reach. On les stocke
+// pour affichage dans BriefCard. Meta délivre les insights à partir
+// de quelques heures après publication — appeler trop tôt renverra
+// des valeurs à 0.
+//
+// Le champ `saved` n'est PLUS disponible sur le pack de metrics
+// par défaut (depuis Graph 22.0). On garde uniquement les 3 core.
+export type IgPostInsights = {
+  likes: number;
+  comments: number;
+  reach: number;
+  fetched_at: string; // ISO
+};
+
+export async function fetchInstagramInsights(input: {
+  postId: string;
+  accessToken: string;
+}): Promise<
+  | { ok: true; insights: IgPostInsights }
+  | { ok: false; error: string }
+> {
+  // Étape 1 : likes + comments via champs classiques
+  const basic = await graphFetch(
+    `/${input.postId}?fields=like_count,comments_count`,
+    { method: "GET", accessToken: input.accessToken }
+  );
+  if (!basic.ok) return basic;
+  const b = basic.data as { like_count?: number; comments_count?: number };
+
+  // Étape 2 : reach via l'endpoint /insights
+  const insightsRes = await graphFetch(
+    `/${input.postId}/insights?metric=reach`,
+    { method: "GET", accessToken: input.accessToken }
+  );
+  let reach = 0;
+  if (insightsRes.ok) {
+    const items = (insightsRes.data as { data?: Array<{ name?: string; values?: Array<{ value?: number }> }> }).data;
+    const reachItem = items?.find((i) => i.name === "reach");
+    reach = reachItem?.values?.[0]?.value ?? 0;
+  }
+  // On tolère l'échec des insights (post trop récent, pack indispo).
+
+  return {
+    ok: true,
+    insights: {
+      likes: b.like_count ?? 0,
+      comments: b.comments_count ?? 0,
+      reach,
+      fetched_at: new Date().toISOString(),
+    },
+  };
+}
+
 // ─── Vérifier que les creds fonctionnent (utilisé par l'admin) ──────
 export async function checkInstagramConnection(input: {
   igUserId: string;

@@ -493,8 +493,94 @@ async function handleSendLead(
     replyToEmail: conv.lead_data.contact_email,
     replyToName: conv.lead_data.contact_name,
   });
-  if (res.sent) await markConversationNotified(conversationId);
+  if (res.sent) {
+    await markConversationNotified(conversationId);
+    // ── Bridge Site → Admin CRM ──
+    // Le lead capturé par le chatbot devient un contact CRM dans
+    // admin_contacts. Upsert par email : si le contact existe déjà,
+    // on met à jour ses infos (nouvelles date, lieu, notes) sans
+    // écraser ce qui a été renseigné manuellement.
+    upsertLeadToContactCrm(conv.lead_data).catch((err) => {
+      console.error("[chat/lead → crm]", err);
+    });
+  }
   return { sent: res.sent, error: res.error };
+}
+
+async function upsertLeadToContactCrm(lead: import("@/lib/site-chat").LeadData) {
+  const name = lead.contact_name?.trim();
+  const email = lead.contact_email?.trim();
+  if (!name && !email) return; // rien d'utile à insérer
+  const { query, queryOne, execute } = await import("@/lib/db");
+  // Recherche par email en priorité (le nom peut varier), fallback par nom.
+  let existing: { id: number } | null = null;
+  if (email) {
+    existing = await queryOne<{ id: number }>(
+      `SELECT id FROM admin_contacts WHERE LOWER(email) = LOWER($1)`,
+      [email]
+    );
+  }
+  if (!existing && name) {
+    existing = await queryOne<{ id: number }>(
+      `SELECT id FROM admin_contacts WHERE LOWER(name) = LOWER($1)`,
+      [name]
+    );
+  }
+
+  const noteAppend = `Prospect issu du chatbot site le ${new Date().toLocaleDateString("fr-FR")}.`;
+
+  if (existing) {
+    // Update prudent : ne remplace jamais un champ existant, on
+    // n'ajoute que si vide (COALESCE côté SQL). Note additionnée.
+    await execute(
+      `UPDATE admin_contacts SET
+         email          = COALESCE(email, $1),
+         phone          = COALESCE(phone, $2),
+         address        = COALESCE(address, $3),
+         wedding_date   = COALESCE(wedding_date, NULLIF($4, '')::date),
+         wedding_location = COALESCE(wedding_location, $5),
+         notes          = CASE
+                            WHEN notes IS NULL OR notes = '' THEN $6
+                            WHEN notes LIKE '%' || $6 || '%' THEN notes
+                            ELSE notes || E'\n' || $6
+                          END,
+         updated_at     = NOW()
+       WHERE id = $7`,
+      [
+        email ?? null,
+        lead.contact_phone ?? null,
+        null,
+        looksLikeIsoDate(lead.wedding_date) ? lead.wedding_date : "",
+        lead.wedding_location ?? null,
+        noteAppend,
+        existing.id,
+      ]
+    );
+  } else {
+    await execute(
+      `INSERT INTO admin_contacts
+         (name, email, phone, wedding_date, wedding_location, notes)
+       VALUES ($1, $2, $3, NULLIF($4, '')::date, $5, $6)`,
+      [
+        name ?? "(sans nom)",
+        email ?? null,
+        lead.contact_phone ?? null,
+        looksLikeIsoDate(lead.wedding_date) ? lead.wedding_date : "",
+        lead.wedding_location ?? null,
+        noteAppend,
+      ]
+    );
+  }
+  // On log l'événement côté agent site — traçabilité de l'origine.
+  await query(
+    `INSERT INTO agent_events (agent_slug, event_type, payload, success)
+     VALUES ('site', 'lead_promoted_to_contact', $1::jsonb, TRUE)`,
+    [JSON.stringify({ email, name })]
+  );
+}
+
+function looksLikeIsoDate(s: string | undefined): s is string {
+  return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
 
 function json(body: unknown, status = 200): NextResponse {

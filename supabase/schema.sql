@@ -309,7 +309,9 @@ CREATE TABLE IF NOT EXISTS public.marketing_briefs (
 );
 -- Ajout idempotent des colonnes si la table préexistait sans.
 ALTER TABLE public.marketing_briefs
-  ADD COLUMN IF NOT EXISTS instagram_scheduled_for TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS instagram_scheduled_for TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS instagram_insights JSONB,
+  ADD COLUMN IF NOT EXISTS instagram_insights_fetched_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_marketing_briefs_created ON public.marketing_briefs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_marketing_briefs_scheduled
   ON public.marketing_briefs(instagram_scheduled_for)

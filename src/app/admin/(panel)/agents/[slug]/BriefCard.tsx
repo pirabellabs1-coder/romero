@@ -7,6 +7,7 @@ import {
   markLinkedInCopiedAction,
   publishBlogAction,
   publishInstagramAction,
+  refreshInstagramInsightsAction,
   regenerateDraftsAction,
   scheduleInstagramAction,
   updateBriefDraftAction,
@@ -366,8 +367,67 @@ export default function BriefCard({ brief, defaultOpen, hasInstagramCreds }: Pro
               ) : null}
 
               {brief.instagram_post_id ? (
-                <div style={{ marginTop: 10, fontSize: 11, color: "var(--muted,#7A6E5C)" }}>
-                  ID post Instagram : <code>{brief.instagram_post_id}</code>
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 11, color: "var(--muted,#7A6E5C)" }}>
+                    ID post Instagram : <code>{brief.instagram_post_id}</code>
+                  </div>
+                  {/* Insights Meta */}
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: 12,
+                      background: "rgba(0,0,0,0.18)",
+                      border: "1px solid rgba(184,151,90,0.20)",
+                      borderRadius: 4,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 20,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <InsightMetric
+                      label="Likes"
+                      value={brief.instagram_insights?.likes}
+                    />
+                    <InsightMetric
+                      label="Commentaires"
+                      value={brief.instagram_insights?.comments}
+                    />
+                    <InsightMetric
+                      label="Portée"
+                      value={brief.instagram_insights?.reach}
+                    />
+                    <div style={{ flex: 1 }} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                      {brief.instagram_insights_fetched_at ? (
+                        <div style={{ fontSize: 10, color: "rgba(244,239,227,0.55)" }}>
+                          Rafraîchi{" "}
+                          {new Date(
+                            brief.instagram_insights_fetched_at
+                          ).toLocaleString("fr-FR", {
+                            day: "2-digit",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="agent-btn agent-btn--ghost"
+                        onClick={() =>
+                          run(
+                            () => refreshInstagramInsightsAction(brief.id),
+                            "Insights actualisés."
+                          )
+                        }
+                        disabled={pending}
+                        style={{ fontSize: 10, padding: "6px 10px" }}
+                      >
+                        {pending ? "…" : "🔄 Rafraîchir insights"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -578,6 +638,36 @@ export default function BriefCard({ brief, defaultOpen, hasInstagramCreds }: Pro
           </div>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function InsightMetric({ label, value }: { label: string; value: number | undefined }) {
+  const isEmpty = value === undefined || value === null;
+  return (
+    <div style={{ textAlign: "center", minWidth: 60 }}>
+      <div
+        style={{
+          fontFamily: "var(--serif, Georgia, serif)",
+          fontStyle: "italic",
+          fontSize: 20,
+          color: isEmpty ? "rgba(244,239,227,0.35)" : "var(--gold-light, #D4B57A)",
+          lineHeight: 1,
+        }}
+      >
+        {isEmpty ? "—" : value.toLocaleString("fr-FR")}
+      </div>
+      <div
+        style={{
+          fontSize: 9,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          color: "rgba(244,239,227,0.55)",
+          marginTop: 4,
+        }}
+      >
+        {label}
+      </div>
     </div>
   );
 }

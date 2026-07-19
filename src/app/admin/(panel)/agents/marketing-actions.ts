@@ -25,6 +25,8 @@ export type Brief = {
   instagram_published_at: string | null;
   instagram_post_id: string | null;
   instagram_error: string | null;
+  instagram_insights: { likes: number; comments: number; reach: number; fetched_at: string } | null;
+  instagram_insights_fetched_at: string | null;
   linkedin_status: string;
   linkedin_copied_at: string | null;
   blog_status: string;
@@ -429,6 +431,61 @@ export async function processScheduledInstagramPosts(): Promise<{
 
   revalidate();
   return { processed: due.length, published, failed, details };
+}
+
+// ─── Meta Insights : rafraîchit les stats d'un post publié ──────
+export async function refreshInstagramInsightsAction(
+  briefId: number
+): Promise<
+  | { ok: true; likes: number; comments: number; reach: number }
+  | { ok: false; error: string }
+> {
+  try {
+    await requireUser();
+    const brief = await queryOne<Brief>(
+      `SELECT * FROM marketing_briefs WHERE id = $1`,
+      [briefId]
+    );
+    if (!brief) return { ok: false, error: "Brief introuvable" };
+    if (!brief.instagram_post_id)
+      return { ok: false, error: "Aucun post publié pour ce brief" };
+
+    const inst = await getAgent("marketing");
+    const cfg = inst?.config as { meta_access_token?: string } | undefined;
+    if (!cfg?.meta_access_token)
+      return { ok: false, error: "Meta access token manquant" };
+
+    const { fetchInstagramInsights } = await import("@/lib/instagram");
+    const res = await fetchInstagramInsights({
+      postId: brief.instagram_post_id,
+      accessToken: cfg.meta_access_token,
+    });
+    if (!res.ok) return { ok: false, error: res.error };
+
+    await execute(
+      `UPDATE marketing_briefs
+       SET instagram_insights = $1::jsonb,
+           instagram_insights_fetched_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $2`,
+      [JSON.stringify(res.insights), briefId]
+    );
+    await logEvent("marketing", "instagram_insights_refreshed", {
+      brief_id: briefId,
+      likes: res.insights.likes,
+      comments: res.insights.comments,
+      reach: res.insights.reach,
+    });
+    revalidate();
+    return {
+      ok: true,
+      likes: res.insights.likes,
+      comments: res.insights.comments,
+      reach: res.insights.reach,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 // ─── LinkedIn : marque comme copié (pas de publication auto) ──────
