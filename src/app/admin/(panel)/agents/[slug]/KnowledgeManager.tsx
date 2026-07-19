@@ -169,6 +169,73 @@ export default function KnowledgeManager({ slug, entries }: Props) {
             >
               📚 Importer le pack de démarrage
             </button>
+            <a
+              href={`/api/admin/kb-export?slug=${slug}`}
+              className="agent-btn agent-btn--ghost"
+              download
+              style={{ textDecoration: "none" }}
+              title="Télécharger un JSON contenant le prompt + toutes les fiches"
+            >
+              ⬇ Exporter en JSON
+            </a>
+            <label
+              className="agent-btn agent-btn--ghost"
+              style={{ cursor: "pointer", margin: 0 }}
+              title="Réinjecter un JSON exporté (dédup par titre)"
+            >
+              ⬆ Importer un JSON
+              <input
+                type="file"
+                accept="application/json"
+                style={{ display: "none" }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setFlash(null);
+                  try {
+                    const text = await file.text();
+                    const parsed = JSON.parse(text) as Record<string, unknown>;
+                    // On force le slug de l'agent courant même si le JSON
+                    // pointe ailleurs — c'est plus sûr pour éviter les
+                    // erreurs de manipulation.
+                    parsed.agent_slug = slug;
+                    startTransition(async () => {
+                      const resp = await fetch("/api/admin/kb-import", {
+                        method: "POST",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify(parsed),
+                      });
+                      const data = (await resp.json()) as {
+                        ok: boolean;
+                        kb_created?: number;
+                        kb_skipped?: number;
+                        prompt_updated?: boolean;
+                        error?: string;
+                      };
+                      if (data.ok) {
+                        setFlash({
+                          ok: true,
+                          msg: `Import : ${data.kb_created ?? 0} fiche(s) ajoutée(s), ${data.kb_skipped ?? 0} déjà présente(s)${data.prompt_updated ? ", prompt mis à jour" : ""}.`,
+                        });
+                        router.refresh();
+                      } else {
+                        setFlash({
+                          ok: false,
+                          msg: data.error ?? "Import échoué",
+                        });
+                      }
+                    });
+                  } catch (err) {
+                    setFlash({
+                      ok: false,
+                      msg: `Fichier invalide : ${err instanceof Error ? err.message : String(err)}`,
+                    });
+                  } finally {
+                    e.target.value = ""; // reset pour re-importer le même fichier
+                  }
+                }}
+              />
+            </label>
           </div>
         )}
       </div>

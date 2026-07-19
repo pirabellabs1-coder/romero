@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getAgents, AGENT_CATALOG, AgentStatus } from "@/lib/agents";
 import HealthPanel from "./HealthPanel";
+import OnboardingChecklist from "./OnboardingChecklist";
 
 // Le dashboard admin est un environnement authentifié — pas de cache
 // statique. Chaque navigation refetch l'état des agents.
@@ -33,6 +34,9 @@ export default async function AgentsIndexPage() {
 
   return (
     <div>
+      {/* ─── ONBOARDING (masqué dès que tous les agents sont installés) ─── */}
+      <OnboardingChecklist />
+
       {/* ─── LIVE HEALTH PANEL ─── */}
       {/* Nouveau : indicateurs live + sparklines 24 h, auto-refresh 30 s. */}
       <HealthPanel />
