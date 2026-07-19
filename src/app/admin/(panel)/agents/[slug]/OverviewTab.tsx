@@ -10,6 +10,7 @@ import {
 } from "@/lib/agents";
 import type { AgentDef } from "@/lib/agents";
 import AutoRefresh from "../AutoRefresh";
+import UpcomingEventsWidget from "./UpcomingEventsWidget";
 
 type Props = {
   slug: AgentSlug;
@@ -89,6 +90,9 @@ export default async function OverviewTab({ slug, def, installation }: Props) {
             </div>
           </div>
         ) : null}
+
+        {/* Widget prochains événements (whatsapp uniquement) */}
+        {slug === "whatsapp" ? <UpcomingEventsWidget count={3} /> : null}
 
         {/* Description */}
         <div className="agent-panel" style={{ marginBottom: 22 }}>

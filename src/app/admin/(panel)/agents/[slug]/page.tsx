@@ -29,6 +29,7 @@ import WebhookStatusPanel from "./WebhookStatusPanel";
 import WhatsappSessionsView from "./WhatsappSessionsView";
 import MarketingBriefsView from "./MarketingBriefsView";
 import CalendarView from "./CalendarView";
+import WhatsappTimelineView from "./WhatsappTimelineView";
 import AdminDocumentsView from "./AdminDocumentsView";
 import { headers } from "next/headers";
 
@@ -45,6 +46,7 @@ type Tab =
   | "channels"
   | "briefs"
   | "calendar"
+  | "timeline"
   | "documents"
   | "stats"
   | "activity";
@@ -59,6 +61,7 @@ const TAB_LABEL: Record<Tab, string> = {
   channels: "Canaux",
   briefs: "Briefs & publications",
   calendar: "Calendrier",
+  timeline: "Timeline",
   documents: "Documents",
   stats: "Statistiques",
   activity: "Activité",
@@ -71,7 +74,7 @@ const TAB_LABEL: Record<Tab, string> = {
 function tabsFor(slug: AgentSlug): Tab[] {
   const base: Tab[] = ["overview", "config", "prompt", "knowledge", "playground"];
   if (slug === "site") base.push("conversations");
-  if (slug === "whatsapp") base.push("channels", "sessions");
+  if (slug === "whatsapp") base.push("channels", "timeline", "sessions");
   if (slug === "marketing") base.push("briefs", "calendar");
   if (slug === "admin") base.push("documents");
   base.push("stats", "activity");
@@ -265,6 +268,8 @@ export default async function AgentDetailPage({
       ) : null}
 
       {tab === "calendar" && slug === "marketing" ? <CalendarView /> : null}
+
+      {tab === "timeline" && slug === "whatsapp" ? <WhatsappTimelineView /> : null}
 
       {tab === "documents" && slug === "admin" ? (
         <AdminDocumentsView

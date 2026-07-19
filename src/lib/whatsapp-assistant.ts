@@ -26,7 +26,9 @@ import { withTransaction, query } from "@/lib/db";
 import {
   buildClient,
   createEvent,
+  createEventWithMeet,
   deleteEvent,
+  findFreeSlots,
   isFreeSlot,
   listEvents,
   updateEvent,
@@ -209,6 +211,63 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: "create_event_with_meet",
+    description:
+      "Crée un événement Google Calendar AVEC un lien Google Meet automatiquement généré. À utiliser pour les visioconférences (consultation, prep call, debrief). Le lien Meet apparaît dans la description et est envoyé aux participants s'ils sont renseignés.",
+    input_schema: {
+      type: "object" as const,
+      required: ["title", "start", "end"],
+      properties: {
+        title: { type: "string", description: "Titre de la visioconférence" },
+        start: { type: "string", description: "Début (ISO 8601 avec fuseau)" },
+        end: { type: "string", description: "Fin (ISO 8601 avec fuseau)" },
+        description: { type: "string", description: "Notes ou ordre du jour" },
+        attendee_emails: {
+          type: "array",
+          items: { type: "string" },
+          description: "E-mails des participants qui recevront le lien Meet",
+        },
+      },
+    },
+  },
+  {
+    name: "find_free_slots",
+    description:
+      "Trouve N créneaux libres dans une fenêtre de temps donnée, en respectant les horaires ouvrés et en évitant la pause déjeuner. À utiliser pour « trouve-moi 3 créneaux d'1h cette semaine ». Renvoie une liste de couples (start, end) que l'utilisateur peut choisir avant qu'on crée l'événement.",
+    input_schema: {
+      type: "object" as const,
+      required: ["duration_minutes", "from", "to"],
+      properties: {
+        duration_minutes: {
+          type: "integer",
+          description: "Durée de chaque créneau en minutes (ex: 30, 60, 120)",
+        },
+        from: { type: "string", description: "Début de la fenêtre de recherche (ISO 8601)" },
+        to: { type: "string", description: "Fin de la fenêtre de recherche (ISO 8601)" },
+        count: {
+          type: "integer",
+          description: "Nombre de créneaux à renvoyer (défaut 3, max 10)",
+        },
+        working_hours_start: {
+          type: "integer",
+          description: "Heure de début de journée (défaut 9)",
+        },
+        working_hours_end: {
+          type: "integer",
+          description: "Heure de fin de journée (défaut 19)",
+        },
+        include_sunday: {
+          type: "boolean",
+          description: "Autoriser le dimanche (défaut false)",
+        },
+        exclude_lunch: {
+          type: "boolean",
+          description: "Exclure la pause déjeuner 12h30-14h (défaut true)",
+        },
+      },
+    },
+  },
 ];
 
 // ─── Exécution d'un tool call ──────────────────────────────────────────
@@ -337,6 +396,98 @@ async function runTool(
         const r = await deleteEvent(client, event_id);
         if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
         return { ok: true, result: "OK · événement supprimé" };
+      }
+      case "create_event_with_meet": {
+        const {
+          title,
+          start,
+          end,
+          description,
+          attendee_emails,
+        } = tu.input as {
+          title?: string;
+          start?: string;
+          end?: string;
+          description?: string;
+          attendee_emails?: string[];
+        };
+        if (!title || !start || !end)
+          return { ok: false, result: "ERREUR · title, start et end obligatoires" };
+        const r = await createEventWithMeet(client, {
+          summary: title,
+          startISO: start,
+          endISO: end,
+          description,
+          attendeeEmails: attendee_emails,
+        });
+        if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
+        const link = (r.event as { hangoutLink?: string }).hangoutLink || "(lien Meet en cours de génération)";
+        return {
+          ok: true,
+          result: `OK · visio créée avec Meet — ${r.event.summary || title} · ${link}`,
+          eventDetails: {
+            id: r.event.id,
+            summary: r.event.summary,
+            hangoutLink: link,
+          },
+        };
+      }
+      case "find_free_slots": {
+        const {
+          duration_minutes,
+          from,
+          to,
+          count,
+          working_hours_start,
+          working_hours_end,
+          include_sunday,
+          exclude_lunch,
+        } = tu.input as {
+          duration_minutes?: number;
+          from?: string;
+          to?: string;
+          count?: number;
+          working_hours_start?: number;
+          working_hours_end?: number;
+          include_sunday?: boolean;
+          exclude_lunch?: boolean;
+        };
+        if (!duration_minutes || !from || !to)
+          return {
+            ok: false,
+            result: "ERREUR · duration_minutes, from et to obligatoires",
+          };
+        const cap = Math.min(10, Math.max(1, count ?? 3));
+        const r = await findFreeSlots(client, {
+          durationMinutes: duration_minutes,
+          fromISO: from,
+          toISO: to,
+          count: cap,
+          workingHoursStart: working_hours_start,
+          workingHoursEnd: working_hours_end,
+          includeSunday: include_sunday,
+          excludeLunch: exclude_lunch,
+        });
+        if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
+        if (r.slots.length === 0)
+          return { ok: true, result: "Aucun créneau libre trouvé dans la fenêtre." };
+        const lines = r.slots.map((s, i) => {
+          const start = new Date(s.startISO).toLocaleString("fr-FR", {
+            weekday: "short",
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone,
+          });
+          const end = new Date(s.endISO).toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone,
+          });
+          return `${i + 1}. ${start} → ${end}`;
+        });
+        return { ok: true, result: lines.join("\n") };
       }
       default:
         return { ok: false, result: `ERREUR · outil inconnu ${tu.name}` };

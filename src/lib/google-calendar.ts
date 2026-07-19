@@ -362,3 +362,183 @@ export async function isFreeSlot(
     free: list.events.filter((e) => e.status !== "cancelled").length === 0,
   };
 }
+
+// ─── Création d'un événement avec Google Meet ────────────────────────
+// Utilise conferenceDataVersion=1 pour que l'API alloue une nouvelle
+// conférence Meet. Le lien apparaît dans la description de l'événement
+// et est envoyé aux attendee_emails (s'ils sont renseignés).
+export async function createEventWithMeet(
+  client: AuthedClient,
+  input: CreateEventInput
+): Promise<
+  | { ok: true; event: CalendarEvent & { hangoutLink?: string } }
+  | { ok: false; error: string }
+> {
+  const requestId = `rp-meet-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const body = {
+    summary: input.summary,
+    description: input.description,
+    location: input.location,
+    start: { dateTime: input.startISO, timeZone: input.timeZone ?? client.timeZone },
+    end: { dateTime: input.endISO, timeZone: input.timeZone ?? client.timeZone },
+    attendees: input.attendeeEmails?.map((email) => ({ email })),
+    conferenceData: {
+      createRequest: {
+        requestId,
+        conferenceSolutionKey: { type: "hangoutsMeet" },
+      },
+    },
+  };
+  try {
+    // conferenceDataVersion=1 est OBLIGATOIRE pour que Google crée la
+    // conférence. Sans ce param, la conferenceData est ignorée.
+    const resp = await calFetch(
+      client,
+      `/events?sendUpdates=none&conferenceDataVersion=1`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      }
+    );
+    if (!resp.ok) {
+      const text = await resp.text();
+      return { ok: false, error: `HTTP ${resp.status} · ${text.slice(0, 300)}` };
+    }
+    return {
+      ok: true,
+      event: (await resp.json()) as CalendarEvent & { hangoutLink?: string },
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// ─── Recherche de N créneaux libres ────────────────────────────────
+// Balaie la fenêtre demandée par pas de 15 min et sélectionne les
+// créneaux qui :
+//   1. sont dans les horaires ouvrés (working_hours_start → end),
+//   2. tombent un jour ouvré (lundi-samedi, dimanche exclu par défaut),
+//   3. évitent la pause déjeuner 12h30-14h,
+//   4. ne chevauchent aucun événement existant.
+// Renvoie jusqu'à `count` créneaux consécutifs disponibles.
+export async function findFreeSlots(
+  client: AuthedClient,
+  input: {
+    durationMinutes: number;
+    fromISO: string;
+    toISO: string;
+    count?: number;
+    workingHoursStart?: number; // heure 0-23
+    workingHoursEnd?: number;   // heure 0-23
+    includeSunday?: boolean;
+    excludeLunch?: boolean;
+  }
+): Promise<
+  | { ok: true; slots: Array<{ startISO: string; endISO: string }> }
+  | { ok: false; error: string }
+> {
+  const count = input.count ?? 3;
+  const startHour = input.workingHoursStart ?? 9;
+  const endHour = input.workingHoursEnd ?? 19;
+  const includeSunday = input.includeSunday ?? false;
+  const excludeLunch = input.excludeLunch ?? true;
+  const durationMs = input.durationMinutes * 60_000;
+
+  // Récupère tous les événements de la fenêtre pour comparaison.
+  const list = await listEvents(client, {
+    timeMinISO: input.fromISO,
+    timeMaxISO: input.toISO,
+    maxResults: 250,
+  });
+  if (!list.ok) return { ok: false, error: list.error };
+
+  // Convertit les événements en intervalles UTC ms pour comparaison.
+  const busy: Array<{ start: number; end: number }> = list.events
+    .filter((e) => e.status !== "cancelled")
+    .map((e) => {
+      const s = e.start.dateTime || e.start.date;
+      const en = e.end.dateTime || e.end.date;
+      return {
+        start: s ? new Date(s).getTime() : 0,
+        end: en ? new Date(en).getTime() : 0,
+      };
+    })
+    .filter((b) => b.start > 0 && b.end > 0)
+    .sort((a, b) => a.start - b.start);
+
+  function overlapsBusy(startMs: number, endMs: number): boolean {
+    for (const b of busy) {
+      if (b.end <= startMs) continue;
+      if (b.start >= endMs) break;
+      return true;
+    }
+    return false;
+  }
+
+  const from = new Date(input.fromISO).getTime();
+  const to = new Date(input.toISO).getTime();
+  const STEP = 15 * 60_000; // pas de 15 min
+  const slots: Array<{ startISO: string; endISO: string }> = [];
+
+  // Curseur : arrondi au pas de 15 min suivant à partir de \`from\`.
+  let cursor = Math.ceil(from / STEP) * STEP;
+  while (cursor + durationMs <= to && slots.length < count) {
+    const startDate = new Date(cursor);
+    const endDate = new Date(cursor + durationMs);
+
+    // Filtres calendaires (dans le fuseau horaire du client Google).
+    // Note : on lit l'heure en local via toLocaleString avec le TZ.
+    const local = new Date(
+      startDate.toLocaleString("en-US", { timeZone: client.timeZone })
+    );
+    const localEnd = new Date(
+      endDate.toLocaleString("en-US", { timeZone: client.timeZone })
+    );
+    const dayOfWeek = local.getDay(); // 0 = dimanche
+    const hour = local.getHours();
+    const minutes = local.getMinutes();
+    const endHourVal = localEnd.getHours();
+    const endMinutes = localEnd.getMinutes();
+
+    // Dimanche exclu par défaut
+    const isSunday = dayOfWeek === 0;
+    if (!includeSunday && isSunday) {
+      cursor += STEP;
+      continue;
+    }
+    // Working hours
+    const startsAfterOpen = hour > startHour || (hour === startHour && minutes >= 0);
+    const endsBeforeClose =
+      endHourVal < endHour || (endHourVal === endHour && endMinutes === 0);
+    if (!startsAfterOpen || !endsBeforeClose) {
+      cursor += STEP;
+      continue;
+    }
+    // Pause déjeuner 12h30 → 14h : on refuse si le créneau chevauche.
+    if (excludeLunch) {
+      const lunchStart = hour * 60 + minutes;
+      const lunchEnd = endHourVal * 60 + endMinutes;
+      const LUNCH_S = 12 * 60 + 30;
+      const LUNCH_E = 14 * 60;
+      if (lunchStart < LUNCH_E && lunchEnd > LUNCH_S) {
+        cursor += STEP;
+        continue;
+      }
+    }
+    // Pas de conflit calendrier
+    if (overlapsBusy(cursor, cursor + durationMs)) {
+      cursor += STEP;
+      continue;
+    }
+    slots.push({
+      startISO: startDate.toISOString(),
+      endISO: endDate.toISOString(),
+    });
+    // On avance de la durée complète pour ne pas renvoyer des créneaux
+    // qui se chevauchent (16h-17h + 16h15-17h15 est un doublon utile
+    // pour l'algo mais pas pour l'humain).
+    cursor += durationMs;
+  }
+
+  return { ok: true, slots };
+}

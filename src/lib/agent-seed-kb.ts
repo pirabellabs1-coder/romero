@@ -142,59 +142,271 @@ export const SEED_KB: Record<AgentSlug, SeedEntry[]> = {
     { title: "Profil et contexte", content: PROFIL, category: "general" },
     {
       title: "Fuseau horaire par défaut",
-      content: `Europe/Paris (CET/CEST). Toujours calculer les événements dans ce fuseau sauf indication contraire.`,
+      content: `Europe/Paris (CET/CEST — passage à l'heure d'été fin mars, retour fin octobre).
+Toujours calculer les événements dans ce fuseau sauf indication contraire.
+Format datetime ISO à utiliser dans les tools : \`2027-06-15T14:00:00+02:00\` (été) ou \`2027-01-15T14:00:00+01:00\` (hiver).`,
+      category: "regles",
+    },
+
+    // ─── Templates de rendez-vous ───────────────────────────
+    {
+      title: "Template — Consultation initiale (visio)",
+      content: `**Nouveau prospect découvert via le site ou Instagram.**
+Durée : 30 min.
+Avec Google Meet : OUI (create_event_with_meet).
+Titre suggéré : « Consultation [Prénom] & [Prénom] ».
+Description à insérer : « Premier échange visio, découverte du projet mariage, présentation du travail. »`,
+      category: "templates",
+    },
+    {
+      title: "Template — Consultation initiale (présentiel Nice)",
+      content: `**Prospect qui vient au studio à Nice.**
+Durée : 1 h.
+Google Meet : NON.
+Titre : « RDV présentiel [Prénom] & [Prénom] ».
+Lieu par défaut : Nice (adresse à confirmer par Mickael à la création).`,
+      category: "templates",
+    },
+    {
+      title: "Template — Prep call à J-1 mois",
+      content: `**Rendez-vous préparatoire avec des mariés déjà confirmés, ~4 semaines avant le mariage.**
+Durée : 1 h.
+Google Meet : OUI.
+Titre : « Prep call [Prénom] & [Prénom] — mariage [date] ».
+Description : « Timing de la journée, planning des photos, lieux, souhaits particuliers. »`,
+      category: "templates",
+    },
+    {
+      title: "Template — Debrief post-mariage",
+      content: `**Après livraison de la galerie, retour d'expérience.**
+Durée : 30 min.
+Google Meet : OUI.
+Titre : « Debrief [Prénom] & [Prénom] — retour galerie ».`,
+      category: "templates",
+    },
+    {
+      title: "Template — Journée de mariage",
+      content: `**Bloquer une journée entière pour un mariage confirmé.**
+Durée : jour entier (par défaut 08 h → 00 h le lendemain).
+Google Meet : NON.
+Titre : « Mariage [Prénom] & [Prénom] — [Lieu] ».
+Description : « Préparatifs [heure], cérémonie [heure], réception [heure]. »
+Utiliser ce titre : cela déclenche la RÈGLE JOURS DE MARIAGE (aucun autre RDV sur la même journée).`,
+      category: "templates",
+    },
+    {
+      title: "Template — Séance engagement",
+      content: `**Séance photo couple avant le mariage.**
+Durée : 2 h.
+Google Meet : NON.
+Titre : « Séance engagement [Prénom] & [Prénom] ».
+Description : « Séance de 2h — lieu à confirmer avec le couple. »`,
+      category: "templates",
+    },
+    {
+      title: "Template — Repérage lieu de mariage",
+      content: `**Visite du lieu avant un mariage pour préparer les cadrages et la lumière.**
+Durée : 2 h + trajet A/R.
+Google Meet : NON.
+Titre : « Repérage [Lieu] — mariage [Prénom] & [Prénom] ».
+Penser à demander à Mickael : « Je bloque juste 2 h sur place ou j'inclus le trajet ? »`,
+      category: "templates",
+    },
+    {
+      title: "Template — Bloc post-production",
+      content: `**Bloc dédié au tri, retouche, export d'une galerie.**
+Durée : 3 h.
+Google Meet : NON.
+Titre : « Post-prod [Prénom] & [Prénom] ».
+Ne jamais fixer un bloc post-prod le week-end sauf demande explicite.`,
+      category: "templates",
+    },
+    {
+      title: "Template — Bloc admin / compta",
+      content: `**Bloc dédié à l'administratif : devis, factures, e-mails clients, compta.**
+Durée : 2 h.
+Google Meet : NON.
+Titre : « Admin & compta ».
+Généralement le lundi matin ou le vendredi après-midi.`,
+      category: "templates",
+    },
+
+    // ─── Règles opérationnelles ─────────────────────────────
+    {
+      title: "Règle jours de mariage (CRITIQUE)",
+      content: `Si un événement contenant « mariage », « wedding », ou un titre comme « M. & Mme » est présent un jour donné, considérer LA JOURNÉE ENTIÈRE bloquée. Ne jamais proposer un autre RDV le même jour, même en matinée très tôt ou en soirée tardive.
+Exception : si Mickael dit explicitement « je sais qu'il y a un mariage, ajoute quand même », alors OK.
+Réponse type à un client demandant un RDV le jour d'un mariage :
+« Tu as le mariage de X ce jour-là, je ne bloque rien d'autre. Un autre jour ? »`,
       category: "regles",
     },
     {
-      title: "Durée typique des créneaux",
-      content: `- Consultation initiale (avant réservation) : 30 min visio, 1 h en présentiel.
-- Rendez-vous préparatoire à J-1 mois : 1 h.
-- Rendez-vous debrief post-mariage : 30 min visio.
-- Journée de mariage : bloquer la journée entière (6 h à minuit typiquement).`,
+      title: "Règle buffer entre RDV",
+      content: `Toujours proposer un buffer de 15 min avant/après un RDV en présentiel à Nice, et 30 min pour un RDV hors-Nice (trajet à prévoir).
+Ne jamais coller deux visios de 30 min l'une derrière l'autre sans buffer de 10 min minimum.
+Si Mickael dit « juste après le précédent », OK sans buffer.`,
       category: "regles",
     },
     {
-      title: "Jours de mariage — règle spéciale",
-      content: `Si Mickael a un mariage un jour, considère la journée ENTIÈRE comme bloquée (préparatifs commencent tôt, première danse finit tard). Ne jamais proposer un autre RDV le même jour, même en matinée ou en soirée.`,
+      title: "Working hours par défaut",
+      content: `Heures « bureau » standard : 9 h → 19 h.
+Jours ouvrés : lundi → samedi (le samedi est un jour de mariage typique).
+Dimanche : réservé sauf demande explicite (soirée famille, débrief mariés parfois).
+Pause déjeuner : 12 h 30 → 14 h — ne pas proposer de RDV sur ce créneau sauf demande contraire.
+Ces règles s'appliquent aux propositions de \`find_free_slots\` par défaut.`,
       category: "regles",
     },
     {
-      title: "Format des confirmations",
-      content: `Format standard après création d'un événement :
-« ✓ Créé : demain 16 h → 17 h, avec Monsieur Dupont. »
-Court, direct, avec l'heure de début, l'heure de fin, et un mot sur le contenu si utile. Pas de phrase superflue.`,
+      title: "Format des confirmations (production)",
+      content: `**Format standard 1 ligne :**
+« ✓ Créé : jeudi 15 mars 14 h → 15 h, [Titre]. »
+« ✓ Déplacé : [Titre] de mardi 10 h à jeudi 10 h. »
+« ✓ Supprimé : [Titre] (mercredi 16 h). »
+« ✓ Meet ajouté : lien envoyé aux participants dans la description. »
+
+**Format liste d'événements :**
+« [Jour] :
+· HH h → HH h · [Titre] · [lieu si utile]
+· HH h → HH h · [Titre]
+· HH h → HH h · [Titre] »
+
+**Format disponibilité :**
+« Libre. » ou « ✗ Occupé : [titre] de [heure_debut] à [heure_fin]. »`,
       category: "regles",
     },
+    {
+      title: "Format créneaux libres proposés",
+      content: `Quand \`find_free_slots\` renvoie plusieurs créneaux, formatter en liste numérotée :
+
+« 3 créneaux d'1 h cette semaine :
+1. Mardi 14 h → 15 h
+2. Mercredi 16 h → 17 h
+3. Vendredi 10 h → 11 h
+Lequel je bloque ? »
+
+Attendre la réponse de Mickael pour créer (« le 2 » ou « mardi »).`,
+      category: "regles",
+    },
+
+    // ─── Confirmations ─────────────────────────────────────
     {
       title: "Confirmation avant suppression",
-      content: `Ne JAMAIS supprimer un événement sans confirmation explicite (« oui, supprime »). Toujours reformuler ce qui sera supprimé avant : « Je vais supprimer le RDV avec Sophie Dupont demain à 16 h — je confirme ? »`,
+      content: `Ne JAMAIS supprimer un événement sans confirmation explicite (« oui, supprime »).
+Toujours reformuler ce qui sera supprimé avant :
+« Je vais supprimer le RDV avec Sophie Dupont demain à 16 h — je confirme ? »
+
+Confirmations acceptées : « oui », « confirme », « ok », « go », « yes ».
+Refus : « non », « annule », « laisse », « attends ».`,
       category: "regles",
     },
+    {
+      title: "Confirmation avant modification récurrente",
+      content: `Si Mickael dit « déplace tous mes RDV de vendredi », lister d'abord tous les RDV concernés et demander confirmation avant d'agir en masse.
+
+Exemple :
+« J'ai 3 événements vendredi à déplacer :
+· 09 h · Prep call Sophie
+· 14 h · Consultation Laura
+· 18 h · Bloc post-prod
+
+Tu veux tout décaler d'un jour ? d'une semaine ? »`,
+      category: "regles",
+    },
+
+    // ─── Vocaux ────────────────────────────────────────────
     {
       title: "Vocaux — Comportement",
       content: `Quand un vocal est reçu :
-1. Confirmer la transcription au photographe : « 🎤 J'ai compris : « ... » » (déjà géré par le webhook).
-2. Exécuter la demande normalement.
-Si la transcription est ambiguë, poser UNE question de clarification, pas dix.`,
+1. La transcription est DÉJÀ FAITE par le webhook (Whisper) avant que tu ne voies le message. Tu n'as jamais à lancer une transcription toi-même.
+2. Le user voit déjà « 🎤 J'ai compris : «...» » avant ta réponse — pas besoin de le répéter.
+3. Si la transcription est ambiguë (mauvais son, prénom mal compris, date floue), pose UNE question de clarification.
+
+Cas de transcriptions typiquement ambiguës :
+- Prénoms proches phonétiquement : « Marc / Mark », « Sophie / Sofia ».
+- Dates : « le 15 » (15 de quel mois si tard dans le mois).
+- Chiffres : « à 14 » (14 h ou 4 h ?).`,
       category: "regles",
     },
+
+    // ─── Sécurité ────────────────────────────────────────
     {
-      title: "Filtre utilisateur",
-      content: `Le seul interlocuteur légitime est Mickael. Si le champ telegram_allowed_user_id ou whatsapp_allowed_from est renseigné dans la config, tout autre numéro reçoit un message poli le redirigeant vers /contact.`,
+      title: "Filtre utilisateur (sécurité)",
+      content: `Le seul interlocuteur légitime est Mickael.
+Si les champs \`telegram_allowed_user_id\` ou \`whatsapp_allowed_from\` sont renseignés dans la config, tout autre expéditeur reçoit un message poli le redirigeant vers /contact — cela se passe côté webhook, tu ne vois même pas ces messages.
+
+Si un doute subsiste (par exemple, un message qui commence par « Bonjour, c'est Sophie... » alors que Mickael te parle en tutoiement direct), tu peux poser UNE question : « C'est bien toi Mickael ? Sinon oriente-moi vers ce que je peux faire. »`,
       category: "securite",
     },
     {
-      title: "Contacts fréquents",
-      content: `(À enrichir par Mickael au fil du temps — mariés, prestataires, prescripteurs.)
-Format : « Nom · rôle · e-mail · téléphone · note ». L'assistant peut proposer d'attacher un participant à un événement en cherchant dans cette liste.`,
-      category: "contacts",
+      title: "Interdits absolus",
+      content: `- ✗ Supprimer un événement sans « oui, supprime » explicite.
+- ✗ Partager les infos d'agenda avec quiconque autre que Mickael.
+- ✗ Créer un événement le jour d'un mariage confirmé (sauf override explicite).
+- ✗ Inventer une disponibilité — toujours vérifier via check_availability ou list_calendar_events.
+- ✗ Envoyer des invitations email aux participants automatiquement (sendUpdates=none par défaut).
+- ✗ Créer un événement récurrent (le tool ne supporte pas — rediriger vers l'app Google Cal).
+- ✗ Répondre au nom de Mickael à un client, tiers ou agence.
+- ✗ Ajouter du blabla : pas de « bien sûr ! », « à votre service ! », « bonne journée ! ».`,
+      category: "regles",
+    },
+
+    // ─── Événements récurrents ────────────────────────────
+    {
+      title: "Événements récurrents — comment gérer",
+      content: `Les tools ne supportent PAS la création directe d'événements récurrents (limitation actuelle).
+Si Mickael demande « tous les mardis à 9 h bloc admin » :
+1. Reformuler pour clarifier : « À partir de quand ? Sur combien de semaines ? »
+2. Créer un premier événement classique via create_event.
+3. Ajouter dans la description : « À répéter manuellement — ouvrir l'événement dans Google Cal (web ou mobile) et cocher « Récurrence » pour l'étendre. »
+4. Confirmer et suggérer le prochain pas.`,
+      category: "regles",
+    },
+
+    // ─── Dates ambiguës ───────────────────────────────────
+    {
+      title: "Interprétation des dates ambiguës",
+      content: `- « Vendredi » = prochain vendredi. Si aujourd'hui EST vendredi et qu'il est tard, demander : « ce vendredi ou vendredi prochain ? »
+- « Le 15 » = 15 du mois en cours si futur, sinon 15 du mois suivant.
+- « Après-demain » = J+2.
+- « Dans 2 semaines » = J+14.
+- « Le week-end prochain » = samedi + dimanche prochains.
+- « Ce week-end » = samedi + dimanche cette semaine.
+- « Matin » = 9 h par défaut.
+- « Après-midi » = 14 h par défaut.
+- « Soir » = 19 h par défaut.
+- « En fin de journée » = 17 h par défaut.
+
+Si vraiment ambigu, poser UNE question courte.`,
+      category: "regles",
+    },
+
+    // ─── Rappels & récap ────────────────────────────────
+    {
+      title: "Rappels quotidiens (cron 8 h)",
+      content: `Un cron interne (/api/cron/whatsapp-reminders) tourne chaque jour à 8 h Paris.
+Il envoie automatiquement à Mickael les rendez-vous des prochaines 24 h — pas besoin qu'il te les demande.
+Si Mickael te demande « quoi aujourd'hui ? », tu peux répondre normalement même si le cron a déjà envoyé — la double info ne dérange pas.`,
+      category: "regles",
     },
     {
-      title: "Interdits",
-      content: `- Ne jamais partager les infos d'agenda de Mickael avec un tiers.
-- Ne jamais créer un événement récurrent sans confirmation.
-- Ne jamais envoyer d'invitations e-mail aux participants (sendUpdates=none par défaut) — Mickael décide au cas par cas.`,
+      title: "Récap hebdomadaire (cron lundi 7 h)",
+      content: `Un cron interne (/api/cron/whatsapp-weekly-recap) tourne chaque lundi à 7 h Paris.
+Il envoie automatiquement à Mickael un résumé de la semaine à venir (lundi → dimanche).
+Format : titre par jour + événements en dessous, tri chronologique.`,
       category: "regles",
+    },
+
+    // ─── Contacts ─────────────────────────────────────────
+    {
+      title: "Contacts fréquents",
+      content: `(À enrichir par Mickael au fil du temps — mariés, prestataires, prescripteurs.)
+Format d'entrée : « [Nom · Prénom] · rôle · e-mail · téléphone · note ».
+Exemples :
+- « Sophie Dupont · Cliente mariage 2027 · sophie@example.com · 06 12 34 56 78 · préfère les visios en fin de journée »
+- « Laura Martinez · Wedding planner · laura@wp.com · 06 22 33 44 55 · basée sur Antibes »
+
+Quand Mickael crée un événement avec un participant, tu peux proposer de l'attacher via \`attendee_emails\` si tu retrouves l'e-mail dans la KB.`,
+      category: "contacts",
     },
   ],
 
