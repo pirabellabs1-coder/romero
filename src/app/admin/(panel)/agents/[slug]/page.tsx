@@ -278,6 +278,8 @@ export default async function AgentDetailPage({
               ? "contract"
               : (searchParams as { sub?: string })?.sub === "invoice"
               ? "invoice"
+              : (searchParams as { sub?: string })?.sub === "clients"
+              ? "clients"
               : "quote"
           }
           hasClaudeKey={Boolean(config.anthropic_api_key && config.company_siret)}

@@ -387,6 +387,30 @@ CREATE TABLE IF NOT EXISTS public.admin_doc_counters (
   PRIMARY KEY (doc_type, year)
 );
 
+-- ── CRM clients (agent 4 admin) ──────────────────────────────────────────
+-- Base contacts pour l'agent administratif. Une ligne par personne
+-- physique (mariés séparés) ou couple. Auto-alimentée depuis les
+-- documents créés (via syncContactsFromDocuments) mais éditable
+-- manuellement par le photographe.
+CREATE TABLE IF NOT EXISTS public.admin_contacts (
+  id             BIGSERIAL PRIMARY KEY,
+  name           TEXT NOT NULL,
+  email          TEXT,
+  phone          TEXT,
+  address        TEXT,
+  wedding_date   DATE,
+  wedding_location TEXT,
+  notes          TEXT,
+  document_count INTEGER NOT NULL DEFAULT 0,
+  last_document_at TIMESTAMPTZ,
+  total_billed_cents BIGINT NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_admin_contacts_name ON public.admin_contacts(LOWER(name));
+CREATE INDEX IF NOT EXISTS idx_admin_contacts_email ON public.admin_contacts(LOWER(email))
+  WHERE email IS NOT NULL;
+
 -- ── Sanity check ─────────────────────────────────────────────────────────
 SELECT 'tables created:' AS status,
   (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public') AS public_tables_count;

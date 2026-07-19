@@ -737,94 +737,390 @@ Si un client demande une comparaison, rediriger : « Mickael a son propre univer
   // ═══════════════════════════════════════════════════════════════
   admin: [
     { title: "Profil et statut du studio", content: PROFIL, category: "legal" },
+
+    // ─── Cadre légal ─────────────────────────────────────────────
     {
-      title: "Mentions obligatoires devis (droit français)",
+      title: "Textes de référence à respecter",
+      content: `**Code de la consommation** — art. L111-1 (obligation d'information), L221-18 (rétractation).
+**Code civil** — art. 1101 et suivants (contrats).
+**Code de la propriété intellectuelle** — art. L131-1 et suivants (droits d'auteur photographe).
+**Code général des impôts** — art. 289 et 242 nonies A (facturation), art. 293 B (franchise TVA micro-entrepreneur).
+**Code de commerce** — art. L441-6 (pénalités de retard, indemnité 40 €), L441-9 (facturation B2B).
+En cas de conflit, le texte le plus protecteur du consommateur s'applique par défaut.`,
+      category: "legal",
+    },
+    {
+      title: "Statut juridique — cas micro-entrepreneur",
+      content: `**Seuil 2027 pour prestations de service** : 77 700 € HT/an (à revalider chaque année).
+**Franchise TVA** :
+- Mention obligatoire : « TVA non applicable, art. 293 B du CGI »
+- Aucun calcul de TVA sur les factures
+- Numéro TVA intracom : renseigné mais inactif
+- Ne pas facturer la TVA au client, ne pas la déduire sur les achats
+
+**Autres obligations micro** :
+- Déclaration mensuelle ou trimestrielle URSSAF
+- Comptabilité simplifiée (livre des recettes)
+- Compte bancaire séparé obligatoire si CA > 10 000 € /an sur 2 années consécutives`,
+      category: "legal",
+    },
+    {
+      title: "Statut juridique — cas société (EURL, SASU)",
+      content: `Mentions obligatoires supplémentaires sur documents :
+- Forme juridique complète (« SASU au capital de X € »)
+- Numéro RCS de la ville d'immatriculation (« RCS Nice B 123 456 789 »)
+- N° TVA intracommunautaire (FR + clé + SIRET des 9 premiers chiffres)
+
+**TVA** : assujetti dès premier euro, taux 20 % pour prestations photo mariage standard.
+**Comptabilité** : livre-journal + grand livre + bilan annuel. Expert-comptable fortement recommandé.`,
+      category: "legal",
+    },
+
+    // ─── Devis ─────────────────────────────────────────────────
+    {
+      title: "Mentions obligatoires devis",
       content: `Devis pro forma OU professionnel : doit contenir :
-- Identité du studio (nom, statut juridique, adresse, SIRET, TVA intracom si applicable)
-- Identité du client (prénom, nom, adresse)
+- Titre « DEVIS » + numéro séquentiel (DEVIS-YYYY-NNNN)
+- Identité du studio (nom, statut, adresse, SIRET, TVA intracom si applicable, code NAF 74.20Z)
+- Identité du client (prénom, nom, adresse, email)
 - Date d'émission + durée de validité (30 jours par défaut)
-- Détail des prestations : intitulé, quantité, prix HT, TVA, prix TTC
+- Date probable de la prestation + lieu
+- Détail des prestations : intitulé, quantité, prix HT, TVA, prix TTC (une ligne par prestation)
 - Total HT, montant TVA, total TTC
-- Modalités : acompte 30 % à la signature, solde à J-30 avant la prestation
+- Modalités : acompte 30 % à la signature, solde J-30 avant prestation
 - Mention « Non assujetti à la TVA — art. 293 B du CGI » si micro-entrepreneur
-- Mention « Bon pour accord » + zone de signature`,
+- Mention « Bon pour accord » + zone de signature
+- Renvoi aux CGV (annexe ou lien vers romerophotography.fr/cgv)`,
       category: "devis",
     },
     {
+      title: "Devis — durée de validité",
+      content: `Standard : **30 jours** à compter de la date d'émission.
+Cas particuliers :
+- Mariage dans les 6 mois : validité 15 jours
+- Mariage à + 12 mois : validité étendue à 60 jours possible sur demande
+- Prolongation : possible sur demande écrite, générer un nouveau devis avec la même référence + suffixe -bis
+
+**Formulation type** : « Ce devis est valable trente (30) jours à compter de la date d'émission. Au-delà, un nouveau devis pourra être établi selon les tarifs en vigueur. »`,
+      category: "devis",
+    },
+    {
+      title: "Devis — signature électronique",
+      content: `Signature électronique via Yousign :
+- Signature qualifiée : identification du signataire + horodatage certifié
+- Valeur juridique équivalente à la signature manuscrite (art. 1367 du Code civil)
+- Le devis signé électroniquement vaut acceptation
+
+Envoi Yousign : générer PDF, upload, ajouter le signataire (email + téléphone pour SMS OTP), activer la procédure.
+Le PDF signé revient signé + certificat de signature en annexe.`,
+      category: "devis",
+    },
+
+    // ─── Contrat ────────────────────────────────────────────────
+    {
       title: "Mentions obligatoires contrat mariage",
       content: `Contrat de prestation mariage : doit contenir OBLIGATOIREMENT :
-- Identité des parties (studio + mariés)
-- Date, lieu, heure de début et de fin de la prestation
-- Description précise des prestations incluses
-- Nombre de photos livrées, format, délai de livraison
-- Prix total, modalités de paiement, acompte non-remboursable au-delà de X jours
-- Clauses de cession / autorisation à l'image
-- Clause de force majeure (couvrant santé, décès, catastrophe)
-- Clause de rétractation 14 jours (art. L221-18 du Code de la conso) sauf renonciation express
+- Identité des parties (studio + chacun des mariés séparément)
+- Objet précis : reportage mariage de [Prénom] & [Prénom]
+- Date, lieu, heure de début et de fin (approximatives ok)
+- Description détaillée prestations : formule choisie, nombre approximatif de photos, format, résolution
+- Livrables : galerie web privée, délai de livraison max
+- Prix total TTC, modalités de paiement, acompte non-remboursable au-delà de X jours
+- Clause de cession/autorisation à l'image (variante A/B/C)
+- Clause de force majeure
+- Clause de rétractation 14 j (art. L221-18) si vente à distance sans RDV présentiel
+- Politique d'annulation
+- Confidentialité mutuelle
 - Juridiction compétente : Tribunal de Nice
 - CGV en annexe
-- Date + signatures des deux parties`,
+- Date + lieu + signatures manuscrites ou électroniques
+- Paraphe en bas de chaque page`,
       category: "contrat",
     },
     {
-      title: "Mentions obligatoires facture",
-      content: `Facture doit contenir (art. 242 nonies A du CGI) :
-- Numéro séquentiel (JAMAIS de trou dans la numérotation)
-- Date d'émission et date de livraison si différente
-- Identité du studio (nom, SIRET, adresse, TVA intracom)
-- Identité du client
-- Description des prestations
-- Prix unitaire HT, TVA (taux + montant), total TTC
-- Date d'échéance de paiement
-- Pénalités de retard : taux BCE + 10 points, indemnité forfaitaire 40 €
-- Mention « Non assujetti à la TVA — art. 293 B du CGI » si applicable
-- Escompte pour paiement anticipé : « Aucun escompte accordé en cas de paiement anticipé »`,
-      category: "facture",
+      title: "Clause force majeure — texte type",
+      content: `« Constitue un cas de force majeure tout événement extérieur, imprévisible et irrésistible au sens de l'article 1218 du Code civil, notamment (liste non limitative) :
+- Décès dans la famille proche d'une des parties
+- Maladie grave certifiée médicalement
+- Crise sanitaire imposant l'annulation
+- Catastrophe naturelle ou événement climatique majeur
+- Événement politique ou de sécurité empêchant matériellement la prestation
+
+En cas de force majeure établie :
+- Remboursement intégral des sommes versées, OU
+- Report de la prestation à une date convenue entre les parties dans les 12 mois, sans surcoût.
+
+Les parties s'engagent à s'informer mutuellement dans les 7 jours suivant la survenance de l'événement. »`,
+      category: "contrat",
     },
     {
-      title: "Politique d'annulation type",
-      content: `Annulation par les mariés :
+      title: "Politique d'annulation détaillée",
+      content: `**Annulation par les mariés** :
 - Plus de 6 mois avant : acompte remboursé à 50 %
-- Entre 6 et 3 mois avant : acompte non remboursé, mais reportable sur une autre date
+- Entre 6 et 3 mois avant : acompte non remboursé, mais reportable sur une autre date dans les 12 mois suivants (sous réserve de disponibilité)
 - Moins de 3 mois avant : acompte non remboursé et non reportable
-Annulation par le photographe :
-- Cas de force majeure documenté : remboursement intégral + assistance à trouver un remplaçant
-- Autres cas : remboursement intégral + pénalité 20 % du total`,
-      category: "cgv",
+- Solde éventuellement versé au-delà de l'acompte : remboursé intégralement dans tous les cas
+
+**Annulation par le photographe** :
+- Cas de force majeure documenté : remboursement intégral + assistance active à trouver un remplaçant de qualité équivalente
+- Hors force majeure : remboursement intégral + pénalité 20 % du prix total versée au client à titre de dédommagement
+
+**Report d'un commun accord** :
+- Toujours possible, à formaliser par échange écrit (email suffit)
+- L'acompte est intégralement reporté sur la nouvelle date
+- Un avenant à ce contrat sera signé le cas échéant`,
+      category: "contrat",
     },
     {
-      title: "Cession de droits à l'image",
-      content: `Clause type : « Les mariés autorisent Mickael Romero à utiliser les photographies prises à des fins de promotion de son activité (site web, réseaux sociaux, blog, publications professionnelles), à titre gratuit, pour une durée illimitée, sur tout support connu ou à venir. Le refus doit être formulé par écrit avant la prestation. »`,
-      category: "cgv",
+      title: "Cession droits image — variante A (standard)",
+      content: `**Cession totale gratuite** (option par défaut, à intégrer sauf demande contraire) :
+
+« Les mariés autorisent Mickael Romero à utiliser les photographies prises à des fins de promotion de son activité professionnelle (site web, réseaux sociaux Instagram / Facebook / LinkedIn, blog, publications professionnelles imprimées, concours photographiques, expositions), à titre gratuit, pour une durée illimitée, sur tout support connu ou à venir, en France et à l'international.
+
+En contrepartie, les mariés bénéficient d'un droit d'usage personnel, familial et privé illimité sur toutes les photos livrées : impressions, partage familial, réseaux sociaux personnels sont autorisés.
+
+Toute utilisation commerciale par les mariés (revente, publicité, presse rémunérée) nécessite un accord écrit préalable du photographe. »`,
+      category: "contrat",
     },
     {
-      title: "Numérotation des factures",
-      content: `Format recommandé : FA-YYYY-NNNN
-- FA-2027-0001, FA-2027-0002, etc.
-- Une facture émise ne peut PAS être modifiée. En cas d'erreur, créer une facture d'avoir (AV-YYYY-NNNN) qui annule la facture, puis émettre une nouvelle facture correcte.`,
+      title: "Cession droits image — variante B (restreinte)",
+      content: `**Cession restreinte** — quand le couple accepte quelques usages mais pas tous :
+
+« Les mariés autorisent la publication de leur reportage sur les supports suivants uniquement :
+- Le site www.romerophotography.fr
+- Le compte Instagram @romeromomentsphoto
+
+Toute autre utilisation professionnelle (concours, presse, expositions, publicité imprimée) nécessitera leur accord écrit préalable, à obtenir cas par cas. »`,
+      category: "contrat",
+    },
+    {
+      title: "Cession droits image — variante C (refus total)",
+      content: `**Refus total de publication** — le couple ne souhaite AUCUNE utilisation promo :
+
+« Les mariés ne souhaitent pas que leurs photographies soient utilisées à des fins promotionnelles par le photographe, sur quelque support que ce soit.
+
+En contrepartie de cette restriction, un supplément de quinze pour cent (15 %) est appliqué au prix de la formule choisie, à titre de compensation pour la perte de matériel promotionnel professionnel. Ce supplément est mentionné sur le devis et la facture.
+
+Le photographe conserve néanmoins ses droits d'auteur légaux sur les photographies et le droit d'archiver les fichiers à des fins personnelles et de portfolio interne non-publié. »`,
+      category: "contrat",
+    },
+    {
+      title: "Droit de rétractation 14 jours (L221-18)",
+      content: `**Applicable UNIQUEMENT si vente à distance (sans face-à-face préalable)** :
+- Contrat signé après échange à distance uniquement (visio, email) → droit de rétractation 14 j applicable
+- Contrat signé après RDV préalable en présentiel (studio Nice, salon du mariage) → droit de rétractation NON applicable
+
+**Formulation type quand applicable** :
+« Conformément à l'article L221-18 du Code de la consommation, le client dispose d'un délai de rétractation de quatorze (14) jours à compter de la signature du présent contrat, à exercer par lettre recommandée AR à l'adresse du photographe.
+
+En cas de rétractation, l'acompte versé sera intégralement remboursé sous 14 jours. »
+
+**Renonciation express** (quand la prestation doit commencer dans les 14 j) :
+« Le client demande expressément que la prestation soit exécutée avant l'expiration du délai de rétractation de 14 jours. Il renonce par la présente à son droit de rétractation, en application de l'article L221-25 du Code de la consommation. »`,
+      category: "contrat",
+    },
+
+    // ─── Facture ────────────────────────────────────────────────
+    {
+      title: "Mentions obligatoires facture (CGI 242 nonies A)",
+      content: `Facture doit contenir :
+- Titre « FACTURE » (ou « FACTURE D'ACOMPTE » si acompte)
+- Numéro séquentiel (JAMAIS de trou dans la numérotation)
+- Date d'émission + date de livraison ou d'exécution
+- Identité du vendeur : nom, adresse, SIRET, TVA intracom, forme juridique et capital si société
+- Identité du client (nom + prénom + adresse)
+- Description détaillée : intitulé, quantité, prix HT unitaire, montant HT
+- Total HT + taux TVA + montant TVA + montant TTC (ou uniquement TTC si franchise)
+- Date d'échéance de paiement (à défaut : 30 j après émission)
+- Pénalités de retard : « Taux BCE + 10 points, minimum 3× le taux d'intérêt légal »
+- Indemnité forfaitaire pour frais de recouvrement : 40 € (L441-6 Code de commerce)
+- « Aucun escompte accordé en cas de paiement anticipé »
+- Mention « TVA non applicable, art. 293 B du CGI » si micro-entrepreneur
+- Coordonnées bancaires pour paiement (IBAN + BIC)`,
       category: "facture",
     },
     {
-      title: "Interdits absolus",
-      content: `- Ne JAMAIS modifier une facture déjà émise → toujours faire un avoir.
-- Ne JAMAIS générer une facture sans numéro séquentiel valide.
-- Ne JAMAIS inventer une mention légale — si un doute, demander à Mickael.
-- Ne JAMAIS envoyer un contrat à signature sans validation explicite préalable.`,
-      category: "regles",
+      title: "Numérotation des documents (règle absolue)",
+      content: `**Format recommandé** :
+- Devis : DEVIS-YYYY-NNNN (DEVIS-2027-0001)
+- Contrat : CTR-YYYY-NNNN
+- Facture : FA-YYYY-NNNN
+- Avoir : AV-YYYY-NNNN
+
+**Règle absolue** : la numérotation est séquentielle, sans trou et sans duplication. Un numéro attribué ne peut PAS être réutilisé, même si le document est annulé ou supprimé.
+
+**Cas d'annulation** :
+- Devis annulé : le numéro reste consommé, on note « ANNULÉ » sur le doc (pas de suppression physique)
+- Facture annulée : impossible. Créer une facture d'avoir (AV-YYYY-NNNN) qui annule la facture, puis émettre une nouvelle facture correcte.
+
+Toute rupture de séquence expose à un contrôle fiscal.`,
+      category: "facture",
     },
+    {
+      title: "Facture d'avoir — cas d'usage",
+      content: `Une facture d'avoir (ou note d'avoir) est nécessaire quand :
+- Une facture émise contient une erreur (montant, TVA, client, prestations)
+- Le client demande un remboursement partiel ou total
+- Une remise commerciale est appliquée après émission
+
+**Format** :
+- Titre « FACTURE D'AVOIR N° AV-YYYY-NNNN »
+- Référence à la facture d'origine (« Annulation de la facture n° FA-YYYY-NNNN du [date] »)
+- Reprise à l'identique des montants d'origine, mais en NÉGATIF
+- Motif de l'avoir en clair
+- Numérotation propre séquentielle des avoirs
+
+Après émission de l'avoir : émettre si besoin une nouvelle facture correcte avec un NOUVEAU numéro.`,
+      category: "facture",
+    },
+    {
+      title: "Escompte pour paiement anticipé",
+      content: `**Position par défaut du studio** : aucun escompte pour paiement anticipé.
+
+Mention légale obligatoire sur toutes les factures :
+« Aucun escompte accordé en cas de paiement anticipé. »
+
+Cette mention est obligatoire même si l'escompte n'est pas pratiqué (art. L441-6 Code de commerce).
+
+Si Mickael souhaite exceptionnellement en accorder un : mentionner explicitement le taux et les conditions sur la facture.`,
+      category: "facture",
+    },
+
+    // ─── Frais de déplacement ────────────────────────────────
+    {
+      title: "Frais de déplacement — grille",
+      content: `**Rayon 100 km inclus** (Nice, Antibes, Cannes, Menton, Grasse, Monaco, arrière-pays niçois, Saint-Tropez) : aucun frais.
+
+**Au-delà** — facturés en supplément, ligne séparée sur devis/facture :
+- 100-200 km (Cannes → Marseille, Aix, Toulon) : 0,50 €/km A/R + péages
+- 200-500 km (Lyon, Montpellier, Turin, Nord Italie) : 0,50 €/km + péages + éventuelle nuit hôtel (~120 € HT)
+- 500-1000 km (Paris, Bordeaux) : forfait train/avion (à devis) + hôtel + repas
+- International > 1000 km : devis spécifique destination weddings (jour supplémentaire de déplacement inclus)
+
+**Formulation ligne facture** :
+« Frais de déplacement forfaitaires pour [lieu] : XXX € HT »`,
+      category: "tarifs",
+    },
+
+    // ─── Politique de relance ────────────────────────────────
+    {
+      title: "Relance facture impayée — J+3",
+      content: `**Relance 1 — courtoise, J+3 après échéance**
+
+Objet : Rappel amical — facture n° [ref]
+
+« Bonjour [prénom],
+
+J'espère que tout va bien depuis notre dernière rencontre.
+
+Je me permets de vous rappeler que la facture n° [ref] du [date_emission], d'un montant de [montant] € TTC, arrivait à échéance le [date_echeance].
+
+Peut-être vous a-t-elle échappé — cela arrive parfois avec les nombreux échanges autour d'un mariage. Merci de me confirmer le règlement ou de m'indiquer la date à laquelle il vous sera possible de procéder.
+
+Bien cordialement,
+Mickael Romero
+Studio Romero Photography
+06 04 03 70 76 »`,
+      category: "relance",
+    },
+    {
+      title: "Relance facture impayée — J+15",
+      content: `**Relance 2 — plus ferme, mention pénalités, J+15**
+
+Objet : Deuxième rappel — facture n° [ref]
+
+« Bonjour [prénom],
+
+Sauf erreur de ma part, la facture n° [ref] d'un montant de [montant] € TTC, échue le [date_echeance], reste à ce jour impayée.
+
+Je vous invite à procéder au règlement dans un délai de 8 jours à compter de la présente. Passé ce délai, et conformément à l'article L441-6 du Code de commerce, des pénalités de retard seront applicables au taux de la Banque Centrale Européenne majoré de 10 points, ainsi qu'une indemnité forfaitaire pour frais de recouvrement de 40 €.
+
+Si un délai supplémentaire vous est nécessaire, merci de me le faire savoir dès que possible pour trouver ensemble une solution.
+
+Bien cordialement,
+Mickael Romero »`,
+      category: "relance",
+    },
+    {
+      title: "Relance devis non signé — J+15",
+      content: `**Relance douce, J+15 après émission du devis**
+
+Objet : À propos du devis n° [ref]
+
+« Bonjour [prénom],
+
+J'espère que vos préparatifs avancent bien.
+
+Je reste à votre disposition pour toute question sur le devis n° [ref] que je vous ai transmis le [date]. N'hésitez pas si vous souhaitez en discuter, ajuster une prestation ou en découvrir davantage sur ma manière de travailler.
+
+Prenez le temps qu'il vous faut — je serai heureux de vous accompagner sur votre journée si mon univers vous parle.
+
+Bien cordialement,
+Mickael Romero »`,
+      category: "relance",
+    },
+    {
+      title: "Relance devis expiration proche — J+25",
+      content: `**Rappel proche de l'expiration, J+25**
+
+Objet : Le devis n° [ref] arrive à expiration
+
+« Bonjour [prénom],
+
+Un petit mot pour vous indiquer que le devis n° [ref] arrivera à expiration le [date_expiration].
+
+Si vous souhaitez confirmer, il vous suffit de me retourner le devis signé avec la mention « Bon pour accord ». Si vous avez besoin d'un délai supplémentaire de réflexion, je peux le proroger sans souci — dites-le-moi simplement.
+
+Et si votre choix se porte finalement ailleurs, je vous souhaite le meilleur pour votre journée. Merci de me le confirmer d'un mot pour que je libère la date.
+
+Bien cordialement,
+Mickael Romero »`,
+      category: "relance",
+    },
+
+    // ─── Ton et interdits ─────────────────────────────────
     {
       title: "Ton des documents",
       content: `Sobre, formel, précis. Vouvoiement systématique. Aucune fioriture — le document doit être imprimable, signable et envoyable en l'état.
-Pas d'emoji, pas de guillemets stylisés dans les champs juridiques (utiliser " et non « »).`,
+
+**Interdits stylistiques** :
+- Émojis (ni ❤ ni ✨ ni 📸 ni rien)
+- Familier (« au fait », « du coup », « super », « top »)
+- Anglicismes gratuits (« deal », « package », « meeting »)
+- Marketing (« exceptionnel », « premium », « unique ») dans les champs juridiques
+
+**Exception** : les descriptions de prestations peuvent être légèrement plus littéraires (« reportage photographique élégant et discret » plutôt que « prise de vue »).
+
+**Format** : pas d'italique dans les mentions légales, pas de gras excessif. Une hiérarchie H1/H2/H3 claire suffit.`,
       category: "regles",
     },
     {
-      title: "TVA — cas micro-entrepreneur",
-      content: `Si Mickael est en micro-entreprise (seuil 2027 : 77 700 € HT/an pour prestations de service) :
-- Mention obligatoire « TVA non applicable, art. 293 B du CGI »
-- Aucun calcul de TVA sur les factures
-- Numéro de TVA intracom : renseigné mais inactif`,
-      category: "legal",
+      title: "Interdits absolus",
+      content: `- ✗ Modifier une facture déjà émise → toujours faire un avoir + nouvelle facture.
+- ✗ Générer une facture sans numéro séquentiel valide.
+- ✗ Inventer une mention légale — si un doute, demander à Mickael.
+- ✗ Envoyer un contrat à signature sans validation explicite préalable.
+- ✗ Inventer un tarif → toujours demander au brief.
+- ✗ Inventer une adresse ou SIRET client → demander au brief.
+- ✗ Émettre un contrat sans clause de force majeure.
+- ✗ Émettre un contrat sans clause de cession de droits à l'image.
+- ✗ Émettre un devis sans durée de validité.
+- ✗ Modifier les mentions légales obligatoires (les prendre à la lettre).`,
+      category: "regles",
+    },
+
+    // ─── CRM contacts ─────────────────────────────────────
+    {
+      title: "Contacts clients — usage",
+      content: `La table admin_contacts stocke les clients (couples mariés + prospects sérieux).
+Format d'entrée : « Prénom Nom + email + tél + adresse + notes ».
+
+Quand tu génères un document pour un client déjà connu :
+- Récupérer ses infos depuis la KB contacts plutôt que redemander au brief
+- Mettre à jour la KB si de nouvelles infos apparaissent dans le brief (nouvelle adresse, tél supplémentaire, note)
+
+Ne JAMAIS partager les infos d'un client avec un autre. Confidentialité totale.`,
+      category: "contacts",
     },
   ],
 };
