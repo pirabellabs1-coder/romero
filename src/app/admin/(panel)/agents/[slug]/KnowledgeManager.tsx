@@ -28,7 +28,11 @@ export default function KnowledgeManager({ slug, entries }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<number | null>(null);
-  const [showAdd, setShowAdd] = useState(entries.length === 0);
+  // On n'ouvre PAS le formulaire d'ajout par défaut : sinon quand la
+  // KB est vide, le bouton « Importer le pack de démarrage » est caché
+  // sous le formulaire, et le photographe ne comprend pas comment
+  // amorcer sa base rapidement.
+  const [showAdd, setShowAdd] = useState(false);
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>, okMsg: string) {
