@@ -16,6 +16,7 @@ import {
   updateAgentConfig,
   updateKnowledge,
 } from "@/lib/agents";
+import { SEED_KB } from "@/lib/agent-seed-kb";
 
 function assertSlug(raw: string): AgentSlug {
   if (!(raw in AGENT_CATALOG)) throw new Error(`Agent inconnu : ${raw}`);
@@ -159,6 +160,43 @@ export async function deleteKnowledgeEntry(
     await deleteKnowledge(id);
     revalidateAgent(s);
     return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// ─── Seed KB : ajoute d'un coup toutes les fiches starter ─────────────
+// Sécurité : ne re-crée pas ce qui existe déjà (dédup sur le titre).
+// Le photographe peut relancer le seed à volonté sans dupliquer.
+export async function seedKnowledgeAction(
+  slug: string
+): Promise<
+  | { ok: true; created: number; skipped: number }
+  | { ok: false; error: string }
+> {
+  try {
+    await requireUser();
+    const s = assertSlug(slug);
+    const seeds = SEED_KB[s];
+    if (!seeds || seeds.length === 0)
+      return { ok: false, error: "Pas de seed défini pour cet agent" };
+
+    const existing = await listKnowledge(s);
+    const existingTitles = new Set(existing.map((e) => e.title));
+
+    let created = 0;
+    let skipped = 0;
+    for (const seed of seeds) {
+      if (existingTitles.has(seed.title)) {
+        skipped++;
+        continue;
+      }
+      await addKnowledge(s, seed);
+      created++;
+    }
+    await logEvent("site", "kb_seeded", { agent: s, created, skipped });
+    revalidateAgent(s);
+    return { ok: true, created, skipped };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

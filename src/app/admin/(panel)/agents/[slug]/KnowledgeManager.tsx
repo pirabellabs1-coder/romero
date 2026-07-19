@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   addKnowledgeEntry,
   deleteKnowledgeEntry,
+  seedKnowledgeAction,
   updateKnowledgeEntry,
 } from "../actions";
 import type { AgentKnowledgeEntry } from "@/lib/agents";
@@ -141,6 +142,28 @@ export default function KnowledgeManager({ slug, entries }: Props) {
               onClick={() => setShowAdd(true)}
             >
               + Ajouter une entrée
+            </button>
+            <button
+              type="button"
+              className="agent-btn agent-btn--ghost"
+              onClick={() => {
+                setFlash(null);
+                startTransition(async () => {
+                  const res = await seedKnowledgeAction(slug);
+                  if (res.ok) {
+                    setFlash({
+                      ok: true,
+                      msg: `Seed appliqué : ${res.created} nouvelle(s) fiche(s) ajoutée(s), ${res.skipped} déjà présente(s).`,
+                    });
+                    router.refresh();
+                  } else if ("error" in res) {
+                    setFlash({ ok: false, msg: res.error ?? "" });
+                  }
+                });
+              }}
+              disabled={pending}
+            >
+              📚 Importer le pack de démarrage
             </button>
           </div>
         )}

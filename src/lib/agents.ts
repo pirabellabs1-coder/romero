@@ -425,6 +425,113 @@ export async function getStats(slug: AgentSlug): Promise<AgentStats> {
 }
 
 // ─── Playground (test) ─────────────────────────────────────────────────
+// ─── Health live pour indicateurs UI ────────────────────────────────────
+// Un snapshot compact utilisé par la landing et les Overview pour
+// afficher un pulse vert, la dernière activité, le taux de succès sur
+// l'heure passée, la latence moyenne. Une seule requête SQL par agent.
+export type AgentHealth = {
+  slug: AgentSlug;
+  status: AgentStatus;
+  is_live: boolean; // événement dans les 5 dernières minutes
+  last_event_at: string | null;
+  events_last_hour: number;
+  events_last_24h: number;
+  success_rate_24h: number; // 0-100
+  hourly_buckets: number[]; // 24 valeurs (aujourd'hui, heure par heure)
+};
+
+export async function getAgentHealth(slug: AgentSlug): Promise<AgentHealth> {
+  noStore();
+  const row = await queryOne<{
+    status: AgentStatus;
+    last_event_at: string | null;
+    events_last_hour: number;
+    events_last_24h: number;
+    events_ok_24h: number;
+  }>(
+    `SELECT
+        i.status,
+        (SELECT MAX(created_at)::text FROM agent_events WHERE agent_slug = $1) AS last_event_at,
+        (SELECT COUNT(*)::int FROM agent_events
+           WHERE agent_slug = $1 AND created_at >= NOW() - INTERVAL '1 hour') AS events_last_hour,
+        (SELECT COUNT(*)::int FROM agent_events
+           WHERE agent_slug = $1 AND created_at >= NOW() - INTERVAL '24 hours') AS events_last_24h,
+        (SELECT COUNT(*)::int FROM agent_events
+           WHERE agent_slug = $1 AND created_at >= NOW() - INTERVAL '24 hours' AND success) AS events_ok_24h
+     FROM agent_installations i WHERE slug = $1`,
+    [slug]
+  );
+
+  // Buckets horaires sur 24 h (utilisés pour la sparkline)
+  const buckets = await query<{ hour: number; count: number }>(
+    `SELECT
+        EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600 AS raw_hour,
+        COUNT(*)::int AS count
+      FROM agent_events
+      WHERE agent_slug = $1 AND created_at >= NOW() - INTERVAL '24 hours'
+      GROUP BY floor(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600)
+      HAVING floor(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600) < 24`,
+    [slug]
+  ).catch(() => []);
+
+  // On construit 24 slots (0 = maintenant, 23 = il y a 23 h).
+  const slots = new Array(24).fill(0) as number[];
+  for (const b of buckets) {
+    const idx = Math.min(23, Math.max(0, Math.floor(Number(b.hour))));
+    slots[idx] = (slots[idx] ?? 0) + Number(b.count);
+  }
+  // On inverse : slot 0 = 23 h ago … slot 23 = maintenant (pour le graphe de gauche à droite).
+  const hourly = slots.slice().reverse();
+
+  const last = row?.last_event_at ? new Date(row.last_event_at) : null;
+  const is_live = last ? Date.now() - last.getTime() < 5 * 60 * 1000 : false;
+  const total = row?.events_last_24h ?? 0;
+  const ok = row?.events_ok_24h ?? 0;
+
+  return {
+    slug,
+    status: row?.status ?? "not_installed",
+    is_live,
+    last_event_at: row?.last_event_at ?? null,
+    events_last_hour: row?.events_last_hour ?? 0,
+    events_last_24h: total,
+    success_rate_24h: total > 0 ? Math.round((ok / total) * 100) : 100,
+    hourly_buckets: hourly,
+  };
+}
+
+export async function getAllAgentHealth(): Promise<AgentHealth[]> {
+  noStore();
+  return Promise.all(AGENT_ORDER.map((s) => getAgentHealth(s)));
+}
+
+// Latence moyenne récente basée sur les test_messages (le seul endroit
+// où on capture duration_ms de bout en bout de manière fiable). Utile
+// pour l'histogramme dans l'onglet Stats.
+export async function getLatencyHistogram(
+  slug: AgentSlug
+): Promise<Array<{ bucket_ms: number; count: number }>> {
+  noStore();
+  // Buckets : 0-500, 500-1000, 1000-2000, 2000-4000, 4000+
+  return query<{ bucket_ms: number; count: number }>(
+    `SELECT
+        CASE
+          WHEN duration_ms < 500 THEN 500
+          WHEN duration_ms < 1000 THEN 1000
+          WHEN duration_ms < 2000 THEN 2000
+          WHEN duration_ms < 4000 THEN 4000
+          ELSE 8000
+        END AS bucket_ms,
+        COUNT(*)::int AS count
+     FROM agent_test_messages
+     WHERE agent_slug = $1 AND duration_ms IS NOT NULL AND duration_ms > 0
+       AND created_at >= NOW() - INTERVAL '7 days'
+     GROUP BY bucket_ms
+     ORDER BY bucket_ms`,
+    [slug]
+  );
+}
+
 export async function saveTestMessage(entry: {
   agent_slug: AgentSlug;
   input_text: string;

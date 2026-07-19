@@ -2,12 +2,14 @@ import Link from "next/link";
 import {
   AgentInstallation,
   AgentSlug,
+  getAgentHealth,
   getStats,
   listEvents,
   listKnowledge,
   listTestMessages,
 } from "@/lib/agents";
 import type { AgentDef } from "@/lib/agents";
+import AutoRefresh from "../AutoRefresh";
 
 type Props = {
   slug: AgentSlug;
@@ -16,18 +18,78 @@ type Props = {
 };
 
 export default async function OverviewTab({ slug, def, installation }: Props) {
-  const [stats, events, kb, tests] = await Promise.all([
+  const [stats, events, kb, tests, health] = await Promise.all([
     getStats(slug).catch(() => null),
     listEvents(slug, 5).catch(() => []),
     listKnowledge(slug).catch(() => []),
     listTestMessages(slug, 5).catch(() => []),
+    getAgentHealth(slug).catch(() => null),
   ]);
 
   const readiness = computeReadiness(installation, kb.length);
+  const lastEventRel = health?.last_event_at ? relativeTime(new Date(health.last_event_at)) : null;
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 24 }} className="agent-overview">
+      <AutoRefresh />
       <div>
+        {/* Bandeau live */}
+        {health ? (
+          <div
+            className="agent-panel"
+            style={{
+              marginBottom: 22,
+              display: "flex",
+              alignItems: "center",
+              gap: 18,
+              padding: "16px 22px",
+            }}
+          >
+            <span
+              className={`live-dot live-dot--${health.is_live ? "live" : installation?.status === "installed" ? "idle" : "off"}`}
+              aria-hidden
+            />
+            <div style={{ flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: health.is_live
+                    ? "#9DCE9D"
+                    : "rgba(244,239,227,0.65)",
+                }}
+              >
+                {health.is_live ? "En activité maintenant" : installation?.status === "installed" ? "Actif · au repos" : "Non activé"}
+              </div>
+              <div style={{ fontSize: 13.5, color: "rgba(244,239,227,0.85)", marginTop: 4 }}>
+                {lastEventRel ? `Dernière activité ${lastEventRel} · ${health.events_last_hour} événement${health.events_last_hour > 1 ? "s" : ""} sur la dernière heure.` : "Aucune activité enregistrée pour le moment."}
+              </div>
+            </div>
+            <div style={{ textAlign: "right", minWidth: 110 }}>
+              <div
+                style={{
+                  fontFamily: "var(--serif, Georgia, serif)",
+                  fontStyle: "italic",
+                  fontSize: 26,
+                  color:
+                    health.success_rate_24h >= 90
+                      ? "#9DCE9D"
+                      : health.success_rate_24h >= 70
+                      ? "var(--gold-light, #D4B57A)"
+                      : "#E48A8A",
+                  lineHeight: 1,
+                }}
+              >
+                {health.success_rate_24h}%
+              </div>
+              <div style={{ fontSize: 9.5, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(244,239,227,0.55)", marginTop: 6 }}>
+                Succès 24 h
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {/* Description */}
         <div className="agent-panel" style={{ marginBottom: 22 }}>
           <h2>À propos de cet agent</h2>
@@ -194,4 +256,16 @@ function computeReadiness(
   ];
   const done = items.filter((i) => i.done).length;
   return { pct: Math.round((done / items.length) * 100), done, total: items.length, items };
+}
+
+// Formatage relatif « il y a X ». Dupliqué depuis HealthPanel.tsx pour
+// ne pas créer d'import inter-composants sur un helper trivial.
+function relativeTime(d: Date): string {
+  const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diffSec < 30) return "à l'instant";
+  if (diffSec < 60) return `il y a ${diffSec} s`;
+  if (diffSec < 3600) return `il y a ${Math.floor(diffSec / 60)} min`;
+  if (diffSec < 86400) return `il y a ${Math.floor(diffSec / 3600)} h`;
+  if (diffSec < 86400 * 7) return `il y a ${Math.floor(diffSec / 86400)} j`;
+  return d.toLocaleDateString("fr-FR");
 }

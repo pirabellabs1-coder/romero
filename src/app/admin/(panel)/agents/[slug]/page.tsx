@@ -7,6 +7,8 @@ import {
   AgentSlug,
   effectivePrompt,
   getAgent,
+  getAgentHealth,
+  getLatencyHistogram,
   getStats,
   listEvents,
   listKnowledge,
@@ -316,14 +318,26 @@ async function PlaygroundTabWrapper({ slug }: { slug: AgentSlug }) {
 }
 
 async function StatsTabWrapper({ slug }: { slug: AgentSlug }) {
-  const stats = await getStats(slug).catch(() => ({
-    total_events: 0,
-    success_events: 0,
-    failure_events: 0,
-    by_type: [],
-    daily: [],
-  }));
-  return <StatsView stats={stats} />;
+  // Fetch tout en parallèle : stats agrégées 30 j + timeline horaire 24 h
+  // + histogramme latence 7 j.
+  const [stats, health, latency] = await Promise.all([
+    getStats(slug).catch(() => ({
+      total_events: 0,
+      success_events: 0,
+      failure_events: 0,
+      by_type: [],
+      daily: [],
+    })),
+    getAgentHealth(slug).catch(() => null),
+    getLatencyHistogram(slug).catch(() => []),
+  ]);
+  return (
+    <StatsView
+      stats={stats}
+      hourly={health?.hourly_buckets}
+      latency={latency}
+    />
+  );
 }
 
 async function ActivityTabWrapper({ slug }: { slug: AgentSlug }) {

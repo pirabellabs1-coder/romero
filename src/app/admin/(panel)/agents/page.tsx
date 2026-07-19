@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAgents, AGENT_CATALOG, AgentStatus } from "@/lib/agents";
+import HealthPanel from "./HealthPanel";
 
 // Le dashboard admin est un environnement authentifié — pas de cache
 // statique. Chaque navigation refetch l'état des agents.
@@ -32,8 +33,12 @@ export default async function AgentsIndexPage() {
 
   return (
     <div>
-      {/* ─── HERO ─── */}
-      <section className="agents-hero">
+      {/* ─── LIVE HEALTH PANEL ─── */}
+      {/* Nouveau : indicateurs live + sparklines 24 h, auto-refresh 30 s. */}
+      <HealthPanel />
+
+      {/* ─── HERO (ancien) — on garde en dessous pour la description ─── */}
+      <section className="agents-hero" style={{ marginTop: 6 }}>
         <div className="agents-hero__eyebrow">Écosystème d'agents intelligents</div>
         <h1 className="agents-hero__title">
           Vos <em>agents IA</em>, tous au même endroit
