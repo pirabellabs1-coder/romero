@@ -2,11 +2,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  cancelScheduledInstagramAction,
   deleteBriefAction,
   markLinkedInCopiedAction,
   publishBlogAction,
   publishInstagramAction,
   regenerateDraftsAction,
+  scheduleInstagramAction,
   updateBriefDraftAction,
   type Brief,
 } from "../marketing-actions";
@@ -29,6 +31,17 @@ export default function BriefCard({ brief, defaultOpen, hasInstagramCreds }: Pro
   // Édition inline (chaque plateforme a son état local)
   const [igCaption, setIgCaption] = useState(brief.instagram_caption ?? "");
   const [igHashtags, setIgHashtags] = useState(brief.instagram_hashtags ?? "");
+  // Programmation IG : datetime-local formaté (YYYY-MM-DDTHH:mm)
+  const defaultScheduleTime = (() => {
+    const d = new Date(Date.now() + 60 * 60 * 1000); // +1 h
+    d.setSeconds(0, 0);
+    // Ajuste au fuseau local pour l'input datetime-local
+    const off = d.getTimezoneOffset();
+    d.setMinutes(d.getMinutes() - off);
+    return d.toISOString().slice(0, 16);
+  })();
+  const [scheduleAt, setScheduleAt] = useState(defaultScheduleTime);
+  const [showSchedule, setShowSchedule] = useState(false);
   const [linkedin, setLinkedin] = useState(brief.linkedin_post ?? "");
   const [blogTitle, setBlogTitle] = useState(brief.blog_title ?? "");
   const [blogSlug, setBlogSlug] = useState(brief.blog_slug ?? "");
@@ -229,23 +242,35 @@ export default function BriefCard({ brief, defaultOpen, hasInstagramCreds }: Pro
                   Enregistrer les modifications
                 </button>
                 {hasInstagramCreds && brief.photo_urls?.length > 0 ? (
-                  <button
-                    type="button"
-                    className="agent-btn agent-btn--primary"
-                    onClick={() =>
-                      run(
-                        () => publishInstagramAction(brief.id),
-                        "Post publié sur Instagram."
-                      )
-                    }
-                    disabled={pending || brief.instagram_status === "published"}
-                  >
-                    {brief.instagram_status === "published"
-                      ? "Déjà publié"
-                      : pending
-                      ? "Publication…"
-                      : "Publier sur Instagram"}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="agent-btn agent-btn--primary"
+                      onClick={() =>
+                        run(
+                          () => publishInstagramAction(brief.id),
+                          "Post publié sur Instagram."
+                        )
+                      }
+                      disabled={pending || brief.instagram_status === "published"}
+                    >
+                      {brief.instagram_status === "published"
+                        ? "Déjà publié"
+                        : pending
+                        ? "Publication…"
+                        : "Publier maintenant"}
+                    </button>
+                    {brief.instagram_status !== "published" ? (
+                      <button
+                        type="button"
+                        className="agent-btn agent-btn--ghost"
+                        onClick={() => setShowSchedule(!showSchedule)}
+                        disabled={pending}
+                      >
+                        {showSchedule ? "Annuler" : brief.instagram_status === "scheduled" ? "Modifier la programmation" : "Programmer…"}
+                      </button>
+                    ) : null}
+                  </>
                 ) : (
                   <span style={{ fontSize: 12, color: "var(--muted,#7A6E5C)", fontStyle: "italic" }}>
                     {!hasInstagramCreds
@@ -254,6 +279,92 @@ export default function BriefCard({ brief, defaultOpen, hasInstagramCreds }: Pro
                   </span>
                 )}
               </div>
+
+              {/* Panneau de programmation */}
+              {showSchedule ? (
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: 14,
+                    background: "rgba(184,151,90,0.10)",
+                    border: "1px solid rgba(184,151,90,0.28)",
+                    borderRadius: 4,
+                  }}
+                >
+                  <div className="agent-form-field" style={{ marginBottom: 10 }}>
+                    <label>Date & heure de publication</label>
+                    <input
+                      type="datetime-local"
+                      value={scheduleAt}
+                      onChange={(e) => setScheduleAt(e.target.value)}
+                    />
+                    <span className="agent-form-field__help">
+                      Le cron passe toutes les 15 min — la publication se fera à l'occurrence suivante après cette heure.
+                    </span>
+                  </div>
+                  <div className="agent-actions" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
+                    <button
+                      type="button"
+                      className="agent-btn agent-btn--primary"
+                      onClick={() =>
+                        run(
+                          () =>
+                            scheduleInstagramAction(
+                              brief.id,
+                              new Date(scheduleAt).toISOString()
+                            ),
+                          "Post programmé."
+                        )
+                      }
+                      disabled={pending}
+                    >
+                      Programmer
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {brief.instagram_status === "scheduled" && brief.instagram_scheduled_for ? (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 10,
+                    background: "rgba(224,185,106,0.10)",
+                    border: "1px solid rgba(224,185,106,0.32)",
+                    borderRadius: 4,
+                    fontSize: 12.5,
+                    color: "#E0B96A",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  <span>
+                    📅 Programmé pour le{" "}
+                    <strong>
+                      {new Date(brief.instagram_scheduled_for).toLocaleString("fr-FR", {
+                        dateStyle: "full",
+                        timeStyle: "short",
+                      })}
+                    </strong>
+                  </span>
+                  <button
+                    type="button"
+                    className="agent-btn agent-btn--ghost"
+                    style={{ marginLeft: "auto", fontSize: 10, padding: "6px 10px" }}
+                    onClick={() =>
+                      run(
+                        () => cancelScheduledInstagramAction(brief.id),
+                        "Programmation annulée."
+                      )
+                    }
+                    disabled={pending}
+                  >
+                    Annuler
+                  </button>
+                </div>
+              ) : null}
+
               {brief.instagram_post_id ? (
                 <div style={{ marginTop: 10, fontSize: 11, color: "var(--muted,#7A6E5C)" }}>
                   ID post Instagram : <code>{brief.instagram_post_id}</code>

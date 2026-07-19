@@ -21,6 +21,7 @@ export type Brief = {
   blog_meta_description: string | null;
   blog_content_md: string | null;
   instagram_status: string;
+  instagram_scheduled_for: string | null;
   instagram_published_at: string | null;
   instagram_post_id: string | null;
   instagram_error: string | null;
@@ -257,6 +258,177 @@ export async function publishInstagramAction(
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+// ─── Programmer un post Instagram pour une date future ───────────
+// Passe le statut à 'scheduled' avec une date future. Le cron
+// /api/cron/publish-scheduled toutes les 15 min prend le relais.
+export async function scheduleInstagramAction(
+  briefId: number,
+  scheduledForISO: string
+): Promise<
+  | { ok: true; scheduledFor: string }
+  | { ok: false; error: string }
+> {
+  try {
+    await requireUser();
+    const when = new Date(scheduledForISO);
+    if (isNaN(when.getTime()))
+      return { ok: false, error: "Date invalide" };
+    if (when.getTime() < Date.now() + 60_000)
+      return {
+        ok: false,
+        error:
+          "La date doit être au moins 1 min dans le futur (le cron passe toutes les 15 min).",
+      };
+
+    const brief = await queryOne<Brief>(
+      `SELECT * FROM marketing_briefs WHERE id = $1`,
+      [briefId]
+    );
+    if (!brief) return { ok: false, error: "Brief introuvable" };
+    if (!brief.photo_urls || brief.photo_urls.length === 0)
+      return { ok: false, error: "Aucune photo — impossible de programmer" };
+    if (brief.instagram_status === "published")
+      return { ok: false, error: "Déjà publié" };
+
+    await execute(
+      `UPDATE marketing_briefs
+       SET instagram_status = 'scheduled',
+           instagram_scheduled_for = $1,
+           instagram_error = NULL,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [when.toISOString(), briefId]
+    );
+    await logEvent("marketing", "instagram_scheduled", {
+      brief_id: briefId,
+      scheduled_for: when.toISOString(),
+    });
+    revalidate();
+    return { ok: true, scheduledFor: when.toISOString() };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function cancelScheduledInstagramAction(
+  briefId: number
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await requireUser();
+    await execute(
+      `UPDATE marketing_briefs
+       SET instagram_status = 'draft',
+           instagram_scheduled_for = NULL,
+           updated_at = NOW()
+       WHERE id = $1 AND instagram_status = 'scheduled'`,
+      [briefId]
+    );
+    await logEvent("marketing", "instagram_schedule_cancelled", {
+      brief_id: briefId,
+    });
+    revalidate();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// ─── Traite les posts programmés en retard (appelé par le cron) ───
+// Sélectionne tous les briefs 'scheduled' dont la date est dépassée,
+// publie chacun via publishInstagramAction. Renvoie un résumé.
+// Aucune auth requise pour l'appelant : la protection se fait via
+// CRON_SECRET dans le header (voir /api/cron/publish-scheduled).
+export async function processScheduledInstagramPosts(): Promise<{
+  processed: number;
+  published: number;
+  failed: number;
+  details: Array<{ briefId: number; ok: boolean; error?: string }>;
+}> {
+  const due = await query<Brief>(
+    `SELECT * FROM marketing_briefs
+     WHERE instagram_status = 'scheduled'
+       AND instagram_scheduled_for IS NOT NULL
+       AND instagram_scheduled_for <= NOW()
+     ORDER BY instagram_scheduled_for ASC
+     LIMIT 20`
+  );
+
+  const details: Array<{ briefId: number; ok: boolean; error?: string }> = [];
+  let published = 0;
+  let failed = 0;
+
+  for (const brief of due) {
+    // Réutilise la fonction interne pour publier — on peut la factoriser
+    // en dupliquant l'appel car publishInstagramAction requiert auth.
+    // On la déblaie ici en appelant directement l'API Instagram.
+    const inst = await getAgent("marketing");
+    const cfg = inst?.config as
+      | { meta_access_token?: string; instagram_business_id?: string }
+      | undefined;
+    if (!cfg?.meta_access_token || !cfg?.instagram_business_id) {
+      details.push({
+        briefId: brief.id,
+        ok: false,
+        error: "Meta creds manquants",
+      });
+      failed++;
+      continue;
+    }
+
+    const { publishInstagramPost } = await import("@/lib/instagram");
+    const caption = [
+      (brief.instagram_caption || "").trim(),
+      (brief.instagram_hashtags || "").trim(),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const result = await publishInstagramPost({
+      igUserId: cfg.instagram_business_id,
+      accessToken: cfg.meta_access_token,
+      imageUrls: brief.photo_urls,
+      caption,
+    });
+
+    if (!result.ok) {
+      await execute(
+        `UPDATE marketing_briefs
+         SET instagram_status = 'failed', instagram_error = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [result.error, brief.id]
+      );
+      await logEvent(
+        "marketing",
+        "instagram_scheduled_publish_error",
+        { brief_id: brief.id, error: result.error },
+        false
+      );
+      details.push({ briefId: brief.id, ok: false, error: result.error });
+      failed++;
+    } else {
+      await execute(
+        `UPDATE marketing_briefs
+         SET instagram_status = 'published',
+             instagram_post_id = $1,
+             instagram_published_at = NOW(),
+             instagram_error = NULL,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [result.postId, brief.id]
+      );
+      await logEvent("marketing", "instagram_scheduled_published", {
+        brief_id: brief.id,
+        post_id: result.postId,
+      });
+      details.push({ briefId: brief.id, ok: true });
+      published++;
+    }
+  }
+
+  revalidate();
+  return { processed: due.length, published, failed, details };
 }
 
 // ─── LinkedIn : marque comme copié (pas de publication auto) ──────

@@ -213,45 +213,8 @@ Ni racoleur, ni corporate. Toujours l'émotion en premier. Vouvoiement quand on 
     },
     {
       title: "Hashtags signature Instagram",
-      content: `#photographemariagenice #mariagenice #mariagecotedazur #mariageprovence #weddingphotographernice #weddingphotographerfrance #frenchriviera #mariage2027 #mariage2028 #photographemariage #storytellingphotography`,
+      content: `#photographemariagenice #mariagenice #mariagecotedazur #mariageprovence #weddingphotographernice #weddingphotographerfrance #frenchriviera #mariage2027 #mariage2028 #photographemariage #storytellingphotography #romeromoments`,
       category: "hashtags",
-    },
-    {
-      title: "Structure post Instagram",
-      content: `1. Accroche émotionnelle (1 phrase — un détail, une lumière, un regard).
-2. Corps du récit (100-180 mots — pourquoi ce moment, ce couple, cette lumière).
-3. Signature Mickael (1 phrase — sa lecture du moment).
-Émojis : 2-4 max, jamais en début de phrase. Pas de « swipe up ».`,
-      category: "templates",
-    },
-    {
-      title: "Structure post LinkedIn",
-      content: `1. Accroche forte sur les 2 premières lignes (règle du « voir plus »).
-2. Corps 150-250 mots — angle métier, coulisses, réflexion sur le mariage comme moment de vie.
-3. Question ouverte ou réflexion pour l'engagement.
-4. 3-5 hashtags pertinents en fin.
-Pas de « swipe up », pas de « DM me ». Ton pro mais humain.`,
-      category: "templates",
-    },
-    {
-      title: "Structure article de blog",
-      content: `1. Titre H1 (60 char max, SEO).
-2. Introduction accrocheuse (émotion + contexte).
-3. Corps structuré en H2/H3 (préparatifs, cérémonie, réception, portraits…).
-4. Conclusion avec CTA doux vers /contact ou /concours.
-5. Méta-description 155 char max.
-Longueur : 800-1500 mots. Mots-clés naturels, jamais forcés.`,
-      category: "templates",
-    },
-    {
-      title: "Sujets à éviter (à valider avec Mickael)",
-      content: `- Politique, religion, actualité polémique.
-- Prix explicites (règle du studio).
-- Comparaison avec d'autres photographes.
-- Blagues sur les mariés ou les invités.
-- Filtres extrêmes, effets tape-à-l'œil.
-- « Swipe up », « lien en bio », urgences fabriquées.`,
-      category: "voice",
     },
     {
       title: "Palette et références visuelles",
@@ -260,19 +223,300 @@ Cadrages : lumière naturelle, contre-jour doré fréquent, portraits en tiers, 
 Formats IG : carré 1:1 ou portrait 4:5 privilégiés — jamais de vertical 9:16 sauf reels.`,
       category: "brand",
     },
+
+    // ─── Piliers de contenu ─────────────────────────────────────
     {
-      title: "Sujets récurrents à valoriser",
-      content: `- Émotion : regards, larmes, rires, mains qui se cherchent.
-- Lumière : golden hour, ombres douces, contre-jours de cérémonie.
-- Détails : robe, alliances, bouquet, décor, papeterie.
-- Lieux : châteaux, mas provençaux, bord de mer, jardins.
-- Coulisses : préparatifs, second first look, moments volés.`,
+      title: "Piliers de contenu (5 axes, à alterner)",
+      content: `**A — Vrais mariages (40 %)** — portrait d'un couple, moment fort de leur journée, détail concret du lieu.
+**B — Métier et coulisses (25 %)** — réflexion d'artisan sur son métier. Choix d'objectif, attente d'une lumière.
+**C — Éducation & conseils (15 %)** — ce que les couples devraient savoir. Choix du photographe, timing, préparation.
+**D — Univers visuel & inspirations (10 %)** — golden hour, palette, lieux emblématiques, styles d'ambiances.
+**E — Personnel & humain (10 %)** — voyages, lectures, réflexions personnelles. À doser (max 1/10).
+
+Règle d'or : ne jamais publier deux fois de suite dans le même pilier.`,
+      category: "piliers",
+    },
+    {
+      title: "Vocabulaire préféré",
+      content: `Adjectifs : élégant, chaleureux, lumineux, intemporel, tendre, complice, discret, sincère, précieux, délicat.
+Verbes : capter, raconter, saisir, accompagner, révéler, transmettre, prolonger, effleurer.
+Substantifs : instant, regard, geste, lumière, complicité, histoire, promesse, silence, souffle.
+Métaphores autorisées : « fenêtre sur », « souvenir en suspens », « lumière qui hésite », « moment qui refuse de finir ».`,
+      category: "voice",
+    },
+    {
+      title: "Vocabulaire à éviter (bannis)",
+      content: `- Superlatifs vides : « le plus beau », « incroyable », « magique », « ouf », « trop »
+- Buzzwords : « impact », « stratégie », « ROI », « transformation digitale »
+- Racoleurs : « swipe up », « lien en bio », « DM me », « bookez vite »
+- Familier : « top », « ouf », « stylé », « génial », « énorme »
+- Anglicismes gratuits : « wedding vibes », « save-the-date », « bride goals » (garder l'anglais uniquement pour les termes techniques nécessaires)
+- Émojis interdits : 🔥 💯 😂 🥰 🙌 (registre inapproprié)`,
+      category: "voice",
+    },
+
+    // ─── Structures ─────────────────────────────────────────────
+    {
+      title: "Structure post Instagram",
+      content: `1. Accroche émotionnelle (1-2 phrases — un détail, une lumière, un geste). Jamais « Voici… ».
+2. Corps du récit (6-12 phrases, rythme varié).
+3. Signature (1 phrase — question douce, réflexion, ou remerciement au couple).
+4. Ligne blanche.
+5. Bloc hashtags (15-25).
+
+Émojis : 2-4 maximum, jamais en début de phrase, jamais deux à la suite.
+Longueur totale : 100-220 mots.`,
+      category: "templates",
+    },
+    {
+      title: "Structure post LinkedIn",
+      content: `1. Accroche forte sur les 2 premières lignes (règle du « voir plus »). Question ouverte, observation surprenante, contre-pied.
+2. Développement — 3 à 5 paragraphes courts (1 idée = 1 paragraphe), ligne blanche entre chaque.
+3. Réflexion ou question ouverte pour l'engagement.
+4. 3-5 hashtags pertinents en fin (pas plus).
+
+Longueur : 150-300 mots. Zéro corporate speak.`,
+      category: "templates",
+    },
+    {
+      title: "Structure article de blog",
+      content: `1. **Titre H1** (60 char max, contient le mot-clé principal).
+2. **Méta-description** (155 char max, CTA implicite).
+3. **Introduction** (100-150 mots, promesse de valeur).
+4. **Corps** structuré en 3-5 sections H2 (chacune éventuellement subdivisée en H3).
+5. **Conclusion** (80-120 mots, récapitule + CTA doux).
+
+Longueur : 800-1500 mots. Mots-clés naturels 3-5 fois maximum. Liens internes contextuels vers /prestations, /portfolio, /contact ou /concours quand pertinent.`,
+      category: "templates",
+    },
+    {
+      title: "Structure carrousel Instagram (2-10 slides)",
+      content: `**Slide 1** — Accroche visuelle forte + titre en overlay (« 5 conseils… », « Ce qu'on ne vous dit pas… »).
+**Slides 2-N-1** — un point / une idée par slide. Visuel + texte court (30-50 mots max par slide).
+**Dernière slide** — CTA doux : « Enregistrez ce post » ou « Partagez-le à un couple qui en aurait besoin ».
+
+Le carrousel est idéal pour l'éducation (Pilier C) et les listes de conseils.`,
+      category: "templates",
+    },
+    {
+      title: "Structure Reel Instagram (15-60 s)",
+      content: `**Hook (0-3 s)** — un plan qui accroche : la mariée qui découvre le lieu, un contre-jour spectaculaire, un geste.
+**Récit (3-45 s)** — 4 à 8 plans qui racontent un moment. Musique douce, transitions fluides. Sous-titres discrets si dialogue.
+**Signature (45-60 s)** — plan wide qui ferme + logo/handle en discret.
+
+Format vertical 9:16. Musique libre de droits Instagram Music. Éviter les tendances trop marketées.`,
+      category: "templates",
+    },
+    {
+      title: "Structure Story Instagram",
+      content: `Format éphémère (24 h) — usage recommandé :
+- Coulisses en direct d'un mariage (avec accord du couple)
+- Poll ou question (« Cérémonie extérieure ou intérieure ? »)
+- Répondre à une question fréquente (Q&A)
+- Countdown avant un événement important (concours, exposition)
+- Repost d'un couple qui a partagé ses photos
+
+Éviter : promo commerciale, urgences fabriquées, spam.`,
+      category: "templates",
+    },
+
+    // ─── Formules de copywriting ──────────────────────────────
+    {
+      title: "Formules d'accroche IG qui marchent",
+      content: `- « Il y a des jours où la lumière semble avoir été choisie exprès. »
+- « Un regard vaut souvent mieux qu'une pose. »
+- « Ce moment n'était pas prévu. C'est peut-être pour ça qu'il est le plus beau. »
+- « Entre la cérémonie et le vin d'honneur, il y a un espace magique. »
+- « Il suffit parfois d'un détail — une main qui se cherche, un souffle. »
+- « [Prénom] et [Prénom] se sont dit oui à [Lieu]. Voici ce qui reste. »
+- « Il y a des couples dont on sait, dès la première rencontre, que ce sera juste. »`,
+      category: "copy",
+    },
+    {
+      title: "Formules d'accroche LinkedIn qui marchent",
+      content: `- « Après [X] mariages photographiés, voici ce que j'ai compris sur [sujet]. »
+- « Il y a un moment d'un mariage que je préfère à tous les autres. Ce n'est pas celui qu'on croit. »
+- « On me demande souvent [question]. Voici ma réponse honnête. »
+- « J'ai failli refuser ce mariage. Voici pourquoi c'est finalement le plus beau que j'ai photographié. »
+- « Un débat récurrent dans la profession : [sujet]. Ma position. »
+- « L'erreur que font 90 % des mariés quand ils choisissent leur photographe. »`,
+      category: "copy",
+    },
+    {
+      title: "Formules de CTA doux (jamais commercial agressif)",
+      content: `**En fin d'article de blog** :
+- « Si vous préparez votre mariage et que mon univers vous parle, écrivez-moi — nous prendrons le temps d'en discuter sans engagement. »
+- « Découvrez d'autres histoires dans la galerie. »
+- « Le Grand Concours 2027 se termine le 23 décembre — pour en savoir plus. »
+
+**En fin de post IG** :
+- Question douce (« Et vous, quel moment retenez-vous de votre journée ? »)
+- Invitation à enregistrer (« Enregistrez ce post pour votre planning »)
+- Rien du tout — laisser la caption respirer
+
+**Jamais** : « Bookez vite », « plus que X places », « urgent ».`,
+      category: "copy",
+    },
+    {
+      title: "Adaptation d'un même brief aux 3 plateformes",
+      content: `Même brief (« photo Sophie et Marc, Château de la Napoule, 15 juin ») donne :
+
+**IG** : « Ce regard, entre la cérémonie et le vin d'honneur, quand Sophie a réalisé que c'était bien réel. » — 180 mots sur l'émotion du moment.
+
+**LinkedIn** : « Pourquoi je choisis toujours de suivre les mariés entre la cérémonie et le cocktail — ce qu'on manque quand on court aux photos posées trop vite. » — 250 mots avec analyse métier.
+
+**Blog** : « Comment capter les 15 minutes cachées d'un mariage — mes conseils aux couples et à mes confrères. » — 1200 mots avec structure, exemples, conseils actionnables.`,
+      category: "templates",
+    },
+
+    // ─── SEO & Blog ─────────────────────────────────────────────
+    {
+      title: "Mots-clés blog prioritaires (SEO)",
+      content: `**Fort volume** (à cibler dans les articles piliers) :
+- photographe mariage Nice
+- photographe mariage Côte d'Azur
+- photographe mariage Provence
+- photographe de mariage haut de gamme
+- reportage mariage Nice
+
+**Longue traîne** (à cibler dans les articles conseils) :
+- comment choisir son photographe de mariage
+- prix photographe mariage Côte d'Azur
+- questions à poser à son photographe de mariage
+- photographe mariage bohème Provence
+- destination wedding photographer French Riviera`,
+      category: "seo",
+    },
+    {
+      title: "Bonnes pratiques SEO — règles absolues",
+      content: `- Mot-clé principal dans : titre, méta-description, première phrase, au moins un H2, 3-5 fois dans le corps.
+- Slug URL en kebab-case, minuscules, sans accents, sans articles. Ex : \`photographe-mariage-nice-guide\`.
+- Un article = un mot-clé principal. Pas de cannibalisation.
+- Liens internes contextuels vers /prestations, /portfolio, /contact, /concours (jamais forcés).
+- Images avec balise alt descriptive (« Sophie et Marc lors de leur cérémonie au Château de la Napoule »).
+- Longueur > 800 mots pour les articles piliers (référence Google).`,
+      category: "seo",
+    },
+    {
+      title: "Anti-patterns SEO (à ne jamais faire)",
+      content: `- Titre bourré de mots-clés (« photographe mariage Nice pas cher pro »)
+- Mot-clé répété plus de 8 fois (keyword stuffing pénalisé)
+- Slug avec plus de 60 caractères
+- Absence totale de lien interne (article isolé)
+- Balise H1 dupliquée dans le corps
+- Introduction longue (> 200 mots — perd le lecteur)
+- CTA agressif (« Réservez maintenant, plus que 3 places »)`,
+      category: "seo",
+    },
+
+    // ─── Rythme éditorial ─────────────────────────────────────
+    {
+      title: "Rythme de publication recommandé",
+      content: `**Instagram** — 3 à 5 posts par semaine, alternant les piliers. 1-2 stories par jour de mariage. 1 Reel toutes les 2 semaines.
+
+**LinkedIn** — 1 à 2 posts par semaine. Rythme régulier > sporadique intensif.
+
+**Blog** — 2 à 4 articles par mois. 1 article pilier long + 2-3 articles courts. Rythme constant = meilleur SEO.
+
+Constance > perfection. Mieux vaut 3 posts par semaine sur 12 semaines qu'une salve de 20 puis silence.`,
+      category: "rythme",
+    },
+    {
+      title: "Jours et heures optimales de publication",
+      content: `**Instagram** (audience futurs mariés France) :
+- Mardi/Mercredi/Jeudi 12h-14h et 19h-21h
+- Dimanche 10h-12h (temps de scroll détendu)
+
+**LinkedIn** (audience pros) :
+- Mardi/Jeudi 8h-10h et 12h-13h30
+- Éviter le week-end
+
+**Blog** — pas de jour préféré (SEO organique), mais publier en début de semaine donne plus de temps pour l'indexation.`,
+      category: "rythme",
+    },
+
+    // ─── Cas d'usage ─────────────────────────────────────────
+    {
+      title: "Cas d'usage — vrai mariage à valoriser",
+      content: `Signaux à capturer et raconter dans la caption/l'article :
+- Émotion : regard, larme, rire, main qui se cherche, geste tendre.
+- Lumière : golden hour, contre-jour, ombre douce, éclat vif.
+- Détails : robe, alliances, bouquet, papeterie, décor, calligraphie.
+- Lieux : châteaux, mas provençaux, vues mer, jardins secrets, chapelles anciennes.
+- Coulisses : préparatifs, second first look, moment volé après le cocktail, danse improvisée.
+- Culture : rites religieux (mahurot, hora, tea ceremony), traditions régionales, larmes des parents.
+
+Toujours du concret (un prénom, un lieu précis, un instant) — jamais des généralités.`,
       category: "sujets",
     },
     {
-      title: "Références concurrentielles à respecter",
-      content: `Ne jamais nommer un photographe concurrent (positif ou négatif). Ne jamais publier une photo qui n'appartient pas à Mickael.`,
+      title: "Cas d'usage — Le Grand Concours 2027",
+      content: `Positionnement quand tu parles du concours :
+- Le concours est un cadeau BONUS, jamais un argument commercial principal.
+- Un couple doit choisir Mickael pour son style photo — pas pour le voyage.
+- Toujours transparent : « voir /concours pour les conditions ».
+- Éviter l'urgence agressive (« plus que X jours ! ») — plutôt : « le concours se termine le 23 décembre 2027 ».
+- Ne jamais insister sur la valeur monétaire du prix — insister sur l'expérience (safari, Zanzibar, aventure humaine).`,
+      category: "sujets",
+    },
+    {
+      title: "Cas d'usage — journée type de photographe",
+      content: `Angle « coulisses » pour LinkedIn ou blog :
+- Réveil 6h30 pour un mariage à Aix.
+- Préparatifs de la mariée 8h-10h (posé, discret, présent sans être là).
+- Cérémonie 11h-12h (photojournalisme pur, jamais interrompre).
+- Cocktail 13h-15h (portrait couple entre les échanges).
+- Réception 16h-19h (détails déco + premier repas).
+- Soirée 20h-23h (émotion, danses, dernier baiser).
+- Retour maison, 1h de tri des cartes SD.
+- 6-10 semaines de post-production pour livraison.
+
+Chaque étape peut devenir un post ou un article.`,
+      category: "sujets",
+    },
+
+    // ─── Règles ─────────────────────────────────────────────
+    {
+      title: "Interdits absolus",
+      content: `- ✗ Ne jamais donner un tarif exact ni une fourchette.
+- ✗ Ne jamais nommer un photographe concurrent (positif ou négatif).
+- ✗ Ne jamais publier une photo qui n'appartient pas à Mickael.
+- ✗ Ne jamais inventer un fait précis (nom, lieu, date) non dans le brief.
+- ✗ Ne jamais promettre un délai, un cadeau, un service non écrit sur le site.
+- ✗ Ne jamais tagger une personne réelle sans autorisation.
+- ✗ Ne jamais utiliser « best », « n°1 », « meilleur photographe » (illégal en publicité comparative française sans preuve).
+- ✗ Pas de politique, religion, actualité polémique.
+- ✗ Pas de « swipe up », « lien en bio », urgences fabriquées.
+- ✗ Pas d'humour déplacé sur les mariés, invités, cultures.`,
       category: "regles",
+    },
+    {
+      title: "Gestion des témoignages clients",
+      content: `Quand on publie un témoignage d'un couple :
+- Vérifier l'accord explicite (verbal ou écrit) avant.
+- Utiliser prénom + première lettre du nom (« Sophie & Marc D. »).
+- Créditer le lieu si le couple est ok avec.
+- Photo obligatoire : au moins un portrait du couple.
+- Positionnement : sous forme de story ou de post IG dédié, jamais dans un article de blog global (les témoignages ont leur propre page /avis).`,
+      category: "regles",
+    },
+    {
+      title: "Références concurrentielles à respecter",
+      content: `Ne jamais nommer un photographe concurrent (positif ou négatif). Si un brief mentionne un concurrent, l'ignorer et se concentrer sur l'univers de Mickael.
+Ne jamais publier une photo qui n'appartient pas à Mickael, même en repost avec crédit.
+Si un client demande une comparaison, rediriger : « Mickael a son propre univers. Pour découvrir son travail, la galerie /portfolio est le meilleur point de départ. »`,
+      category: "regles",
+    },
+    {
+      title: "Sujets à éviter (à valider avec Mickael)",
+      content: `- Politique, religion, actualité polémique.
+- Prix explicites (règle du studio).
+- Comparaison avec d'autres photographes.
+- Blagues sur les mariés ou les invités.
+- Filtres extrêmes, effets tape-à-l'œil.
+- « Swipe up », « lien en bio », urgences fabriquées.
+- Contenu généré uniquement par IA sans lien réel avec un mariage vécu (le studio parle de son travail réel, pas de fantaisies).`,
+      category: "voice",
     },
   ],
 

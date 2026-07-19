@@ -28,6 +28,7 @@ import GoogleAgendaPanel from "./GoogleAgendaPanel";
 import WebhookStatusPanel from "./WebhookStatusPanel";
 import WhatsappSessionsView from "./WhatsappSessionsView";
 import MarketingBriefsView from "./MarketingBriefsView";
+import CalendarView from "./CalendarView";
 import AdminDocumentsView from "./AdminDocumentsView";
 import { headers } from "next/headers";
 
@@ -43,6 +44,7 @@ type Tab =
   | "sessions"
   | "channels"
   | "briefs"
+  | "calendar"
   | "documents"
   | "stats"
   | "activity";
@@ -56,6 +58,7 @@ const TAB_LABEL: Record<Tab, string> = {
   sessions: "Sessions",
   channels: "Canaux",
   briefs: "Briefs & publications",
+  calendar: "Calendrier",
   documents: "Documents",
   stats: "Statistiques",
   activity: "Activité",
@@ -69,7 +72,7 @@ function tabsFor(slug: AgentSlug): Tab[] {
   const base: Tab[] = ["overview", "config", "prompt", "knowledge", "playground"];
   if (slug === "site") base.push("conversations");
   if (slug === "whatsapp") base.push("channels", "sessions");
-  if (slug === "marketing") base.push("briefs");
+  if (slug === "marketing") base.push("briefs", "calendar");
   if (slug === "admin") base.push("documents");
   base.push("stats", "activity");
   return base;
@@ -260,6 +263,8 @@ export default async function AgentDetailPage({
           hasInstagramCreds={Boolean(config.meta_access_token && config.instagram_business_id)}
         />
       ) : null}
+
+      {tab === "calendar" && slug === "marketing" ? <CalendarView /> : null}
 
       {tab === "documents" && slug === "admin" ? (
         <AdminDocumentsView

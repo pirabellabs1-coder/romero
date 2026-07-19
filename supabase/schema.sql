@@ -291,6 +291,7 @@ CREATE TABLE IF NOT EXISTS public.marketing_briefs (
 
   -- Statuts par plateforme
   instagram_status  TEXT NOT NULL DEFAULT 'draft' CHECK (instagram_status IN ('draft','scheduled','published','failed')),
+  instagram_scheduled_for TIMESTAMPTZ,
   instagram_published_at TIMESTAMPTZ,
   instagram_post_id TEXT,
   instagram_error   TEXT,
@@ -306,7 +307,13 @@ CREATE TABLE IF NOT EXISTS public.marketing_briefs (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- Ajout idempotent des colonnes si la table préexistait sans.
+ALTER TABLE public.marketing_briefs
+  ADD COLUMN IF NOT EXISTS instagram_scheduled_for TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_marketing_briefs_created ON public.marketing_briefs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_marketing_briefs_scheduled
+  ON public.marketing_briefs(instagram_scheduled_for)
+  WHERE instagram_status = 'scheduled';
 
 -- ── Documents administratifs (agent 4) ────────────────────────────────────
 -- Table unifiée pour devis, contrats et factures. Les 3 types partagent
