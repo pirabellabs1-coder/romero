@@ -72,6 +72,11 @@ export type AgentDef = {
     placeholder?: string;
     help?: string;
     required?: boolean;
+    /** true = champ technique (clé API, token OAuth, ID plateforme).
+     *  Ces champs sont normalement remplis via Studio Settings, ENV
+     *  Vercel ou un flow OAuth 1-clic. On les cache derrière un
+     *  toggle « Options avancées » pour ne pas noyer le user. */
+    advanced?: boolean;
   }>;
 };
 
@@ -91,7 +96,7 @@ export const AGENT_CATALOG: Record<AgentSlug, AgentDef> = {
       "Publication du widget sur le site",
     ],
     configFields: [
-      { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", required: true, help: "Créée sur console.anthropic.com" },
+      { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", required: true, help: "Fournie par la plateforme — override uniquement si besoin", advanced: true },
       { key: "calendar_provider", label: "Fournisseur d'agenda", type: "text", placeholder: "google | calcom", required: true },
       { key: "calendar_url", label: "URL / ID de l'agenda", type: "url", placeholder: "https://cal.com/mickael-romero/consultation" },
       { key: "notification_email", label: "E-mail de notification", type: "text", placeholder: "romerophotography.contact@gmail.com", required: true },
@@ -113,23 +118,20 @@ export const AGENT_CATALOG: Record<AgentSlug, AgentDef> = {
       "Test end-to-end (envoyer un vocal → événement créé)",
     ],
     configFields: [
-      // Claude
-      { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", required: true, help: "Peut être la même que celle de l'agent site" },
-      // Google Calendar
-      { key: "google_client_id", label: "Google OAuth Client ID", type: "text", required: true, help: "Créé dans Google Cloud Console → APIs & Services → Credentials" },
-      { key: "google_client_secret", label: "Google OAuth Client Secret", type: "password", required: true },
+      // Champs simples visibles par défaut
       { key: "google_calendar_id", label: "ID du calendrier Google", type: "text", placeholder: "primary", help: "Laisser « primary » pour l'agenda par défaut" },
       { key: "google_timezone", label: "Fuseau horaire", type: "text", placeholder: "Europe/Paris" },
-      // Whisper (transcription)
-      { key: "openai_api_key", label: "Clé API OpenAI (Whisper vocaux)", type: "password", help: "Optionnel si vous n'envoyez que du texte" },
-      // Telegram
-      { key: "telegram_bot_token", label: "Token bot Telegram", type: "password", help: "Créé via @BotFather sur Telegram" },
       { key: "telegram_allowed_user_id", label: "Votre ID utilisateur Telegram", type: "text", help: "Empêche que quelqu'un d'autre parle à votre bot. Récupérer via @userinfobot" },
-      // WhatsApp Cloud API (Meta)
-      { key: "whatsapp_verify_token", label: "WhatsApp verify token (chaîne libre)", type: "text", help: "Choisir une valeur secrète, la renseigner ici puis dans Meta lors du setup du webhook" },
-      { key: "whatsapp_phone_number_id", label: "WhatsApp Phone Number ID", type: "text" },
-      { key: "whatsapp_access_token", label: "WhatsApp Access Token (Meta)", type: "password" },
       { key: "whatsapp_allowed_from", label: "Votre numéro WhatsApp autorisé", type: "text", placeholder: "+33604037076" },
+      // ─── Advanced (fourni par la plateforme / OAuth / ENV) ─────────
+      { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", help: "Fournie par la plateforme — override si besoin", advanced: true },
+      { key: "google_client_id", label: "Google OAuth Client ID", type: "text", help: "Fourni par la plateforme (bouton « Connecter Google Agenda »)", advanced: true },
+      { key: "google_client_secret", label: "Google OAuth Client Secret", type: "password", help: "Fourni par la plateforme", advanced: true },
+      { key: "openai_api_key", label: "Clé API OpenAI (Whisper vocaux)", type: "password", help: "Optionnel — pour transcrire les vocaux", advanced: true },
+      { key: "telegram_bot_token", label: "Token bot Telegram", type: "password", help: "Créé via @BotFather sur Telegram", advanced: true },
+      { key: "whatsapp_verify_token", label: "WhatsApp verify token", type: "text", help: "Chaîne secrète à définir puis à recopier dans Meta", advanced: true },
+      { key: "whatsapp_phone_number_id", label: "WhatsApp Phone Number ID", type: "text", advanced: true },
+      { key: "whatsapp_access_token", label: "WhatsApp Access Token (Meta)", type: "password", advanced: true },
     ],
   },
   marketing: {
@@ -147,18 +149,16 @@ export const AGENT_CATALOG: Record<AgentSlug, AgentDef> = {
       "Envoyer votre premier brief pour voir 3 drafts prêts en 20 secondes",
     ],
     configFields: [
-      // Claude + Whisper
-      { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", required: true, help: "Peut être la même que celle des autres agents" },
-      { key: "openai_api_key", label: "Clé API OpenAI (Whisper vocaux)", type: "password", help: "Nécessaire pour les briefs vocaux" },
-      // Meta / Instagram
-      { key: "meta_access_token", label: "Meta Page Access Token (long-lived)", type: "password", required: true, help: "Voir developers.facebook.com/apps → votre app → Instagram" },
-      { key: "instagram_business_id", label: "Instagram Business Account ID", type: "text", required: true, help: "ID numérique du compte @romeromomentsphoto en mode Business" },
-      // LinkedIn (reference only, no auto-publish)
-      { key: "linkedin_profile_url", label: "URL profil LinkedIn", type: "url", placeholder: "https://linkedin.com/in/mickael-romero", help: "Pour référence — LinkedIn ne permet pas la publication auto" },
-      // Ton / voix
+      // Personnalisation éditoriale (visible par défaut)
       { key: "brand_voice", label: "Voix éditoriale (ton, mots-clés, tabous)", type: "textarea", placeholder: "Élégant, chaleureux, jamais racoleur. Jamais de « swipe up ». Toujours attentif à l'émotion avant l'esthétique." },
       { key: "signature_hashtags", label: "Hashtags signature (séparés par un espace)", type: "textarea", placeholder: "#photographemariagenice #mariageprovence #weddingphotographer #mariage2027" },
       { key: "blog_default_lang", label: "Langue par défaut du blog (fr / en)", type: "text", placeholder: "fr" },
+      { key: "linkedin_profile_url", label: "URL profil LinkedIn", type: "url", placeholder: "https://linkedin.com/in/mickael-romero", help: "Pour référence — LinkedIn ne permet pas la publication auto" },
+      // ─── Advanced (fourni par la plateforme / OAuth / ENV) ─────────
+      { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", help: "Fournie par la plateforme", advanced: true },
+      { key: "openai_api_key", label: "Clé API OpenAI (Whisper vocaux)", type: "password", help: "Fournie par la plateforme", advanced: true },
+      { key: "meta_access_token", label: "Meta Page Access Token", type: "password", help: "Rempli automatiquement par « Connecter Instagram »", advanced: true },
+      { key: "instagram_business_id", label: "Instagram Business Account ID", type: "text", help: "Rempli automatiquement par « Connecter Instagram »", advanced: true },
     ],
   },
   admin: {
@@ -176,29 +176,26 @@ export const AGENT_CATALOG: Record<AgentSlug, AgentDef> = {
       "Après signature : la facture est créée automatiquement dans votre compta",
     ],
     configFields: [
-      // Génération
-      { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", required: true, help: "Peut être la même que celle des autres agents" },
-      // Identité entreprise
-      { key: "company_legal_name", label: "Raison sociale complète", type: "text", required: true, placeholder: "Mickael Romero — Photographe" },
-      { key: "company_status", label: "Statut juridique", type: "text", required: true, placeholder: "Micro-entrepreneur / EURL / SASU…" },
-      { key: "company_siret", label: "SIRET (14 chiffres)", type: "text", required: true },
-      { key: "company_rcs", label: "RCS (ex : Nice B 123 456 789)", type: "text" },
-      { key: "company_address", label: "Adresse professionnelle complète", type: "textarea", required: true },
-      { key: "company_email", label: "E-mail professionnel", type: "text", required: true },
-      { key: "company_phone", label: "Téléphone professionnel", type: "text", required: true },
-      { key: "company_iban", label: "IBAN pour paiements", type: "text" },
-      { key: "vat_status", label: "Assujetti TVA ? (yes/no)", type: "text", required: true, placeholder: "no" },
-      { key: "vat_rate", label: "Taux TVA applicable (%)", type: "text", placeholder: "20" },
-      { key: "vat_number", label: "Numéro TVA intracommunautaire", type: "text", placeholder: "FR__ ___________" },
-      // Signature électronique
-      { key: "yousign_api_key", label: "Clé API Yousign", type: "password", help: "Optionnel — sans clé, les documents sont générés en PDF téléchargeables uniquement" },
-      { key: "yousign_environment", label: "Environnement Yousign (production / sandbox)", type: "text", placeholder: "sandbox" },
-      // Comptabilité
-      { key: "accounting_provider", label: "Outil comptable", type: "text", placeholder: "pennylane | freebe | none" },
-      { key: "accounting_api_key", label: "Clé API compta", type: "password" },
-      // Mentions et modèles
-      { key: "legal_mentions", label: "CGV / mentions légales (bloc annexé aux contrats)", type: "textarea" },
-      { key: "contract_extra_clauses", label: "Clauses contractuelles additionnelles (droit à l'image, force majeure…)", type: "textarea" },
+      // Champs simples — coordonnées + IBAN + modèles
+      { key: "company_iban", label: "IBAN pour paiements", type: "text", help: "Apparaît en bas des factures pour que tes clients puissent virer" },
+      { key: "company_email", label: "E-mail professionnel (facultatif)", type: "text", placeholder: "Utilise le mail Studio Settings si vide" },
+      { key: "company_phone", label: "Téléphone professionnel (facultatif)", type: "text", placeholder: "Utilise le téléphone Studio Settings si vide" },
+      { key: "legal_mentions", label: "CGV / mentions légales", type: "textarea", help: "Bloc annexé aux contrats — laisse vide pour la version standard" },
+      { key: "contract_extra_clauses", label: "Clauses contractuelles additionnelles", type: "textarea", help: "Droit à l'image, force majeure, cas particuliers…" },
+      // ─── Advanced (fourni par la plateforme / Studio / ENV) ────────
+      { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", help: "Fournie par la plateforme", advanced: true },
+      { key: "company_legal_name", label: "Raison sociale (fallback)", type: "text", help: "Utilise legal_name du Studio Settings — override uniquement si besoin", advanced: true },
+      { key: "company_status", label: "Statut juridique (fallback)", type: "text", help: "Utilise legal_status du Studio", advanced: true },
+      { key: "company_siret", label: "SIRET (fallback)", type: "text", help: "Utilise siret du Studio", advanced: true },
+      { key: "company_rcs", label: "RCS", type: "text", help: "Optionnel — pour sociétés uniquement", advanced: true },
+      { key: "company_address", label: "Adresse pro (fallback)", type: "textarea", help: "Utilise legal_address du Studio", advanced: true },
+      { key: "vat_status", label: "Assujetti TVA (fallback yes/no)", type: "text", help: "Utilise vat_applicable du Studio", advanced: true },
+      { key: "vat_rate", label: "Taux TVA (%)", type: "text", placeholder: "20", advanced: true },
+      { key: "vat_number", label: "N° TVA (fallback)", type: "text", help: "Utilise vat_number du Studio", advanced: true },
+      { key: "yousign_api_key", label: "Clé API Yousign", type: "password", help: "Optionnel — sans clé, les documents sont juste des PDF téléchargeables", advanced: true },
+      { key: "yousign_environment", label: "Environnement Yousign", type: "text", placeholder: "sandbox", advanced: true },
+      { key: "accounting_provider", label: "Outil comptable", type: "text", placeholder: "pennylane | freebe | none", advanced: true },
+      { key: "accounting_api_key", label: "Clé API compta", type: "password", advanced: true },
     ],
   },
 };

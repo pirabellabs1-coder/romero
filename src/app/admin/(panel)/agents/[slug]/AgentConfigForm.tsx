@@ -10,6 +10,7 @@ type Field = {
   placeholder?: string;
   help?: string;
   required?: boolean;
+  advanced?: boolean;
 };
 
 type Props = {
@@ -34,6 +35,10 @@ export default function AgentConfigForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const simpleFields = fields.filter((f) => !f.advanced);
+  const advancedFields = fields.filter((f) => f.advanced);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -49,18 +54,7 @@ export default function AgentConfigForm({
     });
   }
 
-  return (
-    <form onSubmit={onSubmit}>
-      {flash ? (
-        <div
-          className={`agent-flash agent-flash--${flash.ok ? "ok" : "err"}`}
-          role="status"
-        >
-          {flash.ok ? "✓" : "✗"} {flash.msg}
-        </div>
-      ) : null}
-
-      {fields.map((f) => {
+  const renderField = (f: Field) => {
         // Détermine si ce champ est hérité du Studio (valeur partagée
         // présente ET pas d'override local). On affiche alors un badge
         // « hérité de Studio Settings » + placeholder discret.
@@ -132,8 +126,60 @@ export default function AgentConfigForm({
               </span>
             ) : null}
           </div>
-        );
-      })}
+    );
+  };
+
+  return (
+    <form onSubmit={onSubmit}>
+      {flash ? (
+        <div
+          className={`agent-flash agent-flash--${flash.ok ? "ok" : "err"}`}
+          role="status"
+        >
+          {flash.ok ? "✓" : "✗"} {flash.msg}
+        </div>
+      ) : null}
+
+      {simpleFields.map(renderField)}
+
+      {advancedFields.length > 0 ? (
+        <div style={{ marginTop: 24, marginBottom: 12 }}>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((v) => !v)}
+            className="agent-btn"
+            style={{
+              width: "100%",
+              justifyContent: "flex-start",
+              textAlign: "left",
+              fontSize: 12.5,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              opacity: 0.85,
+            }}
+          >
+            {showAdvanced ? "▾" : "▸"} Options avancées ({advancedFields.length} champs techniques)
+          </button>
+          {showAdvanced ? (
+            <div
+              style={{
+                marginTop: 14,
+                padding: 16,
+                border: "1px solid rgba(184,151,90,0.18)",
+                borderRadius: 6,
+                background: "rgba(184,151,90,0.03)",
+              }}
+            >
+              <p style={{ fontSize: 12.5, opacity: 0.7, marginTop: 0, marginBottom: 16, lineHeight: 1.5 }}>
+                Ces champs sont normalement fournis par la plateforme (Studio Settings,
+                ENV, ou OAuth). Ne les remplis que si tu veux override la valeur par
+                défaut pour cet agent précis.
+              </p>
+              {advancedFields.map(renderField)}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="agent-actions">
         <button type="submit" className="agent-btn agent-btn--primary" disabled={pending}>
