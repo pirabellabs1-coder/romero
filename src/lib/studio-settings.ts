@@ -27,23 +27,42 @@ export type { StudioFieldKey } from "@/lib/studio-settings-fields";
 let _cache: { value: Record<string, string>; expiresAt: number } | null = null;
 const CACHE_TTL_MS = 5_000;
 
+/**
+ * Mapping clé DB → variable d'environnement. Les clés techniques
+ * (Anthropic, OpenAI, Meta App, Google OAuth) sont normalement fournies
+ * via Vercel ENV pour que le user n'ait rien à copier-coller. Elles
+ * restent overridables par-agent si besoin.
+ */
+const ENV_FALLBACKS: Record<string, string | undefined> = {
+  anthropic_api_key:     process.env.ANTHROPIC_API_KEY,
+  openai_api_key:        process.env.OPENAI_API_KEY,
+  meta_app_id:           process.env.META_APP_ID,
+  meta_app_secret:       process.env.META_APP_SECRET,
+  google_client_id:      process.env.GOOGLE_CLIENT_ID,
+  google_client_secret:  process.env.GOOGLE_CLIENT_SECRET,
+};
+
 export async function getSharedConfig(): Promise<Record<string, string>> {
   noStore();
   const now = Date.now();
   if (_cache && _cache.expiresAt > now) return _cache.value;
+
+  const map: Record<string, string> = {};
+  // 1) On part des ENV (défauts fournis par la plateforme).
+  for (const [k, v] of Object.entries(ENV_FALLBACKS)) {
+    if (typeof v === "string" && v.trim() !== "") map[k] = v;
+  }
+  // 2) On surcharge avec ce que le user a explicitement mis en DB.
   try {
     const rows = await query<{ key: string; value: string }>(
       `SELECT key, value FROM studio_settings`
     );
-    const map: Record<string, string> = {};
     for (const r of rows) if (r.value) map[r.key] = r.value;
-    _cache = { value: map, expiresAt: now + CACHE_TTL_MS };
-    return map;
   } catch {
-    // Table manquante (migration pas encore jouée) → renvoie vide.
-    // Les agents fonctionnent comme avant, sans hériter.
-    return {};
+    // Table manquante (migration pas encore jouée) → on garde juste ENV.
   }
+  _cache = { value: map, expiresAt: now + CACHE_TTL_MS };
+  return map;
 }
 
 export function invalidateSharedConfigCache(): void {

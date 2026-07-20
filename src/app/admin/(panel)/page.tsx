@@ -2,6 +2,8 @@ import Link from "next/link";
 import { query, queryOne } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { BarChart, HBarChart, Donut } from "@/components/admin/charts";
+import { getSharedConfig } from "@/lib/studio-settings";
+import { getAgent } from "@/lib/agents";
 
 export const dynamic = "force-dynamic";
 
@@ -191,7 +193,7 @@ function StatCard({ label, value, hint, href, icon, tone = "default" }: StatProp
 }
 
 export default async function AdminDashboard() {
-  const [counts, messagesDaily, galleryPhotos, regions, categories, messagesThisMonth, latestMessages] =
+  const [counts, messagesDaily, galleryPhotos, regions, categories, messagesThisMonth, latestMessages, shared, mkt, wa] =
     await Promise.all([
       getCounts(),
       messagesPer30Days(),
@@ -202,7 +204,25 @@ export default async function AdminDashboard() {
       query<LatestMessage>(
         "SELECT id, first_name, last_name, email, place, created_at, read_at FROM messages ORDER BY created_at DESC LIMIT 5"
       ),
+      getSharedConfig().catch(() => ({} as Record<string, string>)),
+      getAgent("marketing").catch(() => null),
+      getAgent("whatsapp").catch(() => null),
     ]);
+
+  // Onboarding : bannière visible tant que tout n'est pas configuré.
+  const mktCfg = (mkt?.config ?? {}) as Record<string, string>;
+  const waCfg = (wa?.config ?? {}) as Record<string, string>;
+  const onboardingStatus = {
+    company: !!(shared.siret && shared.legal_name),
+    instagram: !!(mktCfg.meta_access_token && mktCfg.instagram_business_id),
+    google: !!waCfg.google_refresh_token,
+  };
+  const onboardingDone =
+    onboardingStatus.company && onboardingStatus.instagram && onboardingStatus.google;
+  const onboardingCount =
+    (onboardingStatus.company ? 1 : 0) +
+    (onboardingStatus.instagram ? 1 : 0) +
+    (onboardingStatus.google ? 1 : 0);
 
   const user = getCurrentUser();
   const userHandle = user?.email
@@ -229,6 +249,51 @@ export default async function AdminDashboard() {
             : "Tout est à jour. Voici un aperçu de votre activité."}
         </p>
       </header>
+
+      {!onboardingDone ? (
+        <section
+          style={{
+            marginBottom: 22,
+            padding: "16px 20px",
+            borderRadius: 8,
+            border: "1px solid rgba(184,151,90,0.35)",
+            background: "linear-gradient(90deg, rgba(184,151,90,0.08), rgba(184,151,90,0.02))",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 20,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "var(--gold-deep)",
+                marginBottom: 6,
+              }}
+            >
+              Configuration initiale — {onboardingCount}/3
+            </div>
+            <strong style={{ fontSize: 16 }}>
+              Tes agents attendent leur configuration
+            </strong>
+            <div style={{ fontSize: 13.5, opacity: 0.8, marginTop: 4 }}>
+              3 minutes chrono : ton entreprise (auto-remplie via SIRET), Instagram et
+              Google Agenda (1 clic chacun).
+            </div>
+          </div>
+          <Link
+            href="/admin/onboarding"
+            className="agent-btn agent-btn--primary"
+            style={{ textDecoration: "none", whiteSpace: "nowrap" }}
+          >
+            Configurer maintenant →
+          </Link>
+        </section>
+      ) : null}
 
       <section className="dash-stats">
         <StatCard label="Galeries"  value={counts.galleries}    href="/admin/galleries" icon="gallery" />

@@ -54,18 +54,18 @@ export async function GET(req: NextRequest) {
     return redirectWithFlash(req, false, "State OAuth invalide (protection CSRF).");
   }
 
-  // Récupère les identifiants OAuth depuis la config
+  // ENV en priorité (config plateforme partagée), fallback config agent.
   const inst = await getAgent("whatsapp");
   const cfg = inst?.config as
     | { google_client_id?: string; google_client_secret?: string }
     | undefined;
-  const clientId = cfg?.google_client_id;
-  const clientSecret = cfg?.google_client_secret;
+  const clientId = process.env.GOOGLE_CLIENT_ID || cfg?.google_client_id;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || cfg?.google_client_secret;
   if (!clientId || !clientSecret) {
     return redirectWithFlash(
       req,
       false,
-      "Client ID/Secret Google absents de la config. Renseignez-les puis retentez."
+      "Configuration Google Cloud manquante côté plateforme (contactez le studio)."
     );
   }
 

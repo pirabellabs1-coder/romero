@@ -24,15 +24,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/admin/login", req.url));
   }
 
+  // ENV en priorité (config plateforme), fallback sur la config agent.
   const inst = await getAgent("whatsapp");
   const cfg = inst?.config as { google_client_id?: string } | undefined;
-  const clientId = cfg?.google_client_id;
+  const clientId = process.env.GOOGLE_CLIENT_ID || cfg?.google_client_id;
   if (!clientId) {
     return NextResponse.redirect(
       new URL(
         "/admin/agents/whatsapp?tab=config&err=" +
           encodeURIComponent(
-            "Le Google OAuth Client ID doit être renseigné avant de lancer la connexion."
+            "Configuration Google Cloud manquante côté plateforme (contactez le studio)."
           ),
         req.url
       )
