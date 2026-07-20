@@ -13,9 +13,9 @@ export const metadata: Metadata = {
 };
 
 const STATUS_LABEL: Record<AgentStatus, string> = {
-  not_installed: "À installer",
-  installing: "En cours",
-  installed: "Installé",
+  not_installed: "À configurer",
+  installing: "Configuration",
+  installed: "Actif",
   paused: "En pause",
   error: "Erreur",
 };
@@ -85,6 +85,19 @@ export default async function AgentsIndexPage() {
               ))
           : installations.map((inst) => {
               const def = AGENT_CATALOG[inst.slug];
+              // Statut dérivé : on ne fait plus confiance au raw DB seul.
+              // Si l'agent a une clé API Anthropic et n'est pas en pause
+              // ou en erreur, on l'affiche comme actif — même si le flag
+              // en base n'a pas encore été flippé (rétro-compatibilité).
+              const hasKey = Boolean(
+                (inst.config as { anthropic_api_key?: string })?.anthropic_api_key
+              );
+              const derivedStatus: AgentStatus =
+                inst.status === "paused" || inst.status === "error"
+                  ? inst.status
+                  : hasKey
+                  ? "installed"
+                  : inst.status;
               return (
                 <AgentCard
                   key={inst.slug}
@@ -92,7 +105,7 @@ export default async function AgentsIndexPage() {
                   slug={inst.slug}
                   name={def.name}
                   tagline={def.tagline}
-                  status={inst.status}
+                  status={derivedStatus}
                 />
               );
             })}
@@ -119,7 +132,13 @@ function AgentCard(props: {
       <div className="agent-card__meta">
         <span className={badgeClass}>{STATUS_LABEL[props.status]}</span>
         <Link href={`/admin/agents/${props.slug}`} className="agent-card__cta">
-          {props.status === "installed" ? "Configurer" : "Installer"}
+          {props.status === "installed"
+            ? "Ouvrir"
+            : props.status === "paused"
+            ? "Reprendre"
+            : props.status === "error"
+            ? "Diagnostiquer"
+            : "Configurer"}
         </Link>
       </div>
     </article>

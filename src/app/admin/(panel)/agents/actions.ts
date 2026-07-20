@@ -89,6 +89,27 @@ export async function saveAgentConfig(
       if (typeof raw === "string") patch[field.key] = raw.trim();
     }
     await updateAgentConfig(s, patch);
+
+    // Auto-flip status → 'installed' quand une clé API Anthropic apparaît.
+    // Sans ce coup de pouce, le photographe doit cliquer explicitement
+    // « Marquer comme installé » alors que l'agent est déjà fonctionnel —
+    // c'est du bruit UX qu'on retire.
+    // Règle : on n'écrase JAMAIS un statut 'paused' ou 'error' (Mickael
+    // a délibérément mis l'agent en pause, il faut respecter son choix).
+    const currentInst = await getAgent(s);
+    const hasApiKey = Boolean(
+      patch.anthropic_api_key ||
+        (currentInst?.config as { anthropic_api_key?: string })?.anthropic_api_key
+    );
+    if (
+      hasApiKey &&
+      currentInst?.status !== "paused" &&
+      currentInst?.status !== "error" &&
+      currentInst?.status !== "installed"
+    ) {
+      await setAgentStatus(s, "installed");
+    }
+
     revalidateAgent(s);
     return { ok: true };
   } catch (e) {
