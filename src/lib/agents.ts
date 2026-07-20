@@ -1,6 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { query, queryOne, execute } from "@/lib/db";
 import { DEFAULT_PROMPTS } from "@/lib/agent-prompts";
+import { getSharedConfig, mergeConfigWithShared } from "@/lib/studio-settings";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 export type AgentSlug = "site" | "whatsapp" | "marketing" | "admin";
@@ -211,13 +212,23 @@ export const AGENT_ORDER: AgentSlug[] = (
 // ─── DB access ──────────────────────────────────────────────────────────
 export async function getAgents(): Promise<AgentInstallation[]> {
   noStore();
-  const rows = await query<AgentInstallation>(
-    `SELECT slug, name, status, config, system_prompt, installed_at, updated_at
-     FROM agent_installations
-     ORDER BY slug`
-  );
+  const [rows, shared] = await Promise.all([
+    query<AgentInstallation>(
+      `SELECT slug, name, status, config, system_prompt, installed_at, updated_at
+       FROM agent_installations
+       ORDER BY slug`
+    ),
+    getSharedConfig(),
+  ]);
+  // Merge chaque config avec le shared. Ordre : shared < agent-specific.
+  // Effet : ajouter la clé Claude dans Studio Settings suffit pour que
+  // les 4 agents la voient — plus besoin de la coller 4 fois.
+  const merged = rows.map((r) => ({
+    ...r,
+    config: mergeConfigWithShared(r.config as Record<string, unknown>, shared),
+  }));
   // Réordonne selon AGENT_ORDER pour un affichage stable côté UI.
-  const bySlug = new Map(rows.map((r) => [r.slug, r]));
+  const bySlug = new Map(merged.map((r) => [r.slug, r]));
   return AGENT_ORDER.map((slug) => bySlug.get(slug)).filter(
     (x): x is AgentInstallation => Boolean(x)
   );
@@ -227,12 +238,35 @@ export async function getAgent(
   slug: AgentSlug
 ): Promise<AgentInstallation | null> {
   noStore();
-  const rows = await query<AgentInstallation>(
-    `SELECT slug, name, status, config, system_prompt, installed_at, updated_at
-     FROM agent_installations WHERE slug = $1`,
+  const [rows, shared] = await Promise.all([
+    query<AgentInstallation>(
+      `SELECT slug, name, status, config, system_prompt, installed_at, updated_at
+       FROM agent_installations WHERE slug = $1`,
+      [slug]
+    ),
+    getSharedConfig(),
+  ]);
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    ...row,
+    config: mergeConfigWithShared(row.config as Record<string, unknown>, shared),
+  };
+}
+
+// Renvoie la config BRUTE de l'agent (sans merge avec Studio Settings).
+// À utiliser dans le formulaire de config pour distinguer ce qui est
+// override localement vs hérité — sinon l'UI montrerait la valeur
+// partagée comme si elle était propre à l'agent.
+export async function getAgentRawConfig(
+  slug: AgentSlug
+): Promise<Record<string, unknown>> {
+  noStore();
+  const row = await queryOne<{ config: Record<string, unknown> }>(
+    `SELECT config FROM agent_installations WHERE slug = $1`,
     [slug]
   );
-  return rows[0] ?? null;
+  return row?.config ?? {};
 }
 
 // Renvoie le prompt personnalisé si non vide, sinon le prompt par défaut.

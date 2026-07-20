@@ -8,12 +8,14 @@ import {
   effectivePrompt,
   getAgent,
   getAgentHealth,
+  getAgentRawConfig,
   getLatencyHistogram,
   getStats,
   listEvents,
   listKnowledge,
   listTestMessages,
 } from "@/lib/agents";
+import { getSharedConfig } from "@/lib/studio-settings";
 import { DEFAULT_PROMPTS } from "@/lib/agent-prompts";
 import AgentConfigForm from "./AgentConfigForm";
 import AgentStatusControls from "./AgentStatusControls";
@@ -120,6 +122,13 @@ export default async function AgentDetailPage({
     migrationError = e instanceof Error ? e.message : String(e);
   }
 
+  // Config brute (par-agent, sans merge Studio) + partagée — utilisées
+  // dans le formulaire Configuration pour afficher les « hérités ».
+  const [rawConfig, sharedConfig] = await Promise.all([
+    getAgentRawConfig(slug).catch(() => ({} as Record<string, unknown>)),
+    getSharedConfig().catch(() => ({} as Record<string, string>)),
+  ]);
+
   const status = installation?.status ?? "not_installed";
   const config = (installation?.config ?? {}) as Record<string, string>;
   const currentPrompt =
@@ -194,6 +203,8 @@ export default async function AgentDetailPage({
               slug={slug}
               fields={def.configFields}
               current={config}
+              rawConfig={rawConfig}
+              sharedConfig={sharedConfig}
             />
           </div>
           <div>

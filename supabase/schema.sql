@@ -413,6 +413,17 @@ CREATE INDEX IF NOT EXISTS idx_admin_contacts_name ON public.admin_contacts(LOWE
 CREATE INDEX IF NOT EXISTS idx_admin_contacts_email ON public.admin_contacts(LOWER(email))
   WHERE email IS NOT NULL;
 
+-- ── Studio settings partagés (clés API + identité entreprise) ────────────
+-- Table clé-valeur pour les paramètres communs aux 4 agents : clé
+-- Anthropic, OpenAI, Meta Graph, SIRET, TVA, etc. Chaque agent hérite
+-- automatiquement de ces valeurs (agent-specific override le partagé).
+-- Élimine la duplication : plus besoin de coller la clé Claude 4 fois.
+CREATE TABLE IF NOT EXISTS public.studio_settings (
+  key         TEXT PRIMARY KEY,
+  value       TEXT NOT NULL DEFAULT '',
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- ── Sanity check ─────────────────────────────────────────────────────────
 SELECT 'tables created:' AS status,
   (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public') AS public_tables_count;
