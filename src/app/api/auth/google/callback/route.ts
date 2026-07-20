@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { getAgent, updateAgentConfig, logEvent } from "@/lib/agents";
 import { exchangeCodeForTokens, getUserEmail } from "@/lib/google-calendar";
+import { writeSharedKey } from "@/lib/studio-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -84,6 +85,14 @@ export async function GET(req: NextRequest) {
   }
 
   const email = await getUserEmail(result.tokens.access_token);
+  // Écriture dans studio_settings (partagé entre tous les agents via
+  // mergeConfigWithShared). L'agent whatsapp — comme les autres — verra
+  // ce token dans son config mergé automatiquement.
+  await writeSharedKey("google_refresh_token", result.tokens.refresh_token!);
+  if (email) await writeSharedKey("google_account_email", email);
+  // Compat rétro : on garde une copie côté whatsapp pour ne pas casser
+  // du code qui lirait directement rawConfig, mais la source de vérité
+  // est maintenant studio_settings.
   await updateAgentConfig("whatsapp", {
     google_refresh_token: result.tokens.refresh_token!,
     ...(email ? { google_account_email: email } : {}),

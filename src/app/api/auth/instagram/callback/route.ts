@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { updateAgentConfig, logEvent } from "@/lib/agents";
+import { writeSharedKey } from "@/lib/studio-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -161,6 +162,12 @@ export async function GET(req: NextRequest) {
     return flashRedirect(req, false, pageRes.error);
   }
 
+  // Écriture dans studio_settings pour que tous les agents héritent.
+  await writeSharedKey("meta_access_token", pageRes.page.access_token);
+  await writeSharedKey("instagram_business_id", pageRes.page.instagram_business_account.id);
+  await writeSharedKey("meta_page_id", pageRes.page.id);
+  await writeSharedKey("meta_page_name", pageRes.page.name);
+  // Compat rétro : copie côté marketing pour du code qui lirait rawConfig.
   await updateAgentConfig("marketing", {
     meta_access_token: pageRes.page.access_token,
     instagram_business_id: pageRes.page.instagram_business_account.id,

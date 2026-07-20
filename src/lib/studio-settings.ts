@@ -70,6 +70,28 @@ export function invalidateSharedConfigCache(): void {
 }
 
 // ─── Écriture ────────────────────────────────────────────────────────
+/**
+ * Écrit directement une clé partagée sans passer par la whitelist des
+ * champs user-facing. Utilisé UNIQUEMENT côté serveur par les callbacks
+ * OAuth pour stocker les tokens (google_refresh_token, meta_access_token,
+ * instagram_business_id…) qui ne sont pas exposés dans le formulaire
+ * Studio Settings mais doivent être partagés entre tous les agents.
+ */
+export async function writeSharedKey(key: string, value: string): Promise<void> {
+  const clean = typeof value === "string" ? value.trim() : "";
+  if (clean === "") {
+    await execute(`DELETE FROM studio_settings WHERE key = $1`, [key]);
+  } else {
+    await execute(
+      `INSERT INTO studio_settings (key, value, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [key, clean]
+    );
+  }
+  invalidateSharedConfigCache();
+}
+
 export async function updateSharedConfig(
   patch: Record<string, string>
 ): Promise<void> {
