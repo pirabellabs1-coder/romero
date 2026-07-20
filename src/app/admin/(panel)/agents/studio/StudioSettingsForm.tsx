@@ -7,6 +7,7 @@ import { saveStudioSettingsAction } from "./actions";
 type Connections = {
   instagram: { connected: boolean; label?: string };
   google: { connected: boolean; label?: string };
+  telegram: { connected: boolean; ready: boolean; label?: string };
 };
 
 type Props = {
@@ -108,7 +109,13 @@ export default function StudioSettingsForm({ initial, connections }: Props) {
           Un simple clic — pas besoin de coller des tokens ou identifiants techniques.
         </p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 14,
+          }}
+        >
           <ConnectionCard
             title="Instagram"
             desc="Pour que l'agent Marketing publie tes carrousels et stories."
@@ -122,6 +129,11 @@ export default function StudioSettingsForm({ initial, connections }: Props) {
             connected={connections.google.connected}
             label={connections.google.label}
             connectHref="/api/auth/google/start"
+          />
+          <TelegramConnectionCard
+            connected={connections.telegram.connected}
+            ready={connections.telegram.ready}
+            label={connections.telegram.label}
           />
         </div>
       </div>
@@ -334,6 +346,106 @@ function ConnectionCard({
       >
         {connected ? "Reconnecter" : "Connecter"}
       </a>
+    </div>
+  );
+}
+
+// ─── Carte Telegram (pas d'OAuth — instructions + t.me link) ─────────
+function TelegramConnectionCard({
+  connected,
+  ready,
+  label,
+}: {
+  connected: boolean;
+  ready: boolean;
+  label?: string;
+}) {
+  // ready = token présent côté plateforme (bot créé par le studio).
+  // connected = ready + un user Telegram a fait /start (owner capturé).
+  const status = connected ? "connected" : ready ? "waiting" : "not-ready";
+  const borderColor =
+    connected ? "rgba(157,206,157,0.4)"
+    : ready ? "rgba(184,151,90,0.5)"
+    : "rgba(184,151,90,0.25)";
+  const badgeText =
+    connected ? "✓ Connecté"
+    : ready ? "Prêt — envoie /start"
+    : "Non configuré";
+  return (
+    <div
+      style={{
+        border: `1px solid ${borderColor}`,
+        borderRadius: 6,
+        padding: 16,
+        background: connected ? "rgba(157,206,157,0.05)" : "rgba(184,151,90,0.03)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <strong style={{ fontSize: 15, letterSpacing: "0.02em" }}>Telegram</strong>
+        <span
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            padding: "3px 8px",
+            border: `1px solid ${borderColor}`,
+            color: connected ? "#9DCE9D" : ready ? "#B8975A" : "rgba(184,151,90,0.7)",
+            borderRadius: 3,
+          }}
+        >
+          {badgeText}
+        </span>
+      </div>
+      <span style={{ fontSize: 12.5, opacity: 0.75, lineHeight: 1.5 }}>
+        Assistant personnel Telegram : envoie un vocal ou un texte, l'agent gère ton
+        agenda Google (RDV, créneaux libres, liens Meet).
+      </span>
+      {label ? (
+        <span
+          style={{
+            fontSize: 12,
+            color: connected ? "rgba(157,206,157,0.85)" : "rgba(184,151,90,0.85)",
+          }}
+        >
+          {label}
+        </span>
+      ) : null}
+      {status === "waiting" ? (
+        <a
+          href="https://t.me/romero_studio_bot"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="agent-btn agent-btn--primary"
+          style={{ marginTop: 4, textAlign: "center", textDecoration: "none" }}
+        >
+          Ouvrir le bot & envoyer /start
+        </a>
+      ) : status === "connected" ? (
+        <a
+          href="https://t.me/romero_studio_bot"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="agent-btn"
+          style={{ marginTop: 4, textAlign: "center", textDecoration: "none" }}
+        >
+          Ouvrir @romero_studio_bot
+        </a>
+      ) : (
+        <span
+          style={{
+            fontSize: 12,
+            fontStyle: "italic",
+            opacity: 0.65,
+            marginTop: 4,
+            textAlign: "center",
+          }}
+        >
+          Bot pas encore configuré côté plateforme (contacter le studio).
+        </span>
+      )}
     </div>
   );
 }

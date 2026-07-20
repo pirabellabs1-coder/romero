@@ -32,6 +32,18 @@ export default async function StudioSettingsPage() {
   const gConnected = !!waCfg.google_refresh_token;
   const gLabel = waCfg.google_account_email;
 
+  // Statut Telegram : token présent (config plateforme) + user_id autorisé capturé
+  const tgTokenPresent = !!initial.telegram_bot_token;
+  const tgOwnerCaptured = !!initial.telegram_allowed_user_id;
+  // Nom du bot dérivé du token (partie avant le ":") — on n'expose pas le token complet.
+  // Le vrai username est chargé côté client si besoin, ici on affiche juste le statut.
+  const tgConnected = tgTokenPresent && tgOwnerCaptured;
+  const tgLabel = tgTokenPresent
+    ? tgOwnerCaptured
+      ? `User ID ${initial.telegram_allowed_user_id}`
+      : "Bot prêt — attend le /start du propriétaire"
+    : undefined;
+
   return (
     <div>
       <Link href="/admin/agents" className="agent-back">
@@ -55,6 +67,11 @@ export default async function StudioSettingsPage() {
         connections={{
           instagram: { connected: igConnected, label: igLabel },
           google: { connected: gConnected, label: gLabel },
+          telegram: {
+            connected: tgConnected,
+            ready: tgTokenPresent,
+            label: tgLabel,
+          },
         }}
       />
     </div>

@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAgent } from "@/lib/agents";
 import { runAssistant } from "@/lib/whatsapp-assistant";
 import { transcribeAudioUrl } from "@/lib/voice-transcribe";
+import { writeSharedKey } from "@/lib/studio-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -114,9 +115,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ignored: "no_token" });
     }
 
-    // Filtre user autorisé
+    // Filtre user autorisé, avec AUTO-CAPTURE au premier /start
+    // ─────────────────────────────────────────────────────────
+    // Si aucun user autorisé n'est encore enregistré et que le message
+    // reçu est /start, on considère l'expéditeur comme le propriétaire
+    // (pattern "premier utilisateur wins") — évite au user d'aller
+    // chercher son ID sur @userinfobot manuellement.
     const fromId = String(msg.from?.id ?? "");
     const allowedId = cfg.telegram_allowed_user_id?.trim();
+    if (!allowedId && fromId && msg.text?.trim().startsWith("/start")) {
+      await writeSharedKey("telegram_allowed_user_id", fromId);
+      await sendReply(
+        token,
+        msg.chat.id,
+        `👋 Bonjour ${msg.from?.first_name || "Mickael"} ! Je suis votre assistant Romero Studio.\n\nJe viens de vous enregistrer comme utilisateur autorisé (ID Telegram : ${fromId}). À partir de maintenant, envoyez-moi n'importe quel message ou vocal et je m'occupe de votre agenda.\n\nExemples :\n• « Prends RDV visio demain 15h avec Sophie »\n• « Suis-je libre samedi entre 14h et 18h ? »\n• Vocal : décrivez le RDV, je crée l'événement.`
+      );
+      return NextResponse.json({ ok: true, captured_owner: fromId });
+    }
     if (allowedId && fromId !== allowedId) {
       await sendReply(
         token,

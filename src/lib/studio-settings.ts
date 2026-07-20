@@ -40,6 +40,7 @@ const ENV_FALLBACKS: Record<string, string | undefined> = {
   meta_app_secret:       process.env.META_APP_SECRET,
   google_client_id:      process.env.GOOGLE_CLIENT_ID,
   google_client_secret:  process.env.GOOGLE_CLIENT_SECRET,
+  telegram_bot_token:    process.env.TELEGRAM_BOT_TOKEN,
 };
 
 export async function getSharedConfig(): Promise<Record<string, string>> {
