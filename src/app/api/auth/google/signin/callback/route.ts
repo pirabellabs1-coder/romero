@@ -4,12 +4,20 @@
  * Reçoit le code Google SSO, l'échange contre un access_token, récupère
  * l'email/profil du user, puis pose la session admin via loginWithGoogle.
  *
- * Écrit aussi email → studio_settings.notification_email s'il n'est pas
- * déjà renseigné (auto-remplissage pratique).
+ * Sur la PREMIÈRE connexion, déclenche plein d'auto-actions utiles :
+ *   • Sauve name + picture + locale dans studio_settings (affichés dans
+ *     la sidebar admin ensuite).
+ *   • Sauve notification_email si pas encore défini.
+ *   • Enregistre first_signin_at (timestamp ISO).
+ *   • Redirige vers /admin/onboarding au lieu de /admin (l'user va
+ *     directement au wizard de configuration).
+ *
+ * Sur les connexions suivantes : session posée + redirect vers `from`.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { loginWithGoogle } from "@/lib/auth";
 import { getSharedConfig, writeSharedKey } from "@/lib/studio-settings";
+import { logEvent } from "@/lib/agents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,15 +54,24 @@ async function exchangeCode(params: {
   return { ok: true, accessToken: json.access_token };
 }
 
-async function fetchProfile(
-  accessToken: string
-): Promise<{ email?: string; name?: string } | null> {
+type GoogleProfile = {
+  sub?: string;
+  email?: string;
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
+  locale?: string;
+  email_verified?: boolean;
+};
+
+async function fetchProfile(accessToken: string): Promise<GoogleProfile | null> {
   try {
     const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!r.ok) return null;
-    return (await r.json()) as { email?: string; name?: string };
+    return (await r.json()) as GoogleProfile;
   } catch {
     return null;
   }
@@ -105,27 +122,64 @@ export async function GET(req: NextRequest) {
     return fail(req, "Impossible de récupérer l'email Google.");
   }
 
-  const user = await loginWithGoogle(profile.email);
-  if (!user) {
+  const auth = await loginWithGoogle(profile.email);
+  if (!auth) {
     return fail(
       req,
       `L'adresse ${profile.email} n'est pas autorisée à accéder à l'admin.`
     );
   }
 
-  // Auto-remplissage : si notification_email n'est pas encore défini
-  // dans studio_settings, on met l'email du user comme défaut pratique.
+  // ─── Auto-actions (à chaque signin, mais idempotentes) ────────────
   try {
     const shared = await getSharedConfig();
-    if (!shared.notification_email) {
+
+    // Toujours sauver le profil Google pour affichage (avatar + nom
+    // dans la sidebar). Une nouvelle photo/nom écrase l'ancien.
+    if (profile.name) await writeSharedKey("admin_name", profile.name);
+    if (profile.picture) await writeSharedKey("admin_picture", profile.picture);
+    if (profile.email) await writeSharedKey("admin_email", profile.email);
+    if (profile.locale) await writeSharedKey("admin_locale", profile.locale);
+
+    // notification_email = email admin par défaut si pas encore défini.
+    if (!shared.notification_email && profile.email) {
       await writeSharedKey("notification_email", profile.email);
     }
+
+    // legal_name suggestion — uniquement si vraiment rien n'est déjà là
+    // (l'user pourra override via SIRET auto-lookup, mais ça donne un
+    // fallback humain immédiat).
+    if (!shared.legal_name && profile.name) {
+      await writeSharedKey("legal_name", profile.name);
+    }
   } catch {
-    // Non-bloquant.
+    // Non-bloquant — l'important est d'avoir la session.
   }
 
+  // ─── Actions PREMIÈRE connexion seulement ─────────────────────────
+  let firstTimeRedirect = false;
+  if (auth.isFirstSignin) {
+    try {
+      await writeSharedKey("first_signin_at", new Date().toISOString());
+      await logEvent(
+        "site",
+        "admin_first_signin",
+        { email: profile.email, name: profile.name ?? null },
+        true
+      );
+      firstTimeRedirect = true;
+    } catch {
+      // Non-bloquant.
+    }
+  }
+
+  // ─── Redirect ─────────────────────────────────────────────────────
+  // Première connexion → onboarding (sauf si l'user avait explicitement
+  // demandé une page précise). Sinon → `from`.
   const from = req.cookies.get("rp_google_signin_from")?.value || "/admin";
-  const dest = from.startsWith("/") ? from : "/admin";
+  const fromValid = from.startsWith("/") ? from : "/admin";
+  const dest = firstTimeRedirect ? "/admin/onboarding" : fromValid;
+
   const resp = NextResponse.redirect(new URL(dest, req.url));
   resp.cookies.delete("rp_google_signin_state");
   resp.cookies.delete("rp_google_signin_from");

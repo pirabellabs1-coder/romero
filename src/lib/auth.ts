@@ -42,9 +42,12 @@ export type User = { id: number; email: string };
  * pose la session cookie. Si non trouvé mais que l'email est dans la
  * whitelist ADMIN_ALLOWED_EMAILS (env, séparés par virgules), auto-
  * provisionne un compte avec un password aléatoire (jamais utilisé).
- * Retourne null si l'email n'est pas autorisé.
+ * Retourne { user, isFirstSignin } — isFirstSignin est vrai si l'user
+ * vient d'être auto-provisionné (utile pour rediriger vers onboarding).
  */
-export async function loginWithGoogle(email: string): Promise<User | null> {
+export async function loginWithGoogle(
+  email: string
+): Promise<{ user: User; isFirstSignin: boolean } | null> {
   const clean = email.toLowerCase().trim();
   if (!clean) return null;
 
@@ -52,6 +55,7 @@ export async function loginWithGoogle(email: string): Promise<User | null> {
     "SELECT id, email FROM users WHERE email = $1",
     [clean]
   );
+  let isFirstSignin = false;
 
   if (!row) {
     // Auto-provision si dans la whitelist
@@ -72,6 +76,7 @@ export async function loginWithGoogle(email: string): Promise<User | null> {
       [clean]
     );
     if (!row) return null;
+    isFirstSignin = true;
   }
 
   const exp = Math.floor(Date.now() / 1000) + MAX_AGE;
@@ -83,7 +88,7 @@ export async function loginWithGoogle(email: string): Promise<User | null> {
     path: "/",
     maxAge: MAX_AGE,
   });
-  return { id: row.id, email: row.email };
+  return { user: { id: row.id, email: row.email }, isFirstSignin };
 }
 
 export async function login(email: string, password: string): Promise<User | null> {

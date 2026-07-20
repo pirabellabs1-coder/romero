@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 type Props = {
   unread: number;
+  profile?: { name: string; email: string; picture?: string };
   children: React.ReactNode;
 };
 
@@ -29,7 +30,7 @@ function linkActive(pathname: string, href: string) {
 
 const COLLAPSE_KEY = "rp_admin_collapsed";
 
-export default function AdminShell({ unread, children }: Props) {
+export default function AdminShell({ unread, profile, children }: Props) {
   const pathname = usePathname() ?? "";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -121,6 +122,80 @@ export default function AdminShell({ unread, children }: Props) {
           })}
         </nav>
         <div className="spacer" />
+
+        {profile ? (
+          <div
+            title={`${profile.name} · ${profile.email}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: collapsed ? "8px 0" : "10px 12px",
+              marginBottom: 8,
+              borderTop: "1px solid rgba(184,151,90,0.15)",
+              borderBottom: "1px solid rgba(184,151,90,0.15)",
+              overflow: "hidden",
+            }}
+          >
+            {profile.picture ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={profile.picture}
+                alt=""
+                referrerPolicy="no-referrer"
+                width={collapsed ? 24 : 28}
+                height={collapsed ? 24 : 28}
+                style={{ borderRadius: "50%", flexShrink: 0 }}
+              />
+            ) : (
+              <span
+                style={{
+                  display: "inline-flex",
+                  width: collapsed ? 24 : 28,
+                  height: collapsed ? 24 : 28,
+                  borderRadius: "50%",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(184,151,90,0.25)",
+                  color: "var(--gold-light)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                {profile.name.charAt(0).toUpperCase()}
+              </span>
+            )}
+            {!collapsed ? (
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 12.5,
+                    color: "var(--gold-light)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    fontWeight: 500,
+                  }}
+                >
+                  {profile.name}
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "rgba(244,239,227,0.55)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {profile.email}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         <Link href="/" target="_blank" style={{ color: "var(--gold-light)" }} title="Voir le site">
           {collapsed ? "↗" : "Voir le site ↗"}
         </Link>
