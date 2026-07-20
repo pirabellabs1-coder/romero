@@ -1,7 +1,9 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { STUDIO_SETTINGS_FIELDS } from "@/lib/studio-settings";
+// On importe depuis le fichier pur (aucune dépendance server) pour ne
+// pas embarquer `pg` dans le bundle client.
+import { STUDIO_SETTINGS_FIELDS } from "@/lib/studio-settings-fields";
 import { saveStudioSettingsAction } from "./actions";
 
 type Props = { initial: Record<string, string> };
