@@ -89,11 +89,10 @@ export const AGENT_CATALOG: Record<AgentSlug, AgentDef> = {
       "Chatbot Claude qui connaît vos prestations, tarifs et univers. Il qualifie chaque visiteur (budget, date, lieu, style), propose des créneaux depuis votre agenda, et vous envoie un e-mail récapitulatif complet à chaque prise de rendez-vous.",
     order: 1,
     steps: [
-      "Ingestion de la base de connaissances (prestations, tarifs, FAQ)",
-      "Connexion à Google Calendar / Cal.com",
-      "Configuration du webhook e-mail récapitulatif",
-      "Personnalisation du prompt système",
-      "Publication du widget sur le site",
+      "Base de connaissances déjà pré-chargée (prestations, tarifs, FAQ)",
+      "Renseigne juste l'URL de ton agenda et ton e-mail de notification",
+      "Personnalise le prompt système si tu veux ajuster le ton",
+      "Le widget est déjà publié sur romerophotography.fr",
     ],
     configFields: [
       { key: "anthropic_api_key", label: "Clé API Anthropic (Claude)", type: "password", required: true, help: "Fournie par la plateforme — override uniquement si besoin", advanced: true },
@@ -111,11 +110,9 @@ export const AGENT_CATALOG: Record<AgentSlug, AgentDef> = {
       "Assistant personnel accessible depuis WhatsApp et Telegram. Il comprend les vocaux, crée / modifie / consulte vos événements Google Calendar, et vous répond en langage naturel.",
     order: 2,
     steps: [
-      "Créer un compte Meta Business + valider le numéro WhatsApp",
-      "OAuth Google Calendar (bouton « Connecter » dans l'onglet Configuration)",
-      "Configurer le bot Telegram (fallback pendant la validation Meta)",
-      "Renseigner la clé API Claude + la clé Whisper (transcription vocale)",
-      "Test end-to-end (envoyer un vocal → événement créé)",
+      "Connecte Google Agenda en 1 clic depuis les Réglages du studio",
+      "Renseigne ton numéro WhatsApp autorisé et ton ID Telegram (optionnel)",
+      "Test end-to-end : envoie un vocal WhatsApp → un événement est créé",
     ],
     configFields: [
       // Champs simples visibles par défaut
@@ -142,11 +139,10 @@ export const AGENT_CATALOG: Record<AgentSlug, AgentDef> = {
       "Vous envoyez un brief (texte, vocal, photos). L'agent génère automatiquement le post Instagram (caption + hashtags), le post LinkedIn (ton pro), et l'article de blog complet (SEO inclus). Publication Instagram directe, LinkedIn en 1 clic, blog en brouillon dans votre back-office.",
     order: 3,
     steps: [
-      "Passer Instagram en Business et le lier à une Page Facebook",
-      "Créer une app Meta Graph API et récupérer le Page Access Token",
-      "Renseigner Claude + OpenAI (transcription vocaux) + Meta",
-      "Personnaliser votre voix éditoriale et vos hashtags signature",
-      "Envoyer votre premier brief pour voir 3 drafts prêts en 20 secondes",
+      "Passe ton Instagram en Business et lie-le à une Page Facebook",
+      "Connecte Instagram en 1 clic depuis les Réglages du studio",
+      "Personnalise ta voix éditoriale et tes hashtags signature",
+      "Envoie ton premier brief → 3 drafts (IG + LinkedIn + Blog) en 20 secondes",
     ],
     configFields: [
       // Personnalisation éditoriale (visible par défaut)
@@ -169,11 +165,11 @@ export const AGENT_CATALOG: Record<AgentSlug, AgentDef> = {
       "Génération automatique des devis, contrats de mariage (mentions légales FR incluses) et factures depuis un brief court. PDF prêts à imprimer ou à signer électroniquement via Yousign. Facturation synchronisée avec Pennylane ou Freebe pour la conformité URSSAF.",
     order: 4,
     steps: [
-      "Renseigner votre profil légal (statut, SIRET, adresse, TVA)",
-      "Ajouter Anthropic (génération) + Yousign (signature) + Pennylane/Freebe (compta)",
-      "Décrire un premier devis en une phrase → PDF prêt en 5 secondes",
-      "Envoyer à signer en 1 clic (Yousign)",
-      "Après signature : la facture est créée automatiquement dans votre compta",
+      "Renseigne ton SIRET dans les Réglages du studio (auto-rempli via INSEE)",
+      "Ajoute ton IBAN, tes CGV et clauses (facultatif — versions standard sinon)",
+      "Décris un premier devis en une phrase → PDF prêt en 5 secondes",
+      "Envoie à signer en 1 clic (Yousign, à connecter plus tard si besoin)",
+      "Après signature, la facture est créée automatiquement dans ta compta",
     ],
     configFields: [
       // Champs simples — coordonnées + IBAN + modèles
