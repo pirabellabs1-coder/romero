@@ -11,6 +11,7 @@ type Props = {
 
 const LINKS: Array<{ href: string; label: string }> = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/inbox", label: "Inbox" },
   { href: "/admin/content", label: "Contenu" },
   { href: "/admin/galleries", label: "Galeries" },
   { href: "/admin/posts", label: "Journal" },
@@ -106,6 +107,8 @@ export default function AdminShell({ unread, profile, children }: Props) {
         <nav className="admin-side-nav">
           {LINKS.map((l) => {
             const active = linkActive(pathname, l.href);
+            const showBadge =
+              (l.href === "/admin/messages" || l.href === "/admin/inbox") && unread > 0;
             return (
               <Link
                 key={l.href}
@@ -114,9 +117,7 @@ export default function AdminShell({ unread, profile, children }: Props) {
                 title={collapsed ? l.label : undefined}
               >
                 <span className="admin-side-label">{collapsed ? l.label.charAt(0) : l.label}</span>
-                {l.href === "/admin/messages" && unread > 0 && (
-                  <span className="badge">{unread}</span>
-                )}
+                {showBadge && <span className="badge">{unread}</span>}
               </Link>
             );
           })}
