@@ -140,6 +140,57 @@ async function saveIncomingMessage(
   );
 }
 
+// ─── Notification Telegram temps réel ────────────────────────────────
+// Quand un commentaire ou une mention arrive sur un post Instagram,
+// on prévient Mickael sur Telegram avec un lien direct. Best-effort.
+async function notifyMickaelOnIg(input: {
+  kind: "comment" | "mention";
+  payload: Record<string, unknown>;
+  shared: Record<string, string>;
+}): Promise<void> {
+  const botToken = input.shared.telegram_bot_token;
+  const chatId = input.shared.telegram_allowed_user_id;
+  if (!botToken || !chatId) return;
+
+  const from =
+    (input.payload.from as { username?: string } | undefined)?.username ??
+    (input.payload.from as { id?: string } | undefined)?.id ??
+    "quelqu'un";
+  const text =
+    (input.payload.text as string | undefined) ??
+    (input.payload.message as string | undefined) ??
+    "(sans texte)";
+  const mediaId =
+    (input.payload.media as { id?: string } | undefined)?.id ??
+    (input.payload.media_id as string | undefined);
+  const permalink = mediaId
+    ? `https://www.instagram.com/p/${mediaId}/`
+    : "https://www.instagram.com/";
+
+  const emoji = input.kind === "comment" ? "💬" : "📣";
+  const label =
+    input.kind === "comment" ? "Nouveau commentaire IG" : "Nouvelle mention IG";
+
+  const body = `${emoji} <b>${label}</b>\n\n<b>@${from}</b> a écrit :\n<i>« ${text
+    .toString()
+    .slice(0, 500)} »</i>\n\n<a href="${permalink}">Voir le post</a>`;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: body,
+        parse_mode: "HTML",
+        disable_web_page_preview: false,
+      }),
+    });
+  } catch {
+    // silencieux
+  }
+}
+
 // ─── POST : réception événement ──────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
@@ -195,7 +246,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Cas 2 : commentaires / mentions (champ « comments »)
+      // Cas 2 : commentaires / mentions (champ « comments » ou « mentions »)
       for (const change of entry.changes ?? []) {
         if (change.field === "comments") {
           await logEvent(
@@ -204,6 +255,11 @@ export async function POST(req: NextRequest) {
             change.value,
             true
           );
+          await notifyMickaelOnIg({
+            kind: "comment",
+            payload: change.value,
+            shared,
+          }).catch((err) => console.error("[ig/notify-comment]", err));
         } else if (change.field === "mentions") {
           await logEvent(
             "marketing",
@@ -211,6 +267,11 @@ export async function POST(req: NextRequest) {
             change.value,
             true
           );
+          await notifyMickaelOnIg({
+            kind: "mention",
+            payload: change.value,
+            shared,
+          }).catch((err) => console.error("[ig/notify-mention]", err));
         }
       }
     }

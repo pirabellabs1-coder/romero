@@ -417,14 +417,49 @@ function ThreadPanel({
   thread: UnifiedThread;
   messages: ThreadMessage[];
 }) {
+  const router = useRouter();
   const cm = channelMeta(thread.channel);
   const [pending, startTransition] = useTransition();
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // Threads assistants (WA/TG/IG) : peuvent recevoir une réponse directe.
+  const canReplyDirect =
+    thread.channel === "whatsapp" ||
+    thread.channel === "telegram" ||
+    thread.channel === "instagram";
 
   const canAskAI = thread.channel === "contact";
   const contactNumericId = canAskAI
     ? parseInt(thread.id.replace(/^contact_/, ""), 10)
     : NaN;
+
+  const [replyText, setReplyText] = useState("");
+  const [replyBusy, setReplyBusy] = useState(false);
+
+  async function sendReply() {
+    if (!canReplyDirect || !replyText.trim() || replyBusy) return;
+    setFlash(null);
+    setReplyBusy(true);
+    try {
+      const res = await fetch("/api/admin/inbox/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threadId: thread.id, text: replyText.trim() }),
+      });
+      const json = (await res.json()) as { ok: boolean; error?: string };
+      if (json.ok) {
+        setFlash({ ok: true, msg: "Message envoyé ✓" });
+        setReplyText("");
+        router.refresh();
+      } else {
+        setFlash({ ok: false, msg: json.error ?? "Erreur d'envoi." });
+      }
+    } catch (e) {
+      setFlash({ ok: false, msg: e instanceof Error ? e.message : "Erreur réseau." });
+    } finally {
+      setReplyBusy(false);
+    }
+  }
 
   function askAI() {
     if (!Number.isFinite(contactNumericId)) return;
@@ -526,6 +561,58 @@ function ThreadPanel({
           ))
         )}
       </div>
+
+      {/* Zone de réponse pour les threads assistants (WA / TG / IG) */}
+      {canReplyDirect ? (
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            paddingTop: 14,
+            borderTop: "1px solid rgba(184,151,90,0.15)",
+          }}
+        >
+          <textarea
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            onKeyDown={(e) => {
+              if (
+                (e.metaKey || e.ctrlKey) &&
+                e.key === "Enter" &&
+                replyText.trim() &&
+                !replyBusy
+              ) {
+                e.preventDefault();
+                void sendReply();
+              }
+            }}
+            placeholder={`Répondre via ${cm.label} — Cmd/Ctrl+Enter pour envoyer`}
+            rows={2}
+            style={{
+              flex: 1,
+              padding: "10px 12px",
+              borderRadius: 4,
+              background: "rgba(0,0,0,0.2)",
+              border: "1px solid rgba(184,151,90,0.25)",
+              color: "rgba(244,239,227,0.95)",
+              fontSize: 13.5,
+              lineHeight: 1.5,
+              resize: "vertical",
+              outline: "none",
+              fontFamily: "inherit",
+            }}
+          />
+          <button
+            type="button"
+            onClick={sendReply}
+            disabled={replyBusy || !replyText.trim()}
+            className="agent-btn agent-btn--primary"
+            style={{ alignSelf: "flex-end", whiteSpace: "nowrap" }}
+          >
+            {replyBusy ? "…" : `Envoyer ${cm.icon}`}
+          </button>
+        </div>
+      ) : null}
 
       {/* Footer avec métadonnées éventuelles */}
       {thread.extra ? <MetaFooter extra={thread.extra} channel={thread.channel} /> : null}
