@@ -514,8 +514,6 @@ async function handleSendLead(
         conv.lead_data.contact_phone && `Téléphone : ${conv.lead_data.contact_phone}`,
         conv.lead_data.wedding_location && `Lieu : ${conv.lead_data.wedding_location}`,
         conv.lead_data.wedding_date && `Date mariage : ${conv.lead_data.wedding_date}`,
-        conv.lead_data.style && `Style : ${conv.lead_data.style}`,
-        conv.lead_data.budget && `Budget : ${conv.lead_data.budget}`,
       ]
         .filter(Boolean)
         .join("\n");
