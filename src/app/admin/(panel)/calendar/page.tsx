@@ -11,6 +11,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { query } from "@/lib/db";
+import AddWeddingButton from "./AddWeddingButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -176,7 +177,17 @@ export default async function CalendarPage() {
 
       {/* À venir */}
       <div className="agent-panel" style={{ marginBottom: 22 }}>
-        <h2>Mariages à venir</h2>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 12,
+          }}
+        >
+          <h2>Mariages à venir</h2>
+          <AddWeddingButton />
+        </div>
         {upcoming.length === 0 ? (
           <p style={{ opacity: 0.55, fontStyle: "italic" }}>
             Aucun mariage à venir dans le CRM. Les mariages apparaîtront ici dès

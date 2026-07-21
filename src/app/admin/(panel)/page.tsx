@@ -193,7 +193,7 @@ function StatCard({ label, value, hint, href, icon, tone = "default" }: StatProp
 }
 
 export default async function AdminDashboard() {
-  const [counts, messagesDaily, galleryPhotos, regions, categories, messagesThisMonth, latestMessages, shared, mkt, wa] =
+  const [counts, messagesDaily, galleryPhotos, regions, categories, messagesThisMonth, latestMessages, shared, mkt, wa, nextWedding] =
     await Promise.all([
       getCounts(),
       messagesPer30Days(),
@@ -207,6 +207,19 @@ export default async function AdminDashboard() {
       getSharedConfig().catch(() => ({} as Record<string, string>)),
       getAgent("marketing").catch(() => null),
       getAgent("whatsapp").catch(() => null),
+      queryOne<{
+        id: number;
+        name: string;
+        wedding_date: string;
+        wedding_location: string | null;
+        days_until: number;
+      }>(
+        `SELECT id, name, to_char(wedding_date, 'YYYY-MM-DD') as wedding_date,
+                wedding_location, (wedding_date - CURRENT_DATE) AS days_until
+         FROM admin_contacts
+         WHERE wedding_date IS NOT NULL AND wedding_date >= CURRENT_DATE
+         ORDER BY wedding_date ASC LIMIT 1`
+      ).catch(() => null),
     ]);
 
   // Onboarding : bannière visible tant que tout n'est pas configuré.
@@ -291,6 +304,88 @@ export default async function AdminDashboard() {
             style={{ textDecoration: "none", whiteSpace: "nowrap" }}
           >
             Configurer maintenant →
+          </Link>
+        </section>
+      ) : null}
+
+      {nextWedding ? (
+        <section
+          style={{
+            marginBottom: 22,
+            padding: "18px 22px",
+            borderRadius: 8,
+            border: `1px solid ${
+              nextWedding.days_until <= 7
+                ? "rgba(228,138,138,0.4)"
+                : nextWedding.days_until <= 30
+                ? "rgba(184,151,90,0.4)"
+                : "rgba(157,206,157,0.35)"
+            }`,
+            background:
+              nextWedding.days_until <= 7
+                ? "rgba(228,138,138,0.08)"
+                : nextWedding.days_until <= 30
+                ? "rgba(184,151,90,0.08)"
+                : "rgba(157,206,157,0.06)",
+            display: "flex",
+            alignItems: "center",
+            gap: 22,
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
+              minWidth: 90,
+              textAlign: "center",
+              padding: "4px 12px",
+              borderRight: "1px solid rgba(184,151,90,0.2)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 34,
+                fontWeight: 300,
+                lineHeight: 1,
+                color:
+                  nextWedding.days_until <= 7
+                    ? "#E48A8A"
+                    : nextWedding.days_until <= 30
+                    ? "var(--gold-deep)"
+                    : "#9DCE9D",
+              }}
+            >
+              J-{nextWedding.days_until}
+            </div>
+          </div>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "rgba(184,151,90,0.7)",
+                marginBottom: 4,
+              }}
+            >
+              Prochain mariage
+            </div>
+            <strong style={{ fontSize: 17 }}>💒 {nextWedding.name}</strong>
+            <div style={{ fontSize: 13.5, opacity: 0.8, marginTop: 4 }}>
+              {new Date(nextWedding.wedding_date).toLocaleDateString("fr-FR", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+              {nextWedding.wedding_location ? ` · 📍 ${nextWedding.wedding_location}` : ""}
+            </div>
+          </div>
+          <Link
+            href="/admin/calendar"
+            className="agent-btn"
+            style={{ textDecoration: "none", whiteSpace: "nowrap" }}
+          >
+            Voir calendrier →
           </Link>
         </section>
       ) : null}
