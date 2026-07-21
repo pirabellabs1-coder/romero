@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { execute } from "@/lib/db";
+import { execute, queryOne } from "@/lib/db";
 import { sendContactNotification } from "@/lib/mailer";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { createApprovalRequest } from "@/lib/approval-flow";
 
 export const runtime = "nodejs";
 
@@ -75,15 +76,43 @@ export async function POST(req: Request) {
 
   // 4. Persist to DB. Postgres is always-on, no cold-start dance required.
   let saved = false;
+  let messageId: number | null = null;
   try {
-    await execute(
+    const row = await queryOne<{ id: number }>(
       `INSERT INTO messages (first_name, last_name, email, phone, wedding_date, place, message, lang)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id`,
       [first_name, last_name, email, phone, wedding_date, place, message, lang]
     );
-    saved = true;
+    if (row) {
+      saved = true;
+      messageId = row.id;
+    }
   } catch (e) {
     console.error("[contact] DB save failed:", e);
+  }
+
+  // 4bis. Fire-and-forget : draft IA + demande de validation Telegram.
+  // Ne bloque JAMAIS la réponse au client — c'est un canal secondaire.
+  if (messageId) {
+    const meta = [
+      phone && `Téléphone : ${phone}`,
+      place && `Lieu : ${place}`,
+      wedding_date && `Date mariage : ${wedding_date}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    createApprovalRequest({
+      source: "contact_form",
+      sourceId: messageId,
+      contactName: `${first_name} ${last_name}`,
+      contactEmail: email,
+      contactMessage: message,
+      contactMeta: meta,
+      language: lang === "en" ? "en" : "fr",
+    }).catch((e) => {
+      console.error("[contact] approval flow failed:", e);
+    });
   }
 
   // 5. Always try to send the email — that's the most important guarantee for the photographer.

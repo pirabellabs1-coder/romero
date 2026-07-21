@@ -25,6 +25,7 @@ import { getAgent } from "@/lib/agents";
 import { runAssistant } from "@/lib/whatsapp-assistant";
 import { transcribeAudioUrl } from "@/lib/voice-transcribe";
 import { writeSharedKey } from "@/lib/studio-settings";
+import { handleApprovalCallback } from "@/lib/approval-flow";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,12 @@ type TelegramUpdate = {
     text?: string;
     voice?: { file_id: string; duration: number; mime_type?: string };
     audio?: { file_id: string; duration: number; mime_type?: string };
+  };
+  callback_query?: {
+    id: string;
+    from: { id: number; first_name?: string; username?: string };
+    message?: { message_id: number; chat: { id: number } };
+    data?: string;
   };
 };
 
@@ -97,6 +104,44 @@ export async function POST(req: NextRequest) {
   // via sendMessage dans le même handler (Telegram s'en fiche du body).
   try {
     const update = (await req.json().catch(() => null)) as TelegramUpdate | null;
+
+    // ─── callback_query : clic sur un bouton d'approbation ─────────────
+    if (update?.callback_query) {
+      const cq = update.callback_query;
+      const inst = await getAgent("whatsapp");
+      const cfg = (inst?.config ?? {}) as {
+        telegram_bot_token?: string;
+        telegram_allowed_user_id?: string;
+      };
+      const token = cfg.telegram_bot_token;
+      if (!token) return NextResponse.json({ ok: true, ignored: "no_token" });
+
+      // ACK immédiat pour retirer l'animation de loading côté client
+      await tg(token, "answerCallbackQuery", { callback_query_id: cq.id }).catch(() => {});
+
+      // Filtre user autorisé
+      const allowedId = cfg.telegram_allowed_user_id?.trim();
+      const fromId = String(cq.from.id);
+      if (allowedId && fromId !== allowedId) {
+        return NextResponse.json({ ok: true, ignored: "unauthorized_callback" });
+      }
+
+      if (!cq.data || !cq.message) {
+        return NextResponse.json({ ok: true, ignored: "no_data" });
+      }
+
+      const result = await handleApprovalCallback({ callbackData: cq.data });
+      // Édite le message d'origine pour refléter la nouvelle situation
+      await tg(token, "editMessageText", {
+        chat_id: cq.message.chat.id,
+        message_id: cq.message.message_id,
+        text: result.newText,
+        parse_mode: "HTML",
+      }).catch(() => {});
+
+      return NextResponse.json({ ok: true, action: cq.data, result: result.ok });
+    }
+
     const msg = update?.message;
     if (!msg || msg.chat.type !== "private") {
       return NextResponse.json({ ok: true, ignored: "no_message_or_not_private" });

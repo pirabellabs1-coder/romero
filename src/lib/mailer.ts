@@ -114,6 +114,71 @@ export function renderContactEmailHtml(data: ContactMail): string {
   return renderContactHtml(data, { siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000" });
 }
 
+/**
+ * Envoi générique — utilisé par le flow de validation Telegram pour
+ * envoyer la réponse approuvée au client. Resend → SMTP fallback.
+ */
+export async function sendMail(input: {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  replyTo?: string;
+}): Promise<SendResult> {
+  const from = (process.env.MAIL_FROM || "Romero Photography <onboarding@resend.dev>").trim();
+  const to = input.to.trim();
+  if (!to) return { sent: false, error: "no_recipient" };
+
+  // Wrap texte en HTML minimal si non fourni
+  const html =
+    input.html ??
+    `<div style="font-family:system-ui,sans-serif;color:#2E3D2E;line-height:1.6;font-size:15px;max-width:600px">${input.text
+      .split("\n")
+      .map((l) => `<p style="margin:0 0 12px">${l.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>`)
+      .join("")}</div>`;
+
+  // 1. Resend
+  const resend = getResend();
+  if (resend) {
+    try {
+      const { data: res, error } = await resend.emails.send({
+        from,
+        to: [to],
+        replyTo: input.replyTo,
+        subject: input.subject,
+        text: input.text,
+        html,
+      });
+      if (error) throw new Error(error.message || "resend_error");
+      return { sent: true, provider: "resend", id: res?.id };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "resend_error";
+      console.error("[mailer.sendMail] Resend failed:", msg);
+    }
+  }
+
+  // 2. SMTP
+  const transporter = getSmtp();
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from,
+        to,
+        replyTo: input.replyTo,
+        subject: input.subject,
+        text: input.text,
+        html,
+      });
+      return { sent: true, provider: "smtp", id: info.messageId };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "smtp_error";
+      return { sent: false, error: msg };
+    }
+  }
+
+  return { sent: false, error: "no_provider" };
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
    Lead notification (from the site chatbot)
    Utilisée par /api/chat quand l'agent appelle send_lead_notification.

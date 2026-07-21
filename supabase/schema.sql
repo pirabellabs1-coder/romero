@@ -269,6 +269,30 @@ CREATE TABLE IF NOT EXISTS public.assistant_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_assistant_messages_session ON public.assistant_messages(session_id, created_at);
 
+-- ── Flow de validation par Telegram ─────────────────────────────────────
+-- Chaque demande = 1 draft IA en attente d'approbation Mickael.
+-- Sur clic bouton : status passe à sent/rejected + mail envoyé au client.
+CREATE TABLE IF NOT EXISTS public.pending_approvals (
+  id                    BIGSERIAL PRIMARY KEY,
+  source                TEXT NOT NULL CHECK (source IN ('contact_form','chatbot','instagram')),
+  source_id             BIGINT,
+  contact_name          TEXT NOT NULL,
+  contact_email         TEXT NOT NULL,
+  original_message      TEXT NOT NULL,
+  contact_meta          TEXT NOT NULL DEFAULT '',
+  draft_response        TEXT NOT NULL,
+  sent_response         TEXT,
+  language              TEXT NOT NULL DEFAULT 'fr',
+  status                TEXT NOT NULL DEFAULT 'pending'
+                        CHECK (status IN ('pending','sent','sent_failed','rejected','edited_pending')),
+  telegram_message_id   BIGINT,
+  decided_at            TIMESTAMPTZ,
+  sent_at               TIMESTAMPTZ,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pending_approvals_status ON public.pending_approvals(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pending_approvals_source ON public.pending_approvals(source, source_id);
+
 -- ── Briefs Marketing (agent 3) ───────────────────────────────────────────
 -- Un brief = une intention éditoriale (« photo mariage Sophie et Marc,
 -- ambiance provençale, lumière dorée » + photo(s) éventuelles).
