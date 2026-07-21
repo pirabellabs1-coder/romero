@@ -34,14 +34,21 @@ const CACHE_TTL_MS = 5_000;
  * restent overridables par-agent si besoin.
  */
 const ENV_FALLBACKS: Record<string, string | undefined> = {
-  anthropic_api_key:      process.env.ANTHROPIC_API_KEY,
-  openai_api_key:         process.env.OPENAI_API_KEY,
-  meta_app_id:            process.env.META_APP_ID,
-  meta_app_secret:        process.env.META_APP_SECRET,
-  google_client_id:       process.env.GOOGLE_CLIENT_ID,
-  google_client_secret:   process.env.GOOGLE_CLIENT_SECRET,
-  telegram_bot_token:     process.env.TELEGRAM_BOT_TOKEN,
-  whatsapp_verify_token:  process.env.WHATSAPP_VERIFY_TOKEN,
+  anthropic_api_key:            process.env.ANTHROPIC_API_KEY,
+  openai_api_key:               process.env.OPENAI_API_KEY,
+  meta_app_id:                  process.env.META_APP_ID,
+  meta_app_secret:              process.env.META_APP_SECRET,
+  google_client_id:             process.env.GOOGLE_CLIENT_ID,
+  google_client_secret:         process.env.GOOGLE_CLIENT_SECRET,
+  telegram_bot_token:           process.env.TELEGRAM_BOT_TOKEN,
+  whatsapp_verify_token:        process.env.WHATSAPP_VERIFY_TOKEN,
+  // WhatsApp Cloud API (2e app Meta dédiée)
+  whatsapp_access_token:        process.env.WHATSAPP_ACCESS_TOKEN,
+  whatsapp_phone_number_id:     process.env.WHATSAPP_PHONE_NUMBER_ID,
+  whatsapp_business_id:         process.env.WHATSAPP_BUSINESS_ID,
+  whatsapp_display_number:      process.env.WHATSAPP_DISPLAY_NUMBER,
+  meta_wa_app_id:               process.env.META_WA_APP_ID,
+  meta_wa_app_secret:           process.env.META_WA_APP_SECRET,
 };
 
 export async function getSharedConfig(): Promise<Record<string, string>> {

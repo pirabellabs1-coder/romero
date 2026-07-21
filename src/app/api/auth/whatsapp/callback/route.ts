@@ -192,10 +192,11 @@ export async function GET(req: NextRequest) {
     return flashRedirect(req, false, "State OAuth invalide (protection CSRF).");
   }
 
-  const appId = process.env.META_APP_ID;
-  const appSecret = process.env.META_APP_SECRET;
+  // 2e app Meta dédiée WhatsApp, fallback sur l'app générale.
+  const appId = process.env.META_WA_APP_ID || process.env.META_APP_ID;
+  const appSecret = process.env.META_WA_APP_SECRET || process.env.META_APP_SECRET;
   if (!appId || !appSecret) {
-    return flashRedirect(req, false, "META_APP_ID / META_APP_SECRET manquants côté ENV.");
+    return flashRedirect(req, false, "META_WA_APP_ID / META_WA_APP_SECRET manquants côté ENV.");
   }
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin;

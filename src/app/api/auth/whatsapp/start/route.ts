@@ -29,7 +29,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/admin/login", req.url));
   }
 
-  const appId = process.env.META_APP_ID;
+  // 2e app Meta dédiée WhatsApp (META_WA_APP_ID), fallback sur l'app
+  // générale (META_APP_ID) si la dédiée n'est pas configurée.
+  const appId = process.env.META_WA_APP_ID || process.env.META_APP_ID;
   if (!appId) {
     return NextResponse.redirect(
       new URL(
