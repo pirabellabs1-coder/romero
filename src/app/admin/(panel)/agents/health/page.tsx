@@ -218,10 +218,10 @@ async function checkAgents(): Promise<Check[]> {
 
 async function checkKb(): Promise<Check[]> {
   try {
-    const rows = await query<{ slug: string; c: number }>(
-      "SELECT slug, COUNT(*)::int as c FROM agent_knowledge GROUP BY slug"
+    const rows = await query<{ agent_slug: string; c: number }>(
+      "SELECT agent_slug, COUNT(*)::int as c FROM agent_knowledge GROUP BY agent_slug"
     );
-    const map = new Map(rows.map((r) => [r.slug, r.c]));
+    const map = new Map(rows.map((r) => [r.agent_slug, r.c]));
     const slugs: Array<{ slug: string; label: string; min: number }> = [
       { slug: "site", label: "KB Site", min: 10 },
       { slug: "whatsapp", label: "KB WhatsApp", min: 15 },
