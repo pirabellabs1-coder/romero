@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { generateReplyForContactAction } from "./actions";
 
 export type UnifiedThread = {
   id: string;
@@ -348,6 +349,30 @@ function ThreadPanel({
   messages: ThreadMessage[];
 }) {
   const cm = channelMeta(thread.channel);
+  const [pending, startTransition] = useTransition();
+  const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const canAskAI = thread.channel === "contact";
+  const contactNumericId = canAskAI
+    ? parseInt(thread.id.replace(/^contact_/, ""), 10)
+    : NaN;
+
+  function askAI() {
+    if (!Number.isFinite(contactNumericId)) return;
+    setFlash(null);
+    startTransition(async () => {
+      const res = await generateReplyForContactAction(contactNumericId);
+      if (res.ok) {
+        setFlash({
+          ok: true,
+          msg: `Brouillon IA envoyé sur Telegram (#${res.approvalId}). Valide-le en 1 tap.`,
+        });
+      } else {
+        setFlash({ ok: false, msg: res.error });
+      }
+    });
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Header */}
@@ -378,15 +403,38 @@ function ThreadPanel({
             <div style={{ fontSize: 12, opacity: 0.65, marginTop: 2 }}>{thread.contactId}</div>
           ) : null}
         </div>
-        <div style={{ fontSize: 11, opacity: 0.55, whiteSpace: "nowrap" }}>
-          {new Date(thread.lastMessageAt).toLocaleString("fr-FR", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {canAskAI ? (
+            <button
+              type="button"
+              onClick={askAI}
+              disabled={pending}
+              className="agent-btn agent-btn--primary"
+              style={{ fontSize: 12, whiteSpace: "nowrap" }}
+              title="L'IA rédige une réponse et te l'envoie sur Telegram pour validation en 1 tap"
+            >
+              {pending ? "…" : "✨ Répondre par IA"}
+            </button>
+          ) : null}
+          <div style={{ fontSize: 11, opacity: 0.55, whiteSpace: "nowrap" }}>
+            {new Date(thread.lastMessageAt).toLocaleString("fr-FR", {
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
         </div>
       </div>
+
+      {flash ? (
+        <div
+          className={`agent-flash agent-flash--${flash.ok ? "ok" : "err"}`}
+          style={{ marginTop: -4 }}
+        >
+          {flash.ok ? "✓" : "✗"} {flash.msg}
+        </div>
+      ) : null}
 
       {/* Messages */}
       <div
