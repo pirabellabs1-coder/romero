@@ -247,6 +247,82 @@ function trimCaption(s: string): string {
   return lastSpace > 2000 ? cut.slice(0, lastSpace) + "…" : cut + "…";
 }
 
+// ─── Cross-post Facebook Page ─────────────────────────────────────
+// Publie une photo (ou un lot) sur la Page Facebook liée à l'IG
+// Business. Utile pour toucher deux plateformes avec un seul brief.
+//
+// Endpoint : POST /{page-id}/photos avec url + caption + published=true
+// Pour un carrousel : uploader chaque photo en "unpublished" puis POST
+// /{page-id}/feed avec attached_media = [{ media_fbid: ... }, ...].
+export async function publishFacebookPagePost(input: {
+  pageId: string;
+  pageAccessToken: string; // Meta demande explicitement le Page token
+  imageUrls: string[];
+  caption: string;
+}): Promise<
+  | { ok: true; postId: string; permalink?: string }
+  | { ok: false; error: string }
+> {
+  if (input.imageUrls.length === 0)
+    return { ok: false, error: "Au moins une photo est requise" };
+
+  const message = trimCaption(input.caption);
+
+  // Cas simple : 1 photo → POST /{page-id}/photos
+  if (input.imageUrls.length === 1) {
+    const body = new URLSearchParams({
+      url: input.imageUrls[0],
+      caption: message,
+      published: "true",
+    });
+    const r = await graphFetch(`/${input.pageId}/photos`, {
+      method: "POST",
+      accessToken: input.pageAccessToken,
+      body,
+    });
+    if (!r.ok) return r;
+    const post = r.data as { post_id?: string; id?: string };
+    const postId = post.post_id || post.id;
+    if (!postId) return { ok: false, error: "Réponse Meta sans id" };
+    return { ok: true, postId };
+  }
+
+  // Cas carrousel : upload chaque photo en unpublished
+  const mediaIds: string[] = [];
+  for (const url of input.imageUrls) {
+    const body = new URLSearchParams({
+      url,
+      published: "false",
+      temporary: "true",
+    });
+    const r = await graphFetch(`/${input.pageId}/photos`, {
+      method: "POST",
+      accessToken: input.pageAccessToken,
+      body,
+    });
+    if (!r.ok) return r;
+    const id = (r.data as { id?: string }).id;
+    if (!id) return { ok: false, error: "Upload photo sans id" };
+    mediaIds.push(id);
+  }
+
+  // Puis publie le feed avec ces medias attachés
+  const attached_media = mediaIds.map((id) => ({ media_fbid: id }));
+  const feedBody = new URLSearchParams({
+    message,
+    attached_media: JSON.stringify(attached_media),
+  });
+  const feed = await graphFetch(`/${input.pageId}/feed`, {
+    method: "POST",
+    accessToken: input.pageAccessToken,
+    body: feedBody,
+  });
+  if (!feed.ok) return feed;
+  const feedResp = feed.data as { id?: string };
+  if (!feedResp.id) return { ok: false, error: "Réponse Meta sans id" };
+  return { ok: true, postId: feedResp.id };
+}
+
 // ─── Récupérer les métriques d'un post publié ────────────────────
 // Trois indicateurs simples : likes, comments, reach. On les stocke
 // pour affichage dans BriefCard. Meta délivre les insights à partir

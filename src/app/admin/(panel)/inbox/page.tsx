@@ -122,17 +122,31 @@ async function loadAssistantSessions(): Promise<UnifiedThread[]> {
      LIMIT $1`,
     [LIMIT]
   );
-  return rows.map((r) => ({
-    id: `assistant_${r.id}`,
-    channel: r.platform === "whatsapp" ? "whatsapp" : "telegram",
-    contactName: r.display_name || `${r.platform === "whatsapp" ? "+" : ""}${r.platform_user_id}`,
-    contactId: r.platform_user_id,
-    lastMessageAt: r.updated_at,
-    lastMessagePreview: (r.last_preview ?? "").replace(/\s+/g, " ").slice(0, 140),
-    unread: false,
-    messageCount: r.message_count,
-    extra: { platform: r.platform, platform_user_id: r.platform_user_id },
-  }));
+  return rows.map((r) => {
+    const channel =
+      r.platform === "whatsapp"
+        ? ("whatsapp" as const)
+        : r.platform === "instagram"
+        ? ("instagram" as const)
+        : ("telegram" as const);
+    const displayFallback =
+      r.platform === "whatsapp"
+        ? `+${r.platform_user_id}`
+        : r.platform === "instagram"
+        ? `IG user ${r.platform_user_id.slice(0, 12)}`
+        : r.platform_user_id;
+    return {
+      id: `assistant_${r.id}`,
+      channel,
+      contactName: r.display_name || displayFallback,
+      contactId: r.platform_user_id,
+      lastMessageAt: r.updated_at,
+      lastMessagePreview: (r.last_preview ?? "").replace(/\s+/g, " ").slice(0, 140),
+      unread: false,
+      messageCount: r.message_count,
+      extra: { platform: r.platform, platform_user_id: r.platform_user_id },
+    };
+  });
 }
 
 async function loadThreadMessages(
@@ -260,6 +274,7 @@ export default async function InboxPage({
         searchParams?.ch === "chatbot" ||
         searchParams?.ch === "whatsapp" ||
         searchParams?.ch === "telegram" ||
+        searchParams?.ch === "instagram" ||
         searchParams?.ch === "contact"
           ? searchParams.ch
           : "all"

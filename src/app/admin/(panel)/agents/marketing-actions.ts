@@ -255,6 +255,48 @@ export async function publishInstagramAction(
       brief_id: briefId,
       post_id: result.postId,
     });
+
+    // ─── Bonus : cross-post Facebook Page ────────────────────────
+    // Si l'app a un Page ID + Page Access Token en config, on double
+    // la visibilité sans effort supplémentaire de rédaction.
+    // Best-effort (ne bloque JAMAIS la réponse principale IG).
+    const pageId = (cfg as { meta_page_id?: string }).meta_page_id;
+    if (pageId && cfg.meta_access_token) {
+      try {
+        const { publishFacebookPagePost } = await import("@/lib/instagram");
+        const fb = await publishFacebookPagePost({
+          pageId,
+          pageAccessToken: cfg.meta_access_token,
+          imageUrls: brief.photo_urls,
+          caption,
+        });
+        if (fb.ok) {
+          await execute(
+            `UPDATE marketing_briefs
+             SET facebook_post_id = $1, facebook_published_at = NOW(),
+                 updated_at = NOW()
+             WHERE id = $2`,
+            [fb.postId, briefId]
+          ).catch(() => {});
+          await logEvent(
+            "marketing",
+            "facebook_cross_posted",
+            { brief_id: briefId, post_id: fb.postId },
+            true
+          );
+        } else {
+          await logEvent(
+            "marketing",
+            "facebook_cross_post_error",
+            { brief_id: briefId, error: fb.error },
+            false
+          );
+        }
+      } catch (e) {
+        console.error("[marketing] fb cross-post failed:", e);
+      }
+    }
+
     revalidate();
     return { ok: true, postId: result.postId };
   } catch (e) {

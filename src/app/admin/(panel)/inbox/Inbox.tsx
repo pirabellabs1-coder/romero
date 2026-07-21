@@ -6,7 +6,7 @@ import { generateReplyForContactAction } from "./actions";
 
 export type UnifiedThread = {
   id: string;
-  channel: "contact" | "chatbot" | "whatsapp" | "telegram";
+  channel: "contact" | "chatbot" | "whatsapp" | "telegram" | "instagram";
   contactName: string;
   contactId?: string;
   lastMessageAt: string;
@@ -23,7 +23,7 @@ export type ThreadMessage = {
   createdAt: string;
 };
 
-type Channel = "all" | "contact" | "chatbot" | "whatsapp" | "telegram";
+type Channel = "all" | "contact" | "chatbot" | "whatsapp" | "telegram" | "instagram";
 
 const CHANNELS: Array<{ key: Channel; label: string; color: string; icon: string }> = [
   { key: "all", label: "Tous", color: "#B8975A", icon: "◈" },
@@ -31,6 +31,7 @@ const CHANNELS: Array<{ key: Channel; label: string; color: string; icon: string
   { key: "chatbot", label: "Site", color: "#9DB29A", icon: "◉" },
   { key: "whatsapp", label: "WhatsApp", color: "#25D366", icon: "◎" },
   { key: "telegram", label: "Telegram", color: "#3EC8F5", icon: "◐" },
+  { key: "instagram", label: "Instagram", color: "#E1306C", icon: "◑" },
 ];
 
 function timeAgo(iso: string): string {
@@ -120,6 +121,7 @@ export default function Inbox({
       chatbot: { total: 0, unread: 0 },
       whatsapp: { total: 0, unread: 0 },
       telegram: { total: 0, unread: 0 },
+      instagram: { total: 0, unread: 0 },
     };
     for (const t of threads) {
       c[t.channel].total++;
