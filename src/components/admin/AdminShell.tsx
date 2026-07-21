@@ -13,6 +13,8 @@ const LINKS: Array<{ href: string; label: string }> = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/inbox", label: "Inbox" },
   { href: "/admin/approvals", label: "Réponses IA" },
+  { href: "/admin/calendar", label: "Calendrier" },
+  { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/content", label: "Contenu" },
   { href: "/admin/galleries", label: "Galeries" },
   { href: "/admin/posts", label: "Journal" },

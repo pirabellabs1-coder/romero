@@ -247,6 +247,108 @@ function trimCaption(s: string): string {
   return lastSpace > 2000 ? cut.slice(0, lastSpace) + "…" : cut + "…";
 }
 
+// ─── Publication Story (24h) ──────────────────────────────────────
+// Meta endpoint : POST /{ig-id}/media avec media_type=STORIES
+// Formats acceptés :
+//   - Image : JPEG, max 8 Mo, 9:16 recommandé
+//   - Video : MP4/MOV, 3-60 sec, 9:16, ≤ 100 Mo
+export async function publishInstagramStory(input: {
+  igUserId: string;
+  accessToken: string;
+  mediaUrl: string;
+  isVideo?: boolean;
+}): Promise<
+  | { ok: true; postId: string }
+  | { ok: false; error: string }
+> {
+  const body = new URLSearchParams({
+    media_type: "STORIES",
+    ...(input.isVideo
+      ? { video_url: input.mediaUrl }
+      : { image_url: input.mediaUrl }),
+  });
+  const container = await graphFetch(`/${input.igUserId}/media`, {
+    method: "POST",
+    accessToken: input.accessToken,
+    body,
+  });
+  if (!container.ok) return container;
+  const containerId = (container.data as { id?: string }).id;
+  if (!containerId) return { ok: false, error: "Container Story sans id" };
+
+  // Meta demande souvent 5-10s pour ingérer une vidéo Story
+  await new Promise((res) => setTimeout(res, input.isVideo ? 8000 : 1500));
+
+  const publish = await publishWithRetry({
+    igUserId: input.igUserId,
+    accessToken: input.accessToken,
+    containerId,
+  });
+  if (!publish.ok) return publish;
+  return { ok: true, postId: publish.post.id };
+}
+
+// ─── Publication Reel (video) ────────────────────────────────────
+// Meta endpoint : POST /{ig-id}/media avec media_type=REELS
+// Contraintes strictes :
+//   - MP4 uniquement, codec H.264, audio AAC
+//   - Durée : 3-90 secondes
+//   - Ratio 9:16 recommandé (obligatoire pour affichage plein écran)
+//   - Résolution min 720x1280, max ~4K
+export async function publishInstagramReel(input: {
+  igUserId: string;
+  accessToken: string;
+  videoUrl: string;
+  caption: string;
+  coverUrl?: string; // miniature JPEG optionnelle
+}): Promise<
+  | { ok: true; postId: string }
+  | { ok: false; error: string }
+> {
+  const cap = trimCaption(input.caption);
+  const body = new URLSearchParams({
+    media_type: "REELS",
+    video_url: input.videoUrl,
+    caption: cap,
+    ...(input.coverUrl ? { cover_url: input.coverUrl } : {}),
+  });
+  const container = await graphFetch(`/${input.igUserId}/media`, {
+    method: "POST",
+    accessToken: input.accessToken,
+    body,
+  });
+  if (!container.ok) return container;
+  const containerId = (container.data as { id?: string }).id;
+  if (!containerId) return { ok: false, error: "Container Reel sans id" };
+
+  // Les Reels demandent plus de temps d'ingestion (transcodage vidéo Meta).
+  // On check le status via /media?fields=status_code toutes les 3s, max 60s.
+  const start = Date.now();
+  while (Date.now() - start < 60_000) {
+    await new Promise((res) => setTimeout(res, 3000));
+    try {
+      const check = await fetch(
+        `${META_GRAPH_BASE}/${containerId}?fields=status_code&access_token=${input.accessToken}`
+      );
+      if (!check.ok) continue;
+      const j = (await check.json()) as { status_code?: string };
+      if (j.status_code === "FINISHED") break;
+      if (j.status_code === "ERROR")
+        return { ok: false, error: "Meta transcodage a échoué" };
+    } catch {
+      /* on continue */
+    }
+  }
+
+  const publish = await publishWithRetry({
+    igUserId: input.igUserId,
+    accessToken: input.accessToken,
+    containerId,
+  });
+  if (!publish.ok) return publish;
+  return { ok: true, postId: publish.post.id };
+}
+
 // ─── Cross-post Facebook Page ─────────────────────────────────────
 // Publie une photo (ou un lot) sur la Page Facebook liée à l'IG
 // Business. Utile pour toucher deux plateformes avec un seul brief.
