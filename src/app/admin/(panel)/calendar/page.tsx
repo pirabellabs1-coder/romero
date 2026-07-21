@@ -314,6 +314,42 @@ export default async function CalendarPage() {
         )}
       </div>
 
+      {/* Boutons export */}
+      <div
+        className="agent-panel"
+        style={{
+          marginBottom: 22,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <strong style={{ fontSize: 14 }}>Sauvegarde du CRM</strong>
+          <div style={{ fontSize: 12, opacity: 0.65, marginTop: 3 }}>
+            Télécharge tous tes contacts au format Excel ou téléphone.
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <a
+            href="/api/admin/export/contacts?format=csv"
+            className="agent-btn"
+            download
+          >
+            📊 CSV (Excel)
+          </a>
+          <a
+            href="/api/admin/export/contacts?format=vcard"
+            className="agent-btn"
+            download
+          >
+            📱 vCard (téléphone)
+          </a>
+        </div>
+      </div>
+
       {/* Passés (galeries) */}
       <div className="agent-panel">
         <h2>Mariages couverts ({past.length})</h2>

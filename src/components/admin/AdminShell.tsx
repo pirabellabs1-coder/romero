@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import CommandPalette from "./CommandPalette";
 
 type Props = {
   unread: number;
@@ -211,6 +212,7 @@ export default function AdminShell({ unread, profile, children }: Props) {
       </aside>
 
       <main className="admin-main">{children}</main>
+      <CommandPalette />
     </div>
   );
 }
