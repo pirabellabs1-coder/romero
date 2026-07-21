@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { generateReplyForContactAction } from "./actions";
 
@@ -80,6 +80,39 @@ export default function Inbox({
     });
   }, [threads, channel, q]);
 
+  // ─── Auto-refresh : polling toutes les 30 s ─────────────────────
+  // On garde en mémoire le dernier lastActivity connu et on refresh
+  // le server component quand il change (nouvelle conversation arrivée).
+  const baselineActivity = useMemo(() => {
+    return threads.length > 0 ? threads[0].lastMessageAt : "";
+  }, [threads]);
+  const lastSeenRef = useRef(baselineActivity);
+  const [newBadge, setNewBadge] = useState(false);
+  useEffect(() => {
+    lastSeenRef.current = baselineActivity;
+  }, [baselineActivity]);
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      try {
+        const r = await fetch("/api/admin/inbox-count", { cache: "no-store" });
+        if (!r.ok) return;
+        const j = (await r.json()) as { lastActivity?: string };
+        if (cancelled) return;
+        if (j.lastActivity && j.lastActivity > lastSeenRef.current) {
+          setNewBadge(true);
+        }
+      } catch {
+        /* silencieux */
+      }
+    }
+    const id = setInterval(poll, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
   const counts = useMemo(() => {
     const c: Record<Channel, { total: number; unread: number }> = {
       all: { total: threads.length, unread: 0 },
@@ -115,6 +148,40 @@ export default function Inbox({
 
   return (
     <div>
+      {newBadge ? (
+        <div
+          style={{
+            position: "sticky",
+            top: 10,
+            zIndex: 10,
+            marginBottom: 14,
+            padding: "10px 14px",
+            border: "1px solid rgba(157,206,157,0.4)",
+            background: "rgba(157,206,157,0.15)",
+            color: "#9DCE9D",
+            borderRadius: 6,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            fontSize: 13,
+          }}
+        >
+          <span>✨ Nouvelles conversations arrivées</span>
+          <button
+            type="button"
+            onClick={() => {
+              setNewBadge(false);
+              router.refresh();
+            }}
+            className="agent-btn agent-btn--primary"
+            style={{ fontSize: 12 }}
+          >
+            Rafraîchir →
+          </button>
+        </div>
+      ) : null}
+
       <section className="agents-hero" style={{ marginBottom: 22 }}>
         <div className="agents-hero__eyebrow">Inbox unifié</div>
         <h1 className="agents-hero__title">

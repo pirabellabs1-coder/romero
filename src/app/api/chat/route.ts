@@ -503,6 +503,34 @@ async function handleSendLead(
     upsertLeadToContactCrm(conv.lead_data).catch((err) => {
       console.error("[chat/lead → crm]", err);
     });
+
+    // ── Bridge Site → Approval Flow ──
+    // On génère aussi un brouillon IA de réponse et on l'envoie sur
+    // Telegram à Mickael pour validation en 1-tap. Fire-and-forget
+    // pour ne pas bloquer le tour de conversation en cours.
+    if (conv.lead_data.contact_email && conv.lead_data.contact_name) {
+      const { createApprovalRequest } = await import("@/lib/approval-flow");
+      const meta = [
+        conv.lead_data.contact_phone && `Téléphone : ${conv.lead_data.contact_phone}`,
+        conv.lead_data.wedding_location && `Lieu : ${conv.lead_data.wedding_location}`,
+        conv.lead_data.wedding_date && `Date mariage : ${conv.lead_data.wedding_date}`,
+        conv.lead_data.style && `Style : ${conv.lead_data.style}`,
+        conv.lead_data.budget && `Budget : ${conv.lead_data.budget}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      createApprovalRequest({
+        source: "chatbot",
+        sourceId: conversationId,
+        contactName: conv.lead_data.contact_name,
+        contactEmail: conv.lead_data.contact_email,
+        contactMessage: summary,
+        contactMeta: meta,
+        language: "fr",
+      }).catch((err) => {
+        console.error("[chat/lead → approval]", err);
+      });
+    }
   }
   return { sent: res.sent, error: res.error };
 }

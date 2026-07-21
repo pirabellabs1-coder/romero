@@ -186,6 +186,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ignored: "unauthorized_user" });
     }
 
+    // ─── Commandes système (avant le passage à l'assistant IA) ────
+    const cmd = msg.text?.trim().toLowerCase();
+    if (cmd === "/status" || cmd === "/etat") {
+      const statusText = await buildStatusReport();
+      await tg(token, "sendMessage", {
+        chat_id: msg.chat.id,
+        text: statusText,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      });
+      return NextResponse.json({ ok: true, command: "status" });
+    }
+    if (cmd === "/help" || cmd === "/aide") {
+      await sendReply(
+        token,
+        msg.chat.id,
+        `📋 Commandes disponibles :
+
+/status — récap du jour (RDV, leads, approvals)
+/help — cette aide
+
+Sinon, écris ou envoie un vocal :
+• « Prends RDV visio demain 15h avec Sophie »
+• « Suis-je libre samedi entre 14h et 18h ? »
+• « Récap de la semaine »
+
+Les nouveaux leads arrivent automatiquement ici avec un brouillon IA à valider en 1 clic. ✨`
+      );
+      return NextResponse.json({ ok: true, command: "help" });
+    }
+
     // Récupère le texte (message texte ou vocal transcrit)
     let userText = "";
     if (msg.text) {
@@ -254,6 +285,69 @@ export async function POST(req: NextRequest) {
     console.error("[telegram/webhook]", e);
     return NextResponse.json({ ok: false, error: "internal_error" }, { status: 500 });
   }
+}
+
+// ─── /status : rapport du jour pour Mickael ─────────────────────────
+async function buildStatusReport(): Promise<string> {
+  const { queryOne, query } = await import("@/lib/db");
+  const now = new Date();
+  const nowStr = now.toLocaleString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const [pendingApprovals, unreadContacts, chatLeads, upcomingEvents, nextWedding] =
+    await Promise.all([
+      queryOne<{ c: number }>(
+        `SELECT COUNT(*)::int as c FROM pending_approvals WHERE status = 'pending'`
+      ).catch(() => null),
+      queryOne<{ c: number }>(
+        `SELECT COUNT(*)::int as c FROM messages WHERE read_at IS NULL`
+      ).catch(() => null),
+      queryOne<{ c: number }>(
+        `SELECT COUNT(*)::int as c FROM chat_conversations WHERE notified = FALSE`
+      ).catch(() => null),
+      queryOne<{ c: number }>(
+        `SELECT COUNT(*)::int as c FROM assistant_events
+         WHERE event_type = 'google_event_created'
+         AND created_at >= NOW() - INTERVAL '7 days'`
+      ).catch(() => null),
+      queryOne<{ names: string; wedding_date: string; days_until: number }>(
+        `SELECT names,
+                to_char(created_at, 'YYYY-MM-DD') as wedding_date,
+                EXTRACT(DAY FROM (created_at - NOW()))::int as days_until
+         FROM galleries
+         WHERE published = 1 AND created_at > NOW()
+         ORDER BY created_at ASC
+         LIMIT 1`
+      ).catch(() => null),
+    ]);
+
+  const lines: string[] = [];
+  lines.push(`<b>📊 Récap</b> · <i>${nowStr}</i>`);
+  lines.push("");
+  lines.push(
+    `📨 <b>Brouillons IA en attente :</b> ${pendingApprovals?.c ?? "?"}${
+      (pendingApprovals?.c ?? 0) > 0 ? " — valide-les !" : ""
+    }`
+  );
+  lines.push(`✉ <b>Messages contact non lus :</b> ${unreadContacts?.c ?? "?"}`);
+  lines.push(`◉ <b>Leads chatbot en attente :</b> ${chatLeads?.c ?? "?"}`);
+  lines.push(`📅 <b>Événements créés cette semaine :</b> ${upcomingEvents?.c ?? "?"}`);
+  if (nextWedding?.names) {
+    lines.push("");
+    lines.push(
+      `💒 <b>Prochain mariage :</b> ${nextWedding.names} (${nextWedding.wedding_date})`
+    );
+  }
+  lines.push("");
+  lines.push(
+    `<a href="https://romerophotography.fr/admin">🩺 Ouvrir le dashboard</a>`
+  );
+  return lines.join("\n");
 }
 
 // Endpoint santé (utile pour vérifier que la route est déployée)
