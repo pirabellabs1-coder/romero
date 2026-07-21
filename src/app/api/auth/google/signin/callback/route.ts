@@ -183,5 +183,18 @@ export async function GET(req: NextRequest) {
   const resp = NextResponse.redirect(new URL(dest, req.url));
   resp.cookies.delete("rp_google_signin_state");
   resp.cookies.delete("rp_google_signin_from");
+
+  // Pose aussi le cookie « unlock » : un user validé par SSO n'a pas
+  // besoin de re-visiter le chemin magique pour accéder à /admin/*.
+  const unlockKey = process.env.ADMIN_UNLOCK_KEY;
+  if (unlockKey && unlockKey.length >= 8) {
+    resp.cookies.set("rp_admin_unlock", unlockKey, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 90,
+      path: "/",
+    });
+  }
   return resp;
 }
