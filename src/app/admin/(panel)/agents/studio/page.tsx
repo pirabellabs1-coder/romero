@@ -35,13 +35,20 @@ export default async function StudioSettingsPage() {
   // Statut Telegram : token présent (config plateforme) + user_id autorisé capturé
   const tgTokenPresent = !!initial.telegram_bot_token;
   const tgOwnerCaptured = !!initial.telegram_allowed_user_id;
-  // Nom du bot dérivé du token (partie avant le ":") — on n'expose pas le token complet.
-  // Le vrai username est chargé côté client si besoin, ici on affiche juste le statut.
   const tgConnected = tgTokenPresent && tgOwnerCaptured;
   const tgLabel = tgTokenPresent
     ? tgOwnerCaptured
       ? `User ID ${initial.telegram_allowed_user_id}`
       : "Bot prêt — attend le /start du propriétaire"
+    : undefined;
+
+  // Statut WhatsApp Business : access_token + phone_number_id présents
+  const waConnected =
+    !!initial.whatsapp_access_token && !!initial.whatsapp_phone_number_id;
+  const waLabel = waConnected
+    ? initial.whatsapp_business_name
+      ? `${initial.whatsapp_display_number ?? "numéro business"} · ${initial.whatsapp_business_name}`
+      : initial.whatsapp_display_number ?? `Phone #${initial.whatsapp_phone_number_id}`
     : undefined;
 
   return (
@@ -71,6 +78,11 @@ export default async function StudioSettingsPage() {
             connected: tgConnected,
             ready: tgTokenPresent,
             label: tgLabel,
+          },
+          whatsapp: {
+            connected: waConnected,
+            label: waLabel,
+            verifyToken: initial.whatsapp_verify_token,
           },
         }}
       />

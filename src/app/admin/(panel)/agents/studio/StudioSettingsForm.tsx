@@ -8,6 +8,7 @@ type Connections = {
   instagram: { connected: boolean; label?: string };
   google: { connected: boolean; label?: string };
   telegram: { connected: boolean; ready: boolean; label?: string };
+  whatsapp: { connected: boolean; label?: string; verifyToken?: string };
 };
 
 type Props = {
@@ -134,6 +135,11 @@ export default function StudioSettingsForm({ initial, connections }: Props) {
             connected={connections.telegram.connected}
             ready={connections.telegram.ready}
             label={connections.telegram.label}
+          />
+          <WhatsappConnectionCard
+            connected={connections.whatsapp.connected}
+            label={connections.whatsapp.label}
+            verifyToken={connections.whatsapp.verifyToken}
           />
         </div>
       </div>
@@ -446,6 +452,180 @@ function TelegramConnectionCard({
           Bot pas encore configuré côté plateforme (contacter le studio).
         </span>
       )}
+    </div>
+  );
+}
+
+// ─── Carte WhatsApp Cloud ────────────────────────────────────────────
+function WhatsappConnectionCard({
+  connected,
+  label,
+  verifyToken,
+}: {
+  connected: boolean;
+  label?: string;
+  verifyToken?: string;
+}) {
+  const [showConfig, setShowConfig] = useState(false);
+  const webhookUrl = "https://romerophotography.fr/api/whatsapp/webhook";
+
+  const copy = (text: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+  };
+
+  return (
+    <div
+      style={{
+        border: `1px solid ${connected ? "rgba(157,206,157,0.4)" : "rgba(184,151,90,0.25)"}`,
+        borderRadius: 6,
+        padding: 16,
+        background: connected ? "rgba(157,206,157,0.05)" : "rgba(184,151,90,0.03)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <strong style={{ fontSize: 15, letterSpacing: "0.02em" }}>WhatsApp Business</strong>
+        <span
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            padding: "3px 8px",
+            border: `1px solid ${connected ? "#9DCE9D" : "rgba(184,151,90,0.35)"}`,
+            color: connected ? "#9DCE9D" : "rgba(184,151,90,0.7)",
+            borderRadius: 3,
+          }}
+        >
+          {connected ? "✓ Connecté" : "Non connecté"}
+        </span>
+      </div>
+      <span style={{ fontSize: 12.5, opacity: 0.75, lineHeight: 1.5 }}>
+        Assistant WhatsApp Cloud pour tes prospects — vocal ou texte, l'agent
+        répond, prend RDV. Prérequis : un compte WhatsApp Business + un numéro
+        validé dans Meta Business.
+      </span>
+      {label ? (
+        <span style={{ fontSize: 12, color: "rgba(157,206,157,0.85)" }}>{label}</span>
+      ) : null}
+      <a
+        href="/api/auth/whatsapp/start"
+        className={connected ? "agent-btn" : "agent-btn agent-btn--primary"}
+        style={{ marginTop: 4, textAlign: "center", textDecoration: "none" }}
+      >
+        {connected ? "Reconnecter" : "Connecter WhatsApp Business"}
+      </a>
+
+      {/* Section repliable : instructions dernière étape Meta */}
+      {connected || verifyToken ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setShowConfig((v) => !v)}
+            className="agent-btn"
+            style={{
+              width: "100%",
+              justifyContent: "flex-start",
+              textAlign: "left",
+              fontSize: 11,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              opacity: 0.85,
+              marginTop: 2,
+            }}
+          >
+            {showConfig ? "▾" : "▸"} Configuration webhook Meta (dernière étape)
+          </button>
+          {showConfig ? (
+            <div
+              style={{
+                marginTop: 8,
+                padding: 12,
+                border: "1px solid rgba(184,151,90,0.18)",
+                borderRadius: 4,
+                background: "rgba(0,0,0,0.15)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <p style={{ fontSize: 12, opacity: 0.8, margin: 0, lineHeight: 1.5 }}>
+                Dans Meta app dashboard →{" "}
+                <strong>WhatsApp → Configuration</strong>, colle :
+              </p>
+              <div>
+                <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 3, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                  Callback URL
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    readOnly
+                    value={webhookUrl}
+                    onFocus={(e) => e.target.select()}
+                    style={{
+                      flex: 1,
+                      fontSize: 11.5,
+                      padding: "6px 8px",
+                      background: "rgba(0,0,0,0.3)",
+                      border: "1px solid rgba(184,151,90,0.2)",
+                      color: "rgba(244,239,227,0.9)",
+                      borderRadius: 3,
+                      fontFamily: "monospace",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => copy(webhookUrl)}
+                    className="agent-btn"
+                    style={{ fontSize: 11 }}
+                  >
+                    Copier
+                  </button>
+                </div>
+              </div>
+              {verifyToken ? (
+                <div>
+                  <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 3, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                    Verify Token
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input
+                      readOnly
+                      value={verifyToken}
+                      onFocus={(e) => e.target.select()}
+                      style={{
+                        flex: 1,
+                        fontSize: 11.5,
+                        padding: "6px 8px",
+                        background: "rgba(0,0,0,0.3)",
+                        border: "1px solid rgba(184,151,90,0.2)",
+                        color: "rgba(244,239,227,0.9)",
+                        borderRadius: 3,
+                        fontFamily: "monospace",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => copy(verifyToken)}
+                      className="agent-btn"
+                      style={{ fontSize: 11 }}
+                    >
+                      Copier
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              <p style={{ fontSize: 11.5, opacity: 0.7, margin: 0, lineHeight: 1.5 }}>
+                Puis clique <strong>Verify and Save</strong>, et abonne-toi au champ{" "}
+                <code style={{ color: "#B8975A" }}>messages</code>.
+              </p>
+            </div>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }
