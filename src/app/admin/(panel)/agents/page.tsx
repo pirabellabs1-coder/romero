@@ -53,7 +53,7 @@ export default async function AgentsIndexPage() {
           administratif. Chaque agent est installable indépendamment — commencez par celui
           qui vous apportera le plus de valeur en premier.
         </p>
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
           <Link
             href="/admin/agents/studio"
             className="agent-btn agent-btn--primary"
@@ -61,9 +61,16 @@ export default async function AgentsIndexPage() {
           >
             ⚙ Studio Settings — clés API partagées
           </Link>
-          <div style={{ marginTop: 8, fontSize: 12, color: "rgba(244,239,227,0.65)" }}>
-            Un seul endroit pour la clé Claude, Meta, Google, SIRET, TVA — hérités par les 4 agents.
-          </div>
+          <Link
+            href="/admin/agents/health"
+            className="agent-btn"
+            style={{ textDecoration: "none", display: "inline-block" }}
+          >
+            🩺 Santé système — diagnostic live
+          </Link>
+        </div>
+        <div style={{ marginTop: 8, fontSize: 12, color: "rgba(244,239,227,0.65)" }}>
+          Un seul endroit pour la clé Claude, Meta, Google, SIRET, TVA — hérités par les 4 agents.
         </div>
       </section>
 
