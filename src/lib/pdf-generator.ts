@@ -43,6 +43,18 @@ export function sanitizeForPdf(s: string): string {
   for (const [re, rep] of WINANSI_REPLACE) out = out.replace(re, rep);
   return out;
 }
+// Ceinture-bretelles : intercepte toute page.drawText et applique
+// sanitize sur le premier argument (le texte). Impossible qu'un char
+// non-WinAnsi passe, quelle que soit la source (input, formatter,
+// literal, concat, template string).
+function wrapPage(page: PDFPage): PDFPage {
+  const original = page.drawText.bind(page);
+  page.drawText = (text: string, options?: unknown) => {
+    return original(sanitizeForPdf(String(text ?? "")), options as never);
+  };
+  return page;
+}
+
 function sanitizeDeep<T>(input: T): T {
   if (input === null || input === undefined) return input;
   if (typeof input === "string") return sanitizeForPdf(input) as unknown as T;
@@ -427,7 +439,7 @@ export async function buildQuotePdf(rawInput: {
 }): Promise<Uint8Array> {
   const input = sanitizeDeep(rawInput);
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage([PAGE_W, PAGE_H]);
+  const page = wrapPage(pdf.addPage([PAGE_W, PAGE_H]));
   const fonts = await loadFonts(pdf);
 
   let y = drawHeader(page, fonts, input.studio, {
@@ -498,7 +510,7 @@ export async function buildInvoicePdf(rawInput: {
 }): Promise<Uint8Array> {
   const input = sanitizeDeep(rawInput);
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage([PAGE_W, PAGE_H]);
+  const page = wrapPage(pdf.addPage([PAGE_W, PAGE_H]));
   const fonts = await loadFonts(pdf);
 
   let y = drawHeader(page, fonts, input.studio, {
@@ -571,7 +583,7 @@ export async function buildContractPdf(rawInput: {
   const input = sanitizeDeep(rawInput);
   const pdf = await PDFDocument.create();
   const fonts = await loadFonts(pdf);
-  let page = pdf.addPage([PAGE_W, PAGE_H]);
+  let page = wrapPage(pdf.addPage([PAGE_W, PAGE_H]));
 
   let y = drawHeader(page, fonts, input.studio, {
     title: "Contrat",
@@ -585,7 +597,7 @@ export async function buildContractPdf(rawInput: {
   const ensureRoom = (need: number) => {
     if (y - need < bottom) {
       drawFooter(page, fonts, input.studio);
-      page = pdf.addPage([PAGE_W, PAGE_H]);
+      page = wrapPage(pdf.addPage([PAGE_W, PAGE_H]));
       y = PAGE_H - MARGIN - 20;
     }
   };
