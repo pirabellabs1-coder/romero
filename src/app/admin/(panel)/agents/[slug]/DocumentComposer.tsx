@@ -18,6 +18,7 @@ const PLACEHOLDERS: Record<Kind, string> = {
 export default function DocumentComposer({ kind, title, singular }: Props) {
   const router = useRouter();
   const [brief, setBrief] = useState("");
+  const [precision, setPrecision] = useState("");
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const [preview, setPreview] = useState<Record<string, unknown> | null>(null);
@@ -39,8 +40,41 @@ export default function DocumentComposer({ kind, title, singular }: Props) {
       setEditableJson(JSON.stringify(r.extraction, null, 2));
       setFlash({
         ok: true,
-        msg: "Structure extraite — vérifiez et éditez si besoin avant de générer.",
+        msg: "Structure extraite — vérifiez, ajoutez des précisions ou éditez le JSON, puis génère.",
       });
+    });
+  }
+
+  async function refine() {
+    if (!precision.trim()) {
+      setFlash({ ok: false, msg: "Écris une précision à ajouter." });
+      return;
+    }
+    setFlash(null);
+    // Concatène le brief initial + les précisions cumulées + le JSON actuel
+    // pour que l'agent respecte les modifs déjà présentes.
+    const currentJson = editableJson.trim() || JSON.stringify(preview ?? {}, null, 2);
+    const augmentedBrief = `${brief.trim()}
+
+--- Précisions supplémentaires ---
+${precision.trim()}
+
+--- Structure actuelle à affiner ---
+${currentJson}
+
+Reprends la structure ci-dessus et applique les précisions. Conserve les champs déjà bien remplis, complète ou corrige ceux qui doivent l'être selon les précisions.`;
+    startTransition(async () => {
+      const r = await extractDocumentAction({ kind, brief: augmentedBrief });
+      if (!r.ok) {
+        setFlash({ ok: false, msg: r.error });
+        return;
+      }
+      setPreview(r.extraction);
+      setEditableJson(JSON.stringify(r.extraction, null, 2));
+      // Mémorise la précision dans le brief pour les prochaines itérations
+      setBrief(brief.trim() + "\n\n[Précision] " + precision.trim());
+      setPrecision("");
+      setFlash({ ok: true, msg: "Structure affinée avec ta précision." });
     });
   }
 
@@ -125,23 +159,59 @@ export default function DocumentComposer({ kind, title, singular }: Props) {
       </div>
 
       {preview ? (
-        <div className="agent-form-field" style={{ marginTop: 20 }}>
-          <label>Structure éditable (JSON)</label>
-          <textarea
-            value={editableJson}
-            onChange={(e) => setEditableJson(e.target.value)}
+        <>
+          <div
+            className="agent-form-field"
             style={{
-              minHeight: 380,
-              fontFamily: "ui-monospace, Menlo, Consolas, monospace",
-              fontSize: 12,
-              lineHeight: 1.5,
+              marginTop: 20,
+              padding: 14,
+              background: "rgba(184,151,90,0.08)",
+              border: "1px solid rgba(184,151,90,0.3)",
+              borderRadius: 4,
             }}
-          />
-          <span className="agent-form-field__help">
-            Ce JSON contient tous les champs qui apparaîtront sur le PDF. Vous
-            pouvez modifier n'importe quoi avant de générer.
-          </span>
-        </div>
+          >
+            <label htmlFor="precision" style={{ marginBottom: 6, display: "block" }}>
+              Ajouter une précision (optionnel)
+            </label>
+            <textarea
+              id="precision"
+              value={precision}
+              onChange={(e) => setPrecision(e.target.value)}
+              placeholder="Ex : « ajoute une séance engagement à 200 € », « change la date au 22 juin », « le budget est finalement 3500 € »…"
+              style={{ minHeight: 70 }}
+              disabled={pending}
+            />
+            <div style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                className="agent-btn agent-btn--ghost"
+                onClick={refine}
+                disabled={pending || !precision.trim()}
+              >
+                {pending ? "Affinement…" : "Affiner avec cette précision"}
+              </button>
+            </div>
+            <span className="agent-form-field__help" style={{ display: "block", marginTop: 6 }}>
+              Autant de fois que nécessaire — l'agent recalcule la structure en tenant compte de chaque précision et de la structure actuelle.
+            </span>
+          </div>
+          <div className="agent-form-field" style={{ marginTop: 20 }}>
+            <label>Structure éditable (JSON)</label>
+            <textarea
+              value={editableJson}
+              onChange={(e) => setEditableJson(e.target.value)}
+              style={{
+                minHeight: 380,
+                fontFamily: "ui-monospace, Menlo, Consolas, monospace",
+                fontSize: 12,
+                lineHeight: 1.5,
+              }}
+            />
+            <span className="agent-form-field__help">
+              Ce JSON contient tous les champs qui apparaîtront sur le PDF. Tu peux le modifier à la main aussi, ou utiliser le champ précisions ci-dessus.
+            </span>
+          </div>
+        </>
       ) : null}
     </div>
   );
