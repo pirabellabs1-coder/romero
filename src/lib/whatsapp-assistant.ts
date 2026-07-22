@@ -165,7 +165,7 @@ const TOOLS = [
   {
     name: "create_event",
     description:
-      "Crée un nouvel événement dans l'agenda. Demander confirmation à l'utilisateur AVANT de créer, sauf si la demande est totalement explicite (« crée un RDV demain 16 h avec Sophie »). Après création, confirmer en une ligne avec l'heure et le titre.",
+      "Crée un nouvel événement dans l'agenda. Par défaut, le tool REFUSE si un événement existe déjà sur le créneau et te renvoie les détails du conflit — c'est à toi (l'assistant) de dire à Mickael « il y a déjà X à cette heure, veux-tu quand même ? ». Ne mets `force: true` QUE si Mickael a explicitement confirmé qu'il veut créer malgré le conflit. Après création, confirmer en une ligne avec l'heure et le titre.",
     input_schema: {
       type: "object" as const,
       required: ["title", "start", "end"],
@@ -179,6 +179,11 @@ const TOOLS = [
           type: "array",
           items: { type: "string" },
           description: "E-mails des participants — invitation NON envoyée automatiquement",
+        },
+        force: {
+          type: "boolean",
+          description:
+            "Créer même si un événement existe déjà sur ce créneau. FALSE par défaut. Ne mettre à TRUE que si Mickael a explicitement confirmé qu'il veut créer malgré le conflit.",
         },
       },
     },
@@ -215,7 +220,7 @@ const TOOLS = [
   {
     name: "create_event_with_meet",
     description:
-      "Crée un événement Google Calendar AVEC un lien Google Meet automatiquement généré. À utiliser pour les visioconférences (consultation, prep call, debrief). Le lien Meet apparaît dans la description et est envoyé aux participants s'ils sont renseignés.",
+      "Crée un événement Google Calendar AVEC un lien Google Meet automatiquement généré. Par défaut, REFUSE si un événement existe déjà sur le créneau — dis à Mickael « il y a déjà X, tu veux quand même ? ». Ne mets `force: true` QU'après confirmation explicite de Mickael.",
     input_schema: {
       type: "object" as const,
       required: ["title", "start", "end"],
@@ -228,6 +233,11 @@ const TOOLS = [
           type: "array",
           items: { type: "string" },
           description: "E-mails des participants qui recevront le lien Meet",
+        },
+        force: {
+          type: "boolean",
+          description:
+            "Créer même si un événement existe déjà sur ce créneau. FALSE par défaut. Ne mettre à TRUE qu'après confirmation explicite de Mickael.",
         },
       },
     },
@@ -465,6 +475,7 @@ async function runTool(
           description,
           location,
           attendee_emails,
+          force,
         } = tu.input as {
           title?: string;
           start?: string;
@@ -472,9 +483,28 @@ async function runTool(
           description?: string;
           location?: string;
           attendee_emails?: string[];
+          force?: boolean;
         };
         if (!title || !start || !end)
           return { ok: false, result: "ERREUR · title, start et end obligatoires" };
+        // Anti-collision : refuse si un RDV existe deja sur le creneau,
+        // sauf si force=true (Mickael a explicitement confirme).
+        if (!force) {
+          const conflicts = await listEvents(client, { timeMinISO: start, timeMaxISO: end });
+          if (conflicts.ok && conflicts.events.length > 0) {
+            const list = conflicts.events
+              .slice(0, 3)
+              .map((e) => {
+                const s = e.start?.dateTime || e.start?.date || "?";
+                return `« ${e.summary || "sans titre"} » a ${s}`;
+              })
+              .join(", ");
+            return {
+              ok: false,
+              result: `CONFLIT · Il y a deja ${list} sur ce creneau. Demande a Mickael s'il veut creer quand meme (dans ce cas rappelle le tool avec force=true) ou choisir un autre horaire.`,
+            };
+          }
+        }
         const r = await createEvent(client, {
           summary: title,
           startISO: start,
@@ -524,15 +554,33 @@ async function runTool(
           end,
           description,
           attendee_emails,
+          force,
         } = tu.input as {
           title?: string;
           start?: string;
           end?: string;
           description?: string;
           attendee_emails?: string[];
+          force?: boolean;
         };
         if (!title || !start || !end)
           return { ok: false, result: "ERREUR · title, start et end obligatoires" };
+        if (!force) {
+          const conflicts = await listEvents(client, { timeMinISO: start, timeMaxISO: end });
+          if (conflicts.ok && conflicts.events.length > 0) {
+            const list = conflicts.events
+              .slice(0, 3)
+              .map((e) => {
+                const s = e.start?.dateTime || e.start?.date || "?";
+                return `« ${e.summary || "sans titre"} » a ${s}`;
+              })
+              .join(", ");
+            return {
+              ok: false,
+              result: `CONFLIT · Il y a deja ${list} sur ce creneau. Demande a Mickael s'il veut creer quand meme (dans ce cas rappelle le tool avec force=true) ou choisir un autre horaire.`,
+            };
+          }
+        }
         const r = await createEventWithMeet(client, {
           summary: title,
           startISO: start,
