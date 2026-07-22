@@ -17,20 +17,25 @@ export default async function StudioSettingsPage() {
     getAgent("whatsapp").catch(() => null),
   ]);
 
-  // Statut Instagram : on considère connecté si un access token + IG business id existent
+  // Statut Instagram : connecté si un access token + IG business id existent,
+  // dans la config marketing OU dans les studio_settings partagés (fallback).
   const mktCfg = (marketing?.config ?? {}) as Record<string, string>;
-  const igConnected =
-    !!mktCfg.meta_access_token && !!mktCfg.instagram_business_id;
-  const igLabel = mktCfg.meta_page_name
-    ? `Page « ${mktCfg.meta_page_name} »`
-    : mktCfg.instagram_business_id
-    ? `IG #${mktCfg.instagram_business_id}`
+  const igToken = mktCfg.meta_access_token || initial.meta_access_token;
+  const igBusinessId =
+    mktCfg.instagram_business_id || initial.instagram_business_id;
+  const igPageName = mktCfg.meta_page_name || initial.meta_page_name;
+  const igConnected = !!igToken && !!igBusinessId;
+  const igLabel = igPageName
+    ? `Page « ${igPageName} »`
+    : igBusinessId
+    ? `IG #${igBusinessId}`
     : undefined;
 
-  // Statut Google : on considère connecté si un refresh_token existe
+  // Statut Google : connecté si un refresh_token existe, côté whatsapp OU shared.
   const waCfg = (whatsapp?.config ?? {}) as Record<string, string>;
-  const gConnected = !!waCfg.google_refresh_token;
-  const gLabel = waCfg.google_account_email;
+  const gConnected =
+    !!waCfg.google_refresh_token || !!initial.google_refresh_token;
+  const gLabel = waCfg.google_account_email || initial.google_account_email;
 
   // Statut Telegram : token présent (config plateforme) + user_id autorisé capturé
   const tgTokenPresent = !!initial.telegram_bot_token;

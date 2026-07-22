@@ -1,20 +1,20 @@
 /**
  * GET /api/auth/instagram/start
  * ─────────────────────────────
- * Démarre le flow « Facebook Login for Business » qui aboutit à un token
- * Page Access Token long-lived (60 jours) + à l'Instagram Business
- * Account ID rattaché. Aucune saisie manuelle côté user.
+ * Démarre le flow « Instagram API avec connexion pro » (Instagram Login direct,
+ * sans passer par Facebook Login). Renvoie un access_token Instagram long-lived
+ * (60 jours) + l'ID du compte IG Business directement — sans résolution de Page.
  *
  * Prérequis plateforme (Vercel ENV) :
- *   • META_APP_ID
- *   • META_APP_SECRET   (utilisé côté callback pour l'échange)
+ *   • INSTAGRAM_APP_ID
+ *   • INSTAGRAM_APP_SECRET   (utilisé côté callback pour l'échange)
  *
- * Permissions demandées :
- *   • instagram_basic
- *   • instagram_content_publish
- *   • pages_show_list
- *   • pages_read_engagement
- *   • business_management
+ * Permissions demandées (scopes IG API v2) :
+ *   • instagram_business_basic
+ *   • instagram_business_content_publish
+ *   • instagram_business_manage_comments
+ *   • instagram_business_manage_messages
+ *   • instagram_business_manage_insights
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
@@ -22,13 +22,12 @@ import { requireUser } from "@/lib/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const META_SCOPES = [
-  "instagram_basic",
-  "instagram_content_publish",
-  "instagram_manage_insights",
-  "pages_show_list",
-  "pages_read_engagement",
-  "business_management",
+const IG_SCOPES = [
+  "instagram_business_basic",
+  "instagram_business_content_publish",
+  "instagram_business_manage_comments",
+  "instagram_business_manage_messages",
+  "instagram_business_manage_insights",
 ].join(",");
 
 export async function GET(req: NextRequest) {
@@ -38,13 +37,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/admin/login", req.url));
   }
 
-  const appId = process.env.META_APP_ID;
+  const appId = process.env.INSTAGRAM_APP_ID;
   if (!appId) {
     return NextResponse.redirect(
       new URL(
         "/admin/agents/marketing?tab=config&err=" +
           encodeURIComponent(
-            "Application Meta non configurée côté plateforme (contactez le studio)."
+            "Application Instagram non configurée côté plateforme (contactez le studio)."
           ),
         req.url
       )
@@ -56,11 +55,11 @@ export async function GET(req: NextRequest) {
   const state =
     Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 
-  const authUrl = new URL("https://www.facebook.com/v20.0/dialog/oauth");
+  const authUrl = new URL("https://www.instagram.com/oauth/authorize");
   authUrl.searchParams.set("client_id", appId);
   authUrl.searchParams.set("redirect_uri", redirectUri);
   authUrl.searchParams.set("state", state);
-  authUrl.searchParams.set("scope", META_SCOPES);
+  authUrl.searchParams.set("scope", IG_SCOPES);
   authUrl.searchParams.set("response_type", "code");
 
   const resp = NextResponse.redirect(authUrl.toString());
