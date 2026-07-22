@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
     Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 
   const authUrl = new URL("https://www.instagram.com/oauth/authorize");
+  authUrl.searchParams.set("force_reauth", "true");
   authUrl.searchParams.set("client_id", appId);
   authUrl.searchParams.set("redirect_uri", redirectUri);
   authUrl.searchParams.set("state", state);
