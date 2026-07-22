@@ -37,7 +37,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/admin/login", req.url));
   }
 
-  const appId = process.env.INSTAGRAM_APP_ID;
+  // Strip défensif : retire BOM et espaces qui peuvent traîner selon comment
+  // la var a été saisie (pipe PowerShell notamment ajoute un BOM UTF-8).
+  const appId = process.env.INSTAGRAM_APP_ID?.replace(/^﻿/, "").trim();
   if (!appId) {
     return NextResponse.redirect(
       new URL(

@@ -132,8 +132,8 @@ export async function GET(req: NextRequest) {
     return flashRedirect(req, false, "State OAuth invalide (protection CSRF).");
   }
 
-  const appId = process.env.INSTAGRAM_APP_ID;
-  const appSecret = process.env.INSTAGRAM_APP_SECRET;
+  const appId = process.env.INSTAGRAM_APP_ID?.replace(/^﻿/, "").trim();
+  const appSecret = process.env.INSTAGRAM_APP_SECRET?.replace(/^﻿/, "").trim();
   if (!appId || !appSecret) {
     return flashRedirect(
       req,
