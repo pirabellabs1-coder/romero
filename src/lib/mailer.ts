@@ -124,6 +124,11 @@ export async function sendMail(input: {
   text: string;
   html?: string;
   replyTo?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer | string;
+    contentType?: string;
+  }>;
 }): Promise<SendResult> {
   const from = (process.env.MAIL_FROM || "Romero Photography <onboarding@resend.dev>").trim();
   const to = input.to.trim();
@@ -148,6 +153,14 @@ export async function sendMail(input: {
         subject: input.subject,
         text: input.text,
         html,
+        attachments: input.attachments?.map((a) => ({
+          filename: a.filename,
+          content:
+            typeof a.content === "string"
+              ? a.content
+              : (a.content.toString("base64") as unknown as string),
+          contentType: a.contentType,
+        })),
       });
       if (error) throw new Error(error.message || "resend_error");
       return { sent: true, provider: "resend", id: res?.id };
@@ -168,6 +181,7 @@ export async function sendMail(input: {
         subject: input.subject,
         text: input.text,
         html,
+        attachments: input.attachments,
       });
       return { sent: true, provider: "smtp", id: info.messageId };
     } catch (e) {

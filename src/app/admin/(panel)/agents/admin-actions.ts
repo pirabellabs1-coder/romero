@@ -333,6 +333,71 @@ export async function createDocumentAction(input: {
   }
 }
 
+// ─── Envoi direct par email au client ─────────────────────────────
+export async function emailDocumentAction(
+  documentId: number,
+  overrideEmail?: string
+): Promise<{ ok: true; provider: string } | { ok: false; error: string }> {
+  try {
+    await requireUser();
+    const doc = await queryOne<AdminDocRow>(
+      `SELECT * FROM admin_documents WHERE id = $1`,
+      [documentId]
+    );
+    if (!doc) return { ok: false, error: "Document introuvable" };
+    if (!doc.pdf_url) return { ok: false, error: "PDF pas encore genere" };
+    const to = (overrideEmail || doc.client_email || "").trim();
+    if (!to) return { ok: false, error: "E-mail client manquant" };
+
+    const pdfResp = await fetch(doc.pdf_url);
+    if (!pdfResp.ok)
+      return { ok: false, error: `Telechargement PDF echoue : HTTP ${pdfResp.status}` };
+    const pdfBuf = Buffer.from(await pdfResp.arrayBuffer());
+
+    const label =
+      doc.doc_type === "quote" ? "devis" :
+      doc.doc_type === "contract" ? "contrat" : "facture";
+    const firstName = (doc.client_name || "").split(/\s+/)[0] || "vous";
+
+    const text = `Bonjour ${firstName},
+
+Vous trouverez en piece jointe votre ${label} ${doc.reference}.
+
+N'hesitez pas a me repondre si vous avez la moindre question.
+
+A tres vite,
+Mickael Romero
+Romero Photography
+https://romerophotography.fr`;
+
+    const { sendMail } = await import("@/lib/mailer");
+    const result = await sendMail({
+      to,
+      subject: `${label.charAt(0).toUpperCase() + label.slice(1)} ${doc.reference} — Romero Photography`,
+      text,
+      replyTo: "romerophotography.contact@gmail.com",
+      attachments: [
+        {
+          filename: `${doc.reference}.pdf`,
+          content: pdfBuf,
+          contentType: "application/pdf",
+        },
+      ],
+    });
+    if (!result.sent) return { ok: false, error: result.error || "envoi echoue" };
+
+    await logEvent("admin", `${doc.doc_type}_emailed`, {
+      document_id: doc.id,
+      reference: doc.reference,
+      to,
+    });
+    revalidate();
+    return { ok: true, provider: result.provider || "unknown" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 // ─── Envoi à signer via Yousign ───────────────────────────────────
 export async function sendToYousignAction(
   documentId: number

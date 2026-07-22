@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   deleteDocumentAction,
+  emailDocumentAction,
   pushToAccountingAction,
   sendToYousignAction,
   setDocumentStatusAction,
@@ -239,6 +240,28 @@ function DocumentDetail({
       </div>
 
       <div className="agent-actions" style={{ marginTop: 12 }}>
+        {/* Envoi direct par email (avec PDF en piece jointe) */}
+        {doc.pdf_url ? (
+          <button
+            type="button"
+            className="agent-btn agent-btn--primary"
+            onClick={() => {
+              const to = doc.client_email
+                ? doc.client_email
+                : window.prompt("Email du destinataire :", "") || "";
+              if (!to.trim()) return;
+              run(
+                () => emailDocumentAction(doc.id, to.trim()),
+                `Document envoye a ${to.trim()}.`
+              );
+            }}
+            disabled={pending}
+            title={doc.client_email || "Saisir l'email au clic"}
+          >
+            Envoyer par email
+          </button>
+        ) : null}
+
         {/* Signature Yousign (contrat + devis) */}
         {(kind === "contract" || kind === "quote") &&
         doc.status !== "signed" &&
