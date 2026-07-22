@@ -17,7 +17,7 @@ import {
 } from "@/lib/site-chat";
 import { sendLeadNotification } from "@/lib/mailer";
 import { withTransaction } from "@/lib/db";
-import { getClaudeEndpoint } from "@/lib/claude-endpoint";
+import { getClaudeEndpoint, cachedSystem } from "@/lib/claude-endpoint";
 import { bookAppointment } from "@/lib/booking";
 
 /*
@@ -534,7 +534,7 @@ async function callClaude(input: {
     body: JSON.stringify({
       model: ep.model,
       max_tokens: 1024,
-      system: input.system,
+      system: cachedSystem(input.system),
       tools: TOOLS,
       messages: input.messages,
     }),

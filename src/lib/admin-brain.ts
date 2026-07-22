@@ -13,7 +13,7 @@
 // Utilise Claude Haiku avec un tool structured output (comme marketing).
 
 import { effectivePrompt, getAgent, listKnowledge } from "@/lib/agents";
-import { getClaudeEndpoint } from "@/lib/claude-endpoint";
+import { getClaudeEndpoint, cachedSystem } from "@/lib/claude-endpoint";
 
 const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
 
@@ -262,7 +262,7 @@ export async function extractFromBrief(input: {
       body: JSON.stringify({
         model: ep.model,
         max_tokens: 2048,
-        system: systemPrompt,
+        system: cachedSystem(systemPrompt),
         tools: [tool],
         tool_choice: { type: "tool", name: tool.name },
         messages: [

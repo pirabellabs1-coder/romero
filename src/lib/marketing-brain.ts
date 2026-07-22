@@ -17,7 +17,7 @@
 // courantes quand on demande à un LLM de renvoyer du JSON en freeform.
 
 import { effectivePrompt, getAgent, listKnowledge } from "@/lib/agents";
-import { getClaudeEndpoint } from "@/lib/claude-endpoint";
+import { getClaudeEndpoint, cachedSystem } from "@/lib/claude-endpoint";
 
 const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
 
@@ -161,7 +161,7 @@ export async function generateFromBrief(input: {
       body: JSON.stringify({
         model: ep.model,
         max_tokens: 4096,
-        system: systemPrompt,
+        system: cachedSystem(systemPrompt),
         tools: [DRAFT_TOOL],
         tool_choice: { type: "tool", name: "return_drafts" },
         messages: [{ role: "user", content: userContent }],

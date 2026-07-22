@@ -23,7 +23,7 @@
 //   (whitelist configurable depuis /admin/agents/whatsapp).
 
 import { withTransaction, query, queryOne, execute } from "@/lib/db";
-import { getClaudeEndpoint } from "@/lib/claude-endpoint";
+import { getClaudeEndpoint, cachedSystem } from "@/lib/claude-endpoint";
 import {
   buildClient,
   createEvent,
@@ -1145,7 +1145,7 @@ async function callClaude(input: {
     body: JSON.stringify({
       model: ep.model,
       max_tokens: 1024,
-      system: input.system,
+      system: cachedSystem(input.system),
       tools: TOOLS,
       messages: input.messages,
     }),

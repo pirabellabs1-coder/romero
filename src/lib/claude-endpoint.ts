@@ -30,6 +30,23 @@ export type ClaudeEndpoint = {
   viaOpenRouter: boolean;
 };
 
+/**
+ * Wrap le system prompt dans un tableau avec cache_control ephemeral.
+ * Anthropic (et OpenRouter en pass-through) cachent alors ces tokens
+ * pour 5 minutes : les requêtes suivantes coûtent -90 % sur ce bloc.
+ *
+ * À utiliser dès qu'un system prompt est réutilisé souvent (chatbot,
+ * assistant Telegram) ou est très gros (>1024 tokens, seuil minimum
+ * pour que le cache soit rentable).
+ */
+export function cachedSystem(text: string): Array<{
+  type: "text";
+  text: string;
+  cache_control?: { type: "ephemeral" };
+}> {
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } }];
+}
+
 export function getClaudeEndpoint(input: {
   /** Clé API Anthropic saisie côté agent — utilisée en fallback direct */
   userApiKey: string;
