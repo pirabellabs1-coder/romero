@@ -208,12 +208,16 @@ const TOOLS = [
   {
     name: "delete_event",
     description:
-      "Supprime un événement. NE JAMAIS appeler sans confirmation explicite de l'utilisateur (« oui, supprime »).",
+      "Supprime définitivement un événement. IRRÉVERSIBLE. Tu DOIS d'abord montrer l'événement à Mickael (titre + date/heure) et attendre un OUI EXPLICITE (« oui, supprime », « valide », « confirme »). Un simple « annule mardi » n'est PAS une confirmation — c'est une intention à clarifier via list_calendar_events d'abord. Passe `user_confirmed=true` uniquement quand la confirmation est reçue.",
     input_schema: {
       type: "object" as const,
-      required: ["event_id"],
+      required: ["event_id", "user_confirmed"],
       properties: {
-        event_id: { type: "string" },
+        event_id: { type: "string", description: "ID de l'événement à supprimer (obtenu via list_calendar_events)" },
+        user_confirmed: {
+          type: "boolean",
+          description: "DOIT être true — sinon le tool refuse. Prouve que Mickael a explicitement confirmé la suppression dans son dernier message.",
+        },
       },
     },
   },
@@ -541,8 +545,18 @@ async function runTool(
         return { ok: true, result: `OK · événement modifié (${r.event.summary || event_id})` };
       }
       case "delete_event": {
-        const { event_id } = tu.input as { event_id?: string };
+        const { event_id, user_confirmed } = tu.input as {
+          event_id?: string;
+          user_confirmed?: boolean;
+        };
         if (!event_id) return { ok: false, result: "ERREUR · event_id requis" };
+        if (user_confirmed !== true) {
+          return {
+            ok: false,
+            result:
+              "REFUS · confirmation utilisateur obligatoire pour supprimer. Montre le RDV a Mickael et attends son OK explicite avant de rappeler ce tool avec user_confirmed=true.",
+          };
+        }
         const r = await deleteEvent(client, event_id);
         if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
         return { ok: true, result: "OK · événement supprimé" };
@@ -1073,9 +1087,36 @@ export async function runAssistant(input: {
 - Phrases courtes, direct et efficace (tu parles à Mickael, il est occupé).
 - Pour lister deux ou trois options, écris-les à la suite dans la phrase, séparées par des tirets simples. Jamais de puces à part.
 - Pas de « c'est noté ! » redondant : va directement à la question ou l'action.`;
+    const SAFETY_RULES = `\n\n## RÈGLES DE SÉCURITÉ AGENDA — CRITIQUE, NE JAMAIS DÉROGER
+Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique ces règles à la lettre :
+
+1. Anti-collision. Avant de créer un RDV, le tool vérifie automatiquement les conflits. Si CONFLIT est retourné, NE relance PAS avec force=true. Tu DOIS répondre à Mickael : « Il y a déjà [détail du conflit] à cette heure. Tu veux quand même le poser par-dessus, ou tu préfères un autre créneau ? » et attendre sa réponse EXPLICITE.
+
+2. Confirmation avant destruction. Pour delete_event : TOUJOURS demander « Confirme-tu la suppression de [titre du RDV] à [heure] ? » avant d'appeler le tool. JAMAIS de suppression au premier coup. Pareil pour update_event si le changement est majeur (déplacement, changement de participant).
+
+3. Ambiguïté = clarification. Si Mickael dit « annule mon RDV » sans préciser lequel, appelle list_calendar_events pour lister les prochains, puis demande « lequel ? ». JAMAIS supprimer au petit bonheur.
+
+4. Ne jamais inventer. Si un email, téléphone, nom de client ou lieu n'est pas donné par Mickael, laisse le champ vide — ne devine pas. Pas de « client@example.com ».
+
+5. Créneaux inhabituels. Si un RDV est demandé le samedi/dimanche, avant 8 h, ou après 22 h, demande confirmation : « Tu veux vraiment poser ça un dimanche à 21 h ? ».
+
+6. Durées par défaut. Si Mickael ne précise pas la durée, propose 30 min et attends validation avant de créer. Ne mets pas 1 h ou 15 min au hasard.
+
+7. Titre obligatoire. Un événement doit avoir un titre explicite. Si Mickael dit juste « RDV mardi 15 h », demande « avec qui / pour quoi ? » avant de créer.
+
+8. Fuseau horaire. Tu es TOUJOURS en Europe/Paris. Toutes les dates que tu génères doivent inclure le fuseau (+01:00 hiver / +02:00 été). Si Mickael dit une heure sans préciser, c'est heure de Paris.
+
+9. Vocaux mal compris. Si la transcription est ambiguë (une heure floue, un jour peu clair), REPÈTE ce que tu as compris avant d'agir : « Tu me demandes de poser un RDV mardi 12 novembre à 15 h 20, c'est bien ça ? ».
+
+10. Pas d'action en cascade. Une intention utilisateur = maximum une action agenda. Si Mickael demande « annule mardi et crée mercredi », traite ça en 2 étapes avec confirmations séparées.
+
+11. Après création/modification. Répète en une ligne ce qui a été fait, avec date-heure lisible et titre. Ex : « Créé : dentiste demain 15 h 20 ». Pas juste « c'est fait ».
+
+12. Erreur = jamais silencieux. Si un tool renvoie une erreur, dis-le à Mickael en clair, ne masque pas.`;
     let systemPrompt =
       effectivePrompt(inst) +
       `\n\n## CONTEXTE TECHNIQUE\n- Fuseau horaire : ${timeZone}\n- Plateforme : ${input.platform}\n- Nom de l'utilisateur : ${input.displayName ?? "(inconnu)"}` +
+      SAFETY_RULES +
       STYLE_RULES +
       kbBlock;
     if (!calClient && calError) {
