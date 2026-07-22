@@ -309,7 +309,7 @@ export default function SiteChat() {
             </button>
           </div>
           <div className="rp-chat-panel__foot">
-            Propulsé par Claude · vos échanges aident Mickael à vous répondre au mieux.
+            Vos échanges aident Mickael à vous répondre au mieux.
           </div>
         </div>
       )}

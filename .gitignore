@@ -39,3 +39,5 @@ Thumbs.db
 out-*.pdf
 v2-*.pdf
 test-*.pdf
+
+.env*.local
