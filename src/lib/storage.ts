@@ -89,6 +89,55 @@ export async function uploadPhotoServer(
   return publicPhotoUrl(safe);
 }
 
+// ─── Documents bucket (PDFs, factures, contrats) ────────────────────
+// Bucket séparé "documents" pour ne pas polluer le bucket photos et
+// pour autoriser d'autres mime types (application/pdf notamment). Créé
+// automatiquement à la première upload si absent.
+const DOCUMENTS_BUCKET = "documents";
+let documentsBucketReady = false;
+async function ensureDocumentsBucket(): Promise<void> {
+  if (documentsBucketReady) return;
+  const client = getClient();
+  const { data: buckets } = await client.storage.listBuckets();
+  const exists = buckets?.some((b) => b.name === DOCUMENTS_BUCKET);
+  if (!exists) {
+    const { error } = await client.storage.createBucket(DOCUMENTS_BUCKET, {
+      public: true,
+      fileSizeLimit: 50 * 1024 * 1024, // 50 MB
+      allowedMimeTypes: [
+        "application/pdf",
+        "application/octet-stream",
+        "text/csv",
+        "text/plain",
+      ],
+    });
+    // 400 si deja cree entre listBuckets et createBucket — non bloquant.
+    if (error && !/already exists/i.test(error.message)) {
+      throw new Error(`Supabase createBucket failed: ${error.message}`);
+    }
+  }
+  documentsBucketReady = true;
+}
+
+export function publicDocumentUrl(path: string): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  return `${url}/storage/v1/object/public/${DOCUMENTS_BUCKET}/${path}`;
+}
+
+export async function uploadDocumentServer(
+  path: string,
+  body: Buffer | Blob | ArrayBuffer,
+  contentType: string
+): Promise<string> {
+  await ensureDocumentsBucket();
+  const safe = path.split("/").map(sanitizeFilename).join("/");
+  const { error } = await getClient()
+    .storage.from(DOCUMENTS_BUCKET)
+    .upload(safe, body as Blob, { contentType, upsert: true });
+  if (error) throw new Error(`Supabase upload failed: ${error.message}`);
+  return publicDocumentUrl(safe);
+}
+
 /** Remove an object. Pass the path you stored on the photos table. */
 export async function deletePhoto(path: string): Promise<void> {
   const { error } = await getClient().storage.from(BUCKET).remove([path]);

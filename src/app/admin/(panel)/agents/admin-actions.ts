@@ -18,7 +18,7 @@ import {
   createUnifiedInvoice,
   type UnifiedInvoiceInput,
 } from "@/lib/accounting";
-import { uploadPhotoServer } from "@/lib/storage";
+import { uploadDocumentServer } from "@/lib/storage";
 
 // ─── Types communs ────────────────────────────────────────────────
 type DocKind = "quote" | "contract" | "invoice";
@@ -174,9 +174,9 @@ async function uploadPdf(
   reference: string,
   bytes: Uint8Array
 ): Promise<string> {
-  const path = `uploads/documents/${reference}-${Date.now()}.pdf`;
+  const path = `${reference}-${Date.now()}.pdf`;
   const buf = Buffer.from(bytes);
-  return uploadPhotoServer(path, buf, "application/pdf");
+  return uploadDocumentServer(path, buf, "application/pdf");
 }
 
 // ─── Extraction depuis brief (étape 1 UI) ─────────────────────────
