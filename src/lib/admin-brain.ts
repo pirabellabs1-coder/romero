@@ -237,8 +237,8 @@ export async function extractFromBrief(input: {
       legal_status?: string;
       legal_address?: string;
       rcs_city?: string;
-      contact_email?: string;
-      contact_phone?: string;
+      notification_email?: string;
+      public_phone?: string;
       website?: string;
       ape_code?: string;
     };
@@ -265,8 +265,8 @@ export async function extractFromBrief(input: {
 - SIRET : ${cfg.siret || "(non renseigné)"}
 - APE : ${cfg.ape_code || "74.20Z (Activités photographiques)"}
 - Adresse : ${cfg.legal_address || "(non renseignée)"}${cfg.rcs_city ? " · RCS " + cfg.rcs_city : ""}
-- Téléphone : ${cfg.contact_phone || "(non renseigné)"}
-- Email : ${cfg.contact_email || "romerophotography.contact@gmail.com"}
+- Téléphone : ${cfg.public_phone || "(non renseigné)"}
+- Email : ${cfg.notification_email || "romerophotography.contact@gmail.com"}
 - Web : ${cfg.website || "romerophotography.fr"}
 - TVA : non applicable — art. 293 B du CGI (franchise en base)`;
 

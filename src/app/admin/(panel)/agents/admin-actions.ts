@@ -80,16 +80,21 @@ async function loadStudioProfile(): Promise<
     company_rcs: cfg.rcs_city || cfg.company_rcs || "",
     company_address: cfg.legal_address || cfg.company_address || "",
     company_email:
-      cfg.contact_email || cfg.company_email || "romerophotography.contact@gmail.com",
-    company_phone: cfg.contact_phone || cfg.company_phone || "",
+      cfg.notification_email ||
+      cfg.contact_email ||
+      cfg.company_email ||
+      "romerophotography.contact@gmail.com",
+    company_phone: cfg.public_phone || cfg.contact_phone || cfg.company_phone || "",
     company_iban: cfg.iban || cfg.company_iban || "",
     // TVA : par defaut franchise en base pour micro-entrepreneur (non
-    // applicable, art 293B). Si Mickael passe au reel, cocher tva_applicable
+    // applicable, art 293B). Si Mickael passe au reel, cocher vat_applicable
     // en Studio Settings.
     vat_status:
-      cfg.tva_applicable === "true" || cfg.vat_status === "yes" ? "yes" : "no",
-    vat_rate: cfg.tva_rate || cfg.vat_rate || "20",
-    vat_number: cfg.tva_number || cfg.vat_number || "",
+      cfg.vat_applicable === "yes" || cfg.vat_applicable === "true" || cfg.vat_status === "yes"
+        ? "yes"
+        : "no",
+    vat_rate: cfg.vat_rate || "20",
+    vat_number: cfg.vat_number || "",
   };
   const missing: string[] = [];
   // On exige seulement les champs vraiment necessaires pour le PDF legal.
