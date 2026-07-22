@@ -261,13 +261,39 @@ export async function POST(req: NextRequest) {
       ? "\n\n# BASE DE CONNAISSANCES (contenu fourni par le photographe)\n" +
         kb.map((k) => `## ${k.title} [${k.category}]\n${k.content}`).join("\n\n")
       : "";
+    // Contexte temporel — sans ça, l'agent ne peut pas résoudre
+    // « demain », « samedi prochain », « dans 15 jours »…
+    const now = new Date();
+    const parisNow = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400000);
+    const humanNow = parisNow.toLocaleString("fr-FR", {
+      timeZone: "Europe/Paris",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const TIME_CONTEXT = `\n\n# CONTEXTE TEMPOREL (à utiliser pour interpréter les dates relatives)
+- Nous sommes le ${humanNow} (fuseau Europe/Paris).
+- Date d'aujourd'hui au format ISO : ${iso(parisNow)}
+- Demain : ${iso(addDays(parisNow, 1))}
+- Après-demain : ${iso(addDays(parisNow, 2))}
+- Dans une semaine : ${iso(addDays(parisNow, 7))}
+
+Quand le visiteur dit « demain », « après-demain », « lundi prochain », « la semaine prochaine », « dans 10 jours » : tu DOIS calculer la date toi-même à partir de ce contexte. Ne demande JAMAIS au visiteur de réécrire la date en toutes lettres — c'est ton travail de la déduire. Confirme simplement ta compréhension : « donc mardi 23 juillet à 15 h 20, c'est bien ça ? ».
+
+Pour construire start_iso lors d'un book_appointment, utilise le format complet avec fuseau : YYYY-MM-DDTHH:MM:00+02:00 (heure d'été) ou +01:00 (heure d'hiver).`;
+
     const STYLE_RULES = `\n\n# RÈGLES DE STYLE — À RESPECTER STRICTEMENT
 - N'utilise JAMAIS de markdown : pas de **gras**, pas de *italique*, pas de listes à tirets, pas de ### titres.
 - Écris en français en texte brut uniquement, comme dans un vrai message WhatsApp.
 - Phrases courtes, ton chaleureux et naturel.
 - Pour insister sur un mot, mets-le simplement entre guillemets « ainsi » — pas d'astérisques.
 - Pour lister deux ou trois options, écris-les à la suite dans la phrase, pas en liste.`;
-    const systemPrompt = effectivePrompt(inst) + kbBlock + STYLE_RULES;
+    const systemPrompt = effectivePrompt(inst) + kbBlock + TIME_CONTEXT + STYLE_RULES;
 
     // Boucle Claude + tool-use
     // ────────────────────────────────────────────────────────────────
@@ -385,6 +411,15 @@ export async function POST(req: NextRequest) {
                   contact_email,
                   contact_phone,
                 } as LeadData).catch(() => {});
+              } else if (bk.error.startsWith("CRENEAU_OCCUPE:")) {
+                // Le créneau est déjà pris dans l'agenda de Mickael.
+                // On le dit à Claude sans révéler le contenu de l'agenda
+                // au visiteur (confidentialité).
+                publicResult =
+                  "CRENEAU INDISPONIBLE · Ce creneau vient d'etre pris. Excuse-toi aupres du visiteur et propose-lui de choisir un autre horaire (par exemple 30 min plus tot ou plus tard, ou un autre jour). Ne revele PAS ce qu'il y a dans l'agenda.";
+                eventName = "appointment_slot_taken";
+                eventPayload = { start_iso };
+                eventSuccess = false;
               } else {
                 publicResult = `ERREUR · ${bk.error}`;
                 eventName = "appointment_booked_error";

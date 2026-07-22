@@ -12,7 +12,7 @@
  * DRY : évite deux logiques de confirmation qui divergeraient.
  */
 import { getAgent } from "@/lib/agents";
-import { buildClient, createEventWithMeet } from "@/lib/google-calendar";
+import { buildClient, createEventWithMeet, listEvents } from "@/lib/google-calendar";
 import { sendMail } from "@/lib/mailer";
 import { notifyMickael } from "@/lib/whatsapp-notify";
 
@@ -84,6 +84,25 @@ export async function bookAppointment(input: BookingInput): Promise<BookingResul
   if (Number.isNaN(startMs))
     return { ok: false, error: `startISO invalide : ${input.startISO}` };
   const endISO = new Date(startMs + input.durationMin * 60_000).toISOString();
+
+  // 2bis. ANTI-COLLISION — un prospect ne doit JAMAIS pouvoir réserver
+  // par-dessus un RDV existant de Mickael. On scanne le créneau (avec
+  // 1 min de marge de chaque côté pour tolérer les créneaux jointifs)
+  // et on refuse s'il y a le moindre chevauchement.
+  const conflicts = await listEvents(clientRes.client, {
+    timeMinISO: new Date(startMs + 60_000).toISOString(),
+    timeMaxISO: new Date(startMs + input.durationMin * 60_000 - 60_000).toISOString(),
+  });
+  if (conflicts.ok && conflicts.events.length > 0) {
+    const busy = conflicts.events
+      .slice(0, 3)
+      .map((e) => e.summary || "occupé")
+      .join(", ");
+    return {
+      ok: false,
+      error: `CRENEAU_OCCUPE:${busy}`,
+    };
+  }
 
   // 3. Crée l'événement avec Meet + attendee prospect
   const description = [

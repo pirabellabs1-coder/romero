@@ -3408,22 +3408,55 @@ section { position: relative; }
   border-top: 1px solid rgba(184, 151, 90, 0.12);
 }
 
-/* Mobile plein-écran */
+/* Mobile plein-écran.
+   Points clés :
+   - `dvh` (dynamic viewport height) au lieu de `vh` : quand le clavier
+     s'ouvre sur iOS/Android, `vh` ne se recalcule pas et le composer
+     part sous le clavier. `dvh` suit la zone réellement visible.
+   - `position: fixed` + flex column pour que le composer reste collé
+     en bas quoi qu'il arrive.
+   - safe-area-inset-bottom pour les iPhone à encoche. */
 @media (max-width: 640px) {
   .rp-chat-bubble { right: 14px; bottom: 14px; }
   .rp-chat-panel {
+    position: fixed;
     right: 0;
     bottom: 0;
     left: 0;
     top: 0;
     width: 100vw;
     max-width: 100vw;
-    max-height: 100vh;
-    height: 100vh;
+    height: 100vh;         /* fallback navigateurs anciens */
+    height: 100dvh;        /* suit le clavier */
+    max-height: 100dvh;
     border-radius: 0;
     border: 0;
+    display: flex;
+    flex-direction: column;
   }
-  .rp-chat-panel__head { border-radius: 0; }
+  .rp-chat-panel__head { border-radius: 0; flex-shrink: 0; }
+  .rp-chat-panel__thread {
+    flex: 1 1 auto;
+    min-height: 0;          /* indispensable pour que le scroll marche en flex */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .rp-chat-panel__composer {
+    flex-shrink: 0;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Empêche iOS de zoomer automatiquement quand on focus le textarea
+     (déclenché dès que font-size < 16px) — c'était la cause du
+     « obligé de dézoomer pour voir le bouton Envoyer ». */
+  .rp-chat-panel__composer textarea {
+    font-size: 16px;
+    max-height: 96px;
+  }
+  .rp-chat-panel__send {
+    width: 44px;
+    height: 44px;
+  }
+  .rp-chat-panel__foot { flex-shrink: 0; }
 }
 
 /* ─── Live dots (pulse pour signaler l'activité live d'un agent) ─── */
