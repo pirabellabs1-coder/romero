@@ -4,7 +4,30 @@ import { requireUser } from "@/lib/auth";
 import {
   STUDIO_SETTINGS_FIELDS,
   updateSharedConfig,
+  writeSharedKey,
 } from "@/lib/studio-settings";
+
+export async function resetTelegramOwnerAction(): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  try {
+    await requireUser();
+    // Efface la clé partagée ET tout override agent-specific résiduel
+    // (whatsapp est le seul agent qui référence telegram_allowed_user_id).
+    await writeSharedKey("telegram_allowed_user_id", "");
+    const { execute } = await import("@/lib/db");
+    await execute(
+      `UPDATE agent_installations
+         SET config = config - 'telegram_allowed_user_id', updated_at = NOW()
+       WHERE slug = 'whatsapp'
+         AND config ? 'telegram_allowed_user_id'`
+    );
+    revalidatePath("/admin/agents/studio");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
 
 export async function saveStudioSettingsAction(
   formData: FormData

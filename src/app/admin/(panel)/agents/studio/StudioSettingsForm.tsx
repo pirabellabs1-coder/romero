@@ -2,7 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { STUDIO_SETTINGS_FIELDS } from "@/lib/studio-settings-fields";
-import { saveStudioSettingsAction } from "./actions";
+import { saveStudioSettingsAction, resetTelegramOwnerAction } from "./actions";
 
 type Connections = {
   instagram: { connected: boolean; label?: string };
@@ -420,25 +420,81 @@ function TelegramConnectionCard({
         </span>
       ) : null}
       {status === "waiting" ? (
-        <a
-          href="https://t.me/romero_studio_bot"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="agent-btn agent-btn--primary"
-          style={{ marginTop: 4, textAlign: "center", textDecoration: "none" }}
-        >
-          Ouvrir le bot & envoyer /start
-        </a>
+        <>
+          <a
+            href="https://t.me/romero_studio_bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="agent-btn agent-btn--primary"
+            style={{ marginTop: 4, textAlign: "center", textDecoration: "none" }}
+          >
+            Ouvrir le bot & envoyer /start
+          </a>
+          <button
+            type="button"
+            onClick={async () => {
+              if (
+                !window.confirm(
+                  "Effacer un éventuel ancien propriétaire ? Utile si le bot refuse ton /start."
+                )
+              )
+                return;
+              const res = await resetTelegramOwnerAction();
+              if (res.ok) window.location.reload();
+              else window.alert(`Erreur : ${res.error}`);
+            }}
+            style={{
+              marginTop: 6,
+              fontSize: 11,
+              opacity: 0.6,
+              background: "transparent",
+              border: "none",
+              color: "inherit",
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            Le bot refuse mon /start ? Effacer l'ancien propriétaire
+          </button>
+        </>
       ) : status === "connected" ? (
-        <a
-          href="https://t.me/romero_studio_bot"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="agent-btn"
-          style={{ marginTop: 4, textAlign: "center", textDecoration: "none" }}
-        >
-          Ouvrir @romero_studio_bot
-        </a>
+        <>
+          <a
+            href="https://t.me/romero_studio_bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="agent-btn"
+            style={{ marginTop: 4, textAlign: "center", textDecoration: "none" }}
+          >
+            Ouvrir @romero_studio_bot
+          </a>
+          <button
+            type="button"
+            onClick={async () => {
+              if (
+                !window.confirm(
+                  "Réinitialiser le propriétaire Telegram ? Le prochain /start sera capturé comme nouveau propriétaire."
+                )
+              )
+                return;
+              const res = await resetTelegramOwnerAction();
+              if (res.ok) window.location.reload();
+              else window.alert(`Erreur : ${res.error}`);
+            }}
+            style={{
+              marginTop: 6,
+              fontSize: 11,
+              opacity: 0.6,
+              background: "transparent",
+              border: "none",
+              color: "inherit",
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            Réinitialiser le propriétaire
+          </button>
+        </>
       ) : (
         <span
           style={{
