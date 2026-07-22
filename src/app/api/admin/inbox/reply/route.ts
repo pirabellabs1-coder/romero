@@ -15,6 +15,7 @@ import { requireUser } from "@/lib/auth";
 import { execute, queryOne } from "@/lib/db";
 import { getSharedConfig } from "@/lib/studio-settings";
 import { logEvent } from "@/lib/agents";
+import { sendMail } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -125,16 +126,97 @@ export async function POST(req: NextRequest) {
 
   const threadId = (body.threadId ?? "").trim();
   const text = (body.text ?? "").trim();
-  if (!threadId.startsWith("assistant_"))
-    return NextResponse.json(
-      { ok: false, error: "Ce type de thread ne supporte pas la réponse directe." },
-      { status: 400 }
-    );
   if (!text)
     return NextResponse.json({ ok: false, error: "Texte vide." }, { status: 400 });
-  if (text.length > 4000)
+  if (text.length > 8000)
     return NextResponse.json(
-      { ok: false, error: "Message trop long (4000 max)." },
+      { ok: false, error: "Message trop long (8000 max)." },
+      { status: 400 }
+    );
+
+  // ─── Cas contact form → envoi email direct ───────────────────────
+  if (threadId.startsWith("contact_")) {
+    const contactId = parseInt(threadId.replace("contact_", ""), 10);
+    if (!Number.isFinite(contactId))
+      return NextResponse.json({ ok: false, error: "ID invalide" }, { status: 400 });
+
+    const contact = await queryOne<{
+      first_name: string;
+      last_name: string;
+      email: string;
+      lang: string;
+    }>(
+      `SELECT first_name, last_name, email, lang FROM messages WHERE id = $1`,
+      [contactId]
+    );
+    if (!contact)
+      return NextResponse.json(
+        { ok: false, error: "Contact introuvable" },
+        { status: 404 }
+      );
+
+    const subject =
+      contact.lang === "en"
+        ? "Re: your message on romerophotography.fr"
+        : "Re : votre message sur romerophotography.fr";
+    const mail = await sendMail({
+      to: contact.email,
+      subject,
+      text,
+    }).catch((e) => ({ sent: false as const, error: e instanceof Error ? e.message : "?" }));
+
+    if (!mail.sent) {
+      await logEvent(
+        "site",
+        "inbox_reply_email_error",
+        {
+          contact_id: contactId,
+          error: "error" in mail ? mail.error : "?",
+        },
+        false
+      );
+      return NextResponse.json(
+        { ok: false, error: "error" in mail ? mail.error : "Envoi email échoué" },
+        { status: 502 }
+      );
+    }
+
+    // Marque le message comme lu et note qu'on a répondu manuellement
+    await execute(
+      `UPDATE messages
+       SET read_at = COALESCE(read_at, NOW())
+       WHERE id = $1`,
+      [contactId]
+    ).catch(() => {});
+
+    // Log un pending_approval fictif pour tracer la réponse manuelle
+    await execute(
+      `INSERT INTO pending_approvals (
+         source, source_id, contact_name, contact_email,
+         original_message, draft_response, sent_response,
+         status, decided_at, sent_at
+       )
+       VALUES ('contact_form', $1, $2, $3, '', $4, $4, 'sent', NOW(), NOW())`,
+      [
+        contactId,
+        `${contact.first_name} ${contact.last_name}`.trim(),
+        contact.email,
+        text,
+      ]
+    ).catch(() => {});
+
+    await logEvent(
+      "site",
+      "inbox_reply_email_sent",
+      { contact_id: contactId, to: contact.email },
+      true
+    );
+    return NextResponse.json({ ok: true, providerId: mail.id ?? null });
+  }
+
+  if (!threadId.startsWith("assistant_"))
+    return NextResponse.json(
+      { ok: false, error: "Type de thread non supporté." },
       { status: 400 }
     );
 

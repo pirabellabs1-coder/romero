@@ -327,12 +327,19 @@ export default async function CalendarPage() {
         }}
       >
         <div>
-          <strong style={{ fontSize: 14 }}>Sauvegarde du CRM</strong>
+          <strong style={{ fontSize: 14 }}>Export et impression</strong>
           <div style={{ fontSize: 12, opacity: 0.65, marginTop: 3 }}>
-            Télécharge tous tes contacts au format Excel ou téléphone.
+            Sauvegarde CRM ou impression du planning du mois courant.
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <a
+            href={`/api/admin/export/calendar?year=${new Date().getFullYear()}&month=${new Date().getMonth() + 1}`}
+            className="agent-btn agent-btn--primary"
+            download
+          >
+            🖨 PDF ce mois
+          </a>
           <a
             href="/api/admin/export/contacts?format=csv"
             className="agent-btn"

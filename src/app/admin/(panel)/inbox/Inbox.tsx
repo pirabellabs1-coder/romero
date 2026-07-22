@@ -422,11 +422,12 @@ function ThreadPanel({
   const [pending, startTransition] = useTransition();
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // Threads assistants (WA/TG/IG) : peuvent recevoir une réponse directe.
+  // Threads assistants (WA/TG/IG) et contact form : réponse directe.
   const canReplyDirect =
     thread.channel === "whatsapp" ||
     thread.channel === "telegram" ||
-    thread.channel === "instagram";
+    thread.channel === "instagram" ||
+    thread.channel === "contact";
 
   const canAskAI = thread.channel === "contact";
   const contactNumericId = canAskAI
@@ -586,7 +587,11 @@ function ThreadPanel({
                 void sendReply();
               }
             }}
-            placeholder={`Répondre via ${cm.label} — Cmd/Ctrl+Enter pour envoyer`}
+            placeholder={
+              thread.channel === "contact"
+                ? "Répondre par e-mail — Cmd/Ctrl+Enter pour envoyer"
+                : `Répondre via ${cm.label} — Cmd/Ctrl+Enter pour envoyer`
+            }
             rows={2}
             style={{
               flex: 1,
@@ -609,7 +614,7 @@ function ThreadPanel({
             className="agent-btn agent-btn--primary"
             style={{ alignSelf: "flex-end", whiteSpace: "nowrap" }}
           >
-            {replyBusy ? "…" : `Envoyer ${cm.icon}`}
+            {replyBusy ? "…" : thread.channel === "contact" ? "Envoyer ✉" : `Envoyer ${cm.icon}`}
           </button>
         </div>
       ) : null}

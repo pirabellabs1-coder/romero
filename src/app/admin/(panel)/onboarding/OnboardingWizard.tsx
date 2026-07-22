@@ -42,17 +42,85 @@ export default function OnboardingWizard({
   const router = useRouter();
   const [step, setStep] = useState(startStep);
 
+  const completedCount =
+    (status.company ? 1 : 0) +
+    (status.instagram ? 1 : 0) +
+    (status.google ? 1 : 0);
+  const progressPct = Math.round((completedCount / 3) * 100);
+
+  // Marque chaque step comme "done" selon le status
+  const isDone: Record<string, boolean> = {
+    welcome: false, // toujours navigable
+    company: status.company,
+    instagram: status.instagram,
+    google: status.google,
+    done: completedCount === 3,
+  };
+
   return (
     <div>
       <section className="agents-hero" style={{ marginBottom: 20 }}>
-        <div className="agents-hero__eyebrow">Configuration initiale</div>
-        <h1 className="agents-hero__title">
-          Bienvenue <em>Mickael</em>
-        </h1>
-        <p className="agents-hero__lead">
-          On configure ton studio ensemble en {STEPS.length - 1} étapes. Tu peux passer
-          n'importe quelle étape et y revenir plus tard.
-        </p>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div className="agents-hero__eyebrow">Configuration initiale</div>
+            <h1 className="agents-hero__title">
+              Bienvenue <em>Mickael</em>
+            </h1>
+            <p className="agents-hero__lead">
+              On configure ton studio ensemble en {STEPS.length - 1} étapes. Tu peux passer
+              n'importe quelle étape et y revenir plus tard.
+            </p>
+          </div>
+          <div style={{ textAlign: "right", minWidth: 140 }}>
+            <div
+              style={{
+                fontSize: 42,
+                fontWeight: 300,
+                lineHeight: 1,
+                color:
+                  progressPct >= 100
+                    ? "#9DCE9D"
+                    : progressPct >= 50
+                    ? "#B8975A"
+                    : "rgba(184,151,90,0.6)",
+              }}
+            >
+              {progressPct}%
+            </div>
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                opacity: 0.55,
+                marginTop: 2,
+              }}
+            >
+              {completedCount}/3 configuré{completedCount > 1 ? "s" : ""}
+            </div>
+            <Link
+              href="/admin"
+              style={{
+                display: "inline-block",
+                marginTop: 10,
+                fontSize: 11.5,
+                opacity: 0.65,
+                color: "inherit",
+                textDecoration: "underline",
+              }}
+            >
+              Ignorer tout →
+            </Link>
+          </div>
+        </div>
       </section>
 
       {flash ? (
@@ -73,46 +141,54 @@ export default function OnboardingWizard({
           padding: "0 4px",
         }}
       >
-        {STEPS.map((s, i) => (
-          <button
-            key={s.key}
-            type="button"
-            onClick={() => setStep(i)}
-            style={{
-              flex: 1,
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              textAlign: "left",
-            }}
-          >
-            <div
+        {STEPS.map((s, i) => {
+          const done = isDone[s.key];
+          const active = i === step;
+          return (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setStep(i)}
               style={{
-                height: 4,
-                borderRadius: 2,
-                background:
-                  i < step
+                flex: 1,
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+              title={done ? "Étape déjà complétée" : `Aller à l'étape ${i + 1}`}
+            >
+              <div
+                style={{
+                  height: 4,
+                  borderRadius: 2,
+                  background: done
                     ? "#9DCE9D"
-                    : i === step
+                    : i < step
+                    ? "rgba(157,206,157,0.5)"
+                    : active
                     ? "#B8975A"
                     : "rgba(184,151,90,0.2)",
-                marginBottom: 6,
-              }}
-            />
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                opacity: i === step ? 1 : 0.55,
-                color: i === step ? "#B8975A" : "inherit",
-              }}
-            >
-              {i + 1}. {s.title}
-            </div>
-          </button>
-        ))}
+                  marginBottom: 6,
+                }}
+              />
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  opacity: active ? 1 : 0.65,
+                  color: done ? "#9DCE9D" : active ? "#B8975A" : "inherit",
+                  fontWeight: done ? 600 : 400,
+                }}
+              >
+                {done ? "✓ " : `${i + 1}. `}
+                {s.title}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {step === 0 ? (
