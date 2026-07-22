@@ -22,6 +22,40 @@
 
 import { PDFDocument, PDFPage, PDFFont, StandardFonts, rgb } from "pdf-lib";
 
+// ─── Sanitize WinAnsi ────────────────────────────────────────────────
+// Helvetica pdf-lib standard n'encode que WinAnsi (CP1252). Certains
+// caractères typographiques français (espace fine insécable U+202F,
+// espace fine U+2009, flèches U+2192, box drawing U+2500…) crashent
+// avec « WinAnsi cannot encode ». On les remplace en entrée par leur
+// équivalent WinAnsi ou ASCII avant de dessiner.
+const WINANSI_REPLACE: Array<[RegExp, string]> = [
+  [/[     ]/g, " "], // fines / no-break narrow → espace
+  [/→/g, "->"],                          // flèche droite
+  [/←/g, "<-"],                          // flèche gauche
+  [/─/g, "-"],                           // box drawing horizontal
+  [/[  ]/g, "\n"],                  // separateurs de ligne
+  [/﻿/g, ""],                            // BOM
+];
+export function sanitizeForPdf(s: string): string {
+  let out = s;
+  for (const [re, rep] of WINANSI_REPLACE) out = out.replace(re, rep);
+  return out;
+}
+function sanitizeDeep<T>(input: T): T {
+  if (input === null || input === undefined) return input;
+  if (typeof input === "string") return sanitizeForPdf(input) as unknown as T;
+  if (Array.isArray(input))
+    return input.map((v) => sanitizeDeep(v)) as unknown as T;
+  if (typeof input === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+      out[k] = sanitizeDeep(v);
+    }
+    return out as unknown as T;
+  }
+  return input;
+}
+
 // ─── Types métier ────────────────────────────────────────────────────
 export type StudioProfile = {
   company_legal_name: string;
@@ -379,10 +413,11 @@ function drawLinesTable(
 }
 
 // ─── QUOTE (devis) ───────────────────────────────────────────────────
-export async function buildQuotePdf(input: {
+export async function buildQuotePdf(rawInput: {
   studio: StudioProfile;
   doc: QuoteDoc;
 }): Promise<Uint8Array> {
+  const input = sanitizeDeep(rawInput);
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([PAGE_W, PAGE_H]);
   const fonts = await loadFonts(pdf);
@@ -449,10 +484,11 @@ export async function buildQuotePdf(input: {
 }
 
 // ─── INVOICE (facture) ───────────────────────────────────────────────
-export async function buildInvoicePdf(input: {
+export async function buildInvoicePdf(rawInput: {
   studio: StudioProfile;
   doc: InvoiceDoc;
 }): Promise<Uint8Array> {
+  const input = sanitizeDeep(rawInput);
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([PAGE_W, PAGE_H]);
   const fonts = await loadFonts(pdf);
@@ -520,10 +556,11 @@ export async function buildInvoicePdf(input: {
 }
 
 // ─── CONTRACT (contrat) ──────────────────────────────────────────────
-export async function buildContractPdf(input: {
+export async function buildContractPdf(rawInput: {
   studio: StudioProfile;
   doc: ContractDoc;
 }): Promise<Uint8Array> {
+  const input = sanitizeDeep(rawInput);
   const pdf = await PDFDocument.create();
   const fonts = await loadFonts(pdf);
   let page = pdf.addPage([PAGE_W, PAGE_H]);
