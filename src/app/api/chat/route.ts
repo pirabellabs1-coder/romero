@@ -53,6 +53,11 @@ export const dynamic = "force-dynamic";
 const MAX_MESSAGES_PER_SESSION = 60;
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_TOOL_TURNS = 4;
+// Fenêtre glissante : nombre de messages d'historique renvoyés à Claude
+// à chaque tour. Au-delà, on tronque le début (les infos du lead sont de
+// toute façon persistées séparément dans lead_data). Économise des tokens
+// sur les longues conversations sans perdre le fil récent.
+const CHAT_CONTEXT_WINDOW = 20;
 const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
 
 // ─── Types Claude API (subset — juste ce dont on a besoin) ─────────────
@@ -208,8 +213,24 @@ export async function POST(req: NextRequest) {
     if (conv.message_count >= MAX_MESSAGES_PER_SESSION)
       return json({ ok: false, error: "Limite de messages atteinte pour cette session" }, 429);
 
-    // Historique
-    const history = await listMessages(conv.id);
+    // Historique complet (conservé en base pour l'admin) puis fenêtre
+    // glissante pour l'appel Claude : on ne renvoie que les ~20 derniers
+    // messages, économisant des tokens sur les longues conversations.
+    // On avance le début jusqu'à un vrai message user (role 'user' sans
+    // tool_calls) pour ne jamais couper une séquence tool_use/tool_result.
+    const fullHistory = await listMessages(conv.id);
+    let history = fullHistory;
+    if (fullHistory.length > CHAT_CONTEXT_WINDOW) {
+      let start = fullHistory.length - CHAT_CONTEXT_WINDOW;
+      while (
+        start < fullHistory.length &&
+        !(fullHistory[start].role === "user" && !fullHistory[start].tool_calls)
+      ) {
+        start++;
+      }
+      // Sécurité : si aucun point d'ancrage propre trouvé, on garde tout.
+      history = start < fullHistory.length ? fullHistory.slice(start) : fullHistory;
+    }
 
     // Persiste le message utilisateur
     await addMessage({ conversation_id: conv.id, role: "user", content: message });

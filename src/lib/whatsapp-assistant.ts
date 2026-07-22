@@ -44,7 +44,7 @@ import {
 
 const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
 const MAX_TOOL_TURNS = 4;
-const MAX_HISTORY_MESSAGES = 40; // fenêtre glissante — évite les prompts trop longs
+const MAX_HISTORY_MESSAGES = 24; // fenêtre glissante — 24 suffit pour le fil d'un échange agenda, économise des tokens
 
 // ─── Types Claude (subset) ─────────────────────────────────────────────
 type ClaudeToolUse = {
