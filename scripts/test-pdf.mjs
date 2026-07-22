@@ -99,9 +99,9 @@ const contract = {
   deposit_pct: 30,
 };
 
-fs.writeFileSync("v2-devis.pdf", await buildQuotePdf({ studio, doc: quote }));
+fs.writeFileSync("v5-devis.pdf", await buildQuotePdf({ studio, doc: quote }));
 console.log("OK devis");
-fs.writeFileSync("v2-facture.pdf", await buildInvoicePdf({ studio, doc: invoice }));
+fs.writeFileSync("v5-facture.pdf", await buildInvoicePdf({ studio, doc: invoice }));
 console.log("OK facture");
-fs.writeFileSync("v2-contrat.pdf", await buildContractPdf({ studio, doc: contract }));
+fs.writeFileSync("v5-contrat.pdf", await buildContractPdf({ studio, doc: contract }));
 console.log("OK contrat");
