@@ -34,3 +34,8 @@ Thumbs.db
 .env.diag
 .env.local
 .env.*.local
+
+# PDFs de test locaux
+out-*.pdf
+v2-*.pdf
+test-*.pdf
