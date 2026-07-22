@@ -272,7 +272,7 @@ export default async function AgentDetailPage({
       {tab === "briefs" && slug === "marketing" ? (
         <MarketingBriefsView
           activeBriefId={searchParams?.conv ? Number(searchParams.conv) : undefined}
-          hasClaudeKey={Boolean(config.anthropic_api_key)}
+          hasClaudeKey={Boolean(config.anthropic_api_key || process.env.OPENROUTER_API_KEY)}
           hasWhisperKey={Boolean(config.openai_api_key)}
           hasInstagramCreds={Boolean(config.meta_access_token && config.instagram_business_id)}
         />
@@ -293,7 +293,9 @@ export default async function AgentDetailPage({
               ? "clients"
               : "quote"
           }
-          hasClaudeKey={Boolean(config.anthropic_api_key && config.company_siret)}
+          hasClaudeKey={Boolean(
+            (config.anthropic_api_key || process.env.OPENROUTER_API_KEY) && config.siret
+          )}
           hasYousignKey={Boolean(config.yousign_api_key)}
           hasAccountingKey={Boolean(
             config.accounting_provider &&

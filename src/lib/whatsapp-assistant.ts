@@ -947,10 +947,10 @@ export async function runAssistant(input: {
       google_calendar_id?: string;
       google_timezone?: string;
     };
-    if (!cfg.anthropic_api_key)
+    if (!cfg.anthropic_api_key && !process.env.OPENROUTER_API_KEY)
       return {
         ok: false,
-        error: "Clé API Claude manquante — configurez-la dans /admin/agents/whatsapp.",
+        error: "Clé Claude manquante — configurez-la dans /admin/agents/whatsapp ou activez OpenRouter.",
       };
 
     // 2. Client Google (peut être absent — les outils renverront une
@@ -1037,7 +1037,7 @@ export async function runAssistant(input: {
     for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
       const t0 = Date.now();
       const resp = await callClaude({
-        apiKey: cfg.anthropic_api_key,
+        apiKey: cfg.anthropic_api_key || "",
         system: systemPrompt,
         messages: claudeMessages,
       });

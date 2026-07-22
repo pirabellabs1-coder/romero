@@ -230,12 +230,24 @@ export async function extractFromBrief(input: {
   try {
     const inst = await getAgent("admin");
     if (!inst) return { ok: false, error: "Agent admin indisponible" };
-    const cfg = inst.config as { anthropic_api_key?: string };
-    if (!cfg.anthropic_api_key)
+    const cfg = inst.config as {
+      anthropic_api_key?: string;
+      siret?: string;
+      legal_name?: string;
+      legal_status?: string;
+      legal_address?: string;
+      rcs_city?: string;
+      contact_email?: string;
+      contact_phone?: string;
+      website?: string;
+      ape_code?: string;
+    };
+    const hasOpenRouter = Boolean(process.env.OPENROUTER_API_KEY);
+    if (!cfg.anthropic_api_key && !hasOpenRouter)
       return {
         ok: false,
         error:
-          "Clé API Anthropic manquante — configurez-la dans /admin/agents/admin.",
+          "Clé Claude manquante — configurez-la dans /admin/agents/admin ou passez par OpenRouter.",
       };
 
     const kb = await listKnowledge("admin");
@@ -243,10 +255,26 @@ export async function extractFromBrief(input: {
       ? "\n\n# BASE DE CONNAISSANCES\n" +
         kb.map((k) => `## ${k.title} [${k.category}]\n${k.content}`).join("\n\n")
       : "";
+
+    // Injecte les infos prestataire (Studio Settings) pour que l'agent
+    // ait des VALEURS CONCRÈTES, pas des placeholders « [À compléter] ».
+    const prestataire = `
+## PRESTATAIRE (à utiliser tel quel dans les documents, NE JAMAIS mettre de placeholder)
+- Nom : ${cfg.legal_name || "Mickael Romero"}
+- Statut : ${cfg.legal_status || "Micro-entrepreneur — Entreprise Individuelle"}
+- SIRET : ${cfg.siret || "(non renseigné)"}
+- APE : ${cfg.ape_code || "74.20Z (Activités photographiques)"}
+- Adresse : ${cfg.legal_address || "(non renseignée)"}${cfg.rcs_city ? " · RCS " + cfg.rcs_city : ""}
+- Téléphone : ${cfg.contact_phone || "(non renseigné)"}
+- Email : ${cfg.contact_email || "romerophotography.contact@gmail.com"}
+- Web : ${cfg.website || "romerophotography.fr"}
+- TVA : non applicable — art. 293 B du CGI (franchise en base)`;
+
     const systemPrompt =
       effectivePrompt(inst) +
+      prestataire +
       kbBlock +
-      "\n\n## RAPPEL\nTu DOIS toujours appeler le tool structuré fourni. Jamais de texte libre.";
+      "\n\n## RAPPEL\nTu DOIS toujours appeler le tool structuré fourni. Jamais de texte libre. Utilise les infos PRESTATAIRE ci-dessus telles quelles — ne mets JAMAIS de placeholder « [À compléter] » : si une info manque vraiment, laisse le champ vide.";
 
     const tool =
       input.kind === "quote"
@@ -255,7 +283,7 @@ export async function extractFromBrief(input: {
         ? CONTRACT_TOOL
         : INVOICE_TOOL;
 
-    const ep = getClaudeEndpoint({ userApiKey: cfg.anthropic_api_key, model: CLAUDE_MODEL });
+    const ep = getClaudeEndpoint({ userApiKey: cfg.anthropic_api_key || "", model: CLAUDE_MODEL });
     const resp = await fetch(ep.url, {
       method: "POST",
       headers: ep.headers,

@@ -108,7 +108,7 @@ export async function generateFromBrief(input: {
       brand_voice?: string;
       signature_hashtags?: string;
     };
-    if (!cfg.anthropic_api_key)
+    if (!cfg.anthropic_api_key && !process.env.OPENROUTER_API_KEY)
       return {
         ok: false,
         error:
@@ -154,7 +154,7 @@ export async function generateFromBrief(input: {
     }
 
     // Appelle Claude en forçant l'utilisation du tool return_drafts.
-    const ep = getClaudeEndpoint({ userApiKey: cfg.anthropic_api_key, model: CLAUDE_MODEL });
+    const ep = getClaudeEndpoint({ userApiKey: cfg.anthropic_api_key || "", model: CLAUDE_MODEL });
     const resp = await fetch(ep.url, {
       method: "POST",
       headers: ep.headers,

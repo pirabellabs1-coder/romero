@@ -28,8 +28,9 @@ async function draftResponse(input: {
   language: "fr" | "en";
 }): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
   const shared = await getSharedConfig().catch(() => ({} as Record<string, string>));
-  const apiKey = shared.anthropic_api_key;
-  if (!apiKey) return { ok: false, error: "Clé Anthropic manquante" };
+  const apiKey = shared.anthropic_api_key ?? "";
+  if (!apiKey && !process.env.OPENROUTER_API_KEY)
+    return { ok: false, error: "Clé Claude manquante (ni Anthropic ni OpenRouter)" };
 
   const siteAgent = await getAgent("site").catch(() => null);
   const kbSnippet = siteAgent?.system_prompt?.slice(0, 4000) ?? "";

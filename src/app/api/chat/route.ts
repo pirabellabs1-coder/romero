@@ -191,8 +191,9 @@ export async function POST(req: NextRequest) {
     // Agent
     const inst = await getAgent("site");
     if (!inst) return json({ ok: false, error: "Agent site indisponible" }, 503);
-    const apiKey = (inst.config as { anthropic_api_key?: string })?.anthropic_api_key;
-    if (!apiKey)
+    const apiKey =
+      (inst.config as { anthropic_api_key?: string })?.anthropic_api_key ?? "";
+    if (!apiKey && !process.env.OPENROUTER_API_KEY)
       return json(
         {
           ok: false,
