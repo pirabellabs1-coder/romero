@@ -334,8 +334,16 @@ export default async function CalendarPage() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <a
-            href={`/api/admin/export/calendar?year=${new Date().getFullYear()}&month=${new Date().getMonth() + 1}`}
+            href="/api/admin/export/user-guide"
             className="agent-btn agent-btn--primary"
+            download
+            title="Manuel complet de la plateforme (20 pages)"
+          >
+            📖 Manuel utilisateur
+          </a>
+          <a
+            href={`/api/admin/export/calendar?year=${new Date().getFullYear()}&month=${new Date().getMonth() + 1}`}
+            className="agent-btn"
             download
           >
             🖨 PDF ce mois
