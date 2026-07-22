@@ -1,22 +1,22 @@
 // ──────────────────────────────────────────────────────────────────────
-// Transcription vocale via OpenAI Whisper API
+// Transcription vocale — Groq Whisper (défaut) ou OpenAI Whisper (fallback)
 // ──────────────────────────────────────────────────────────────────────
 //
 // Utilisé par les webhooks Telegram et WhatsApp pour convertir les
 // vocaux entrants en texte avant de les passer à Claude.
 //
-// Design :
-//   - Reçoit une URL de fichier audio + une clé API OpenAI
-//   - Télécharge le fichier, l'envoie à /v1/audio/transcriptions
-//   - Force le français pour éviter que Whisper hallucine une langue
-//     étrangère sur les vocaux courts
-//   - Renvoie un texte trimmé ou une erreur typée
+// Priorité :
+//   1. Si GROQ_API_KEY est défini → Groq whisper-large-v3-turbo (rapide + gratuit)
+//   2. Sinon → OpenAI Whisper avec la clé de l'utilisateur (payant)
 //
-// Note : Whisper accepte jusqu'à 25 MB. Les vocaux WhatsApp/Telegram
-// dépassent rarement 5 MB (compression Opus). Aucun chunking nécessaire.
+// Note : les deux APIs sont compatibles OpenAI (même format multipart,
+// mêmes params). Seul l'endpoint et le nom du modèle changent.
+// Whisper accepte jusqu'à 25 MB — vocaux WA/TG rarement > 5 MB.
 
 const OPENAI_TRANSCRIBE = "https://api.openai.com/v1/audio/transcriptions";
-const MODEL = "whisper-1"; // stable et pas cher (~0.006$/min)
+const OPENAI_MODEL = "whisper-1";
+const GROQ_TRANSCRIBE = "https://api.groq.com/openai/v1/audio/transcriptions";
+const GROQ_MODEL = "whisper-large-v3-turbo"; // rapide, gratuit, qualité française excellente
 
 export type TranscribeResult =
   | { ok: true; text: string; duration_ms: number }
@@ -59,30 +59,38 @@ export async function transcribeAudioUrl(input: {
       inferFilenameFromUrl(input.audioUrl) ||
       "audio.ogg";
 
-    // 3. Construit le multipart form-data manuellement (FormData natif
-    // Node 20 fonctionne dans le runtime Vercel).
+    // 3. Choix du provider : Groq prioritaire si sa clé est en ENV,
+    // sinon OpenAI avec la clé fournie par l'utilisateur.
+    const groqKey = process.env.GROQ_API_KEY?.replace(/^﻿/, "").trim();
+    const useGroq = Boolean(groqKey);
+    const endpoint = useGroq ? GROQ_TRANSCRIBE : OPENAI_TRANSCRIBE;
+    const model = useGroq ? GROQ_MODEL : OPENAI_MODEL;
+    const authKey = useGroq ? groqKey! : input.apiKey;
+
+    // 4. Construit le multipart form-data (compatible OpenAI et Groq).
     const form = new FormData();
     form.append(
       "file",
       new Blob([audioBuffer], { type: guessContentType(filename) }),
       filename
     );
-    form.append("model", MODEL);
+    form.append("model", model);
     form.append("language", input.language ?? "fr");
     form.append("response_format", "json");
     if (input.prompt) form.append("prompt", input.prompt);
 
-    // 4. Appel Whisper
-    const resp = await fetch(OPENAI_TRANSCRIBE, {
+    // 5. Appel API
+    const resp = await fetch(endpoint, {
       method: "POST",
-      headers: { authorization: `Bearer ${input.apiKey}` },
+      headers: { authorization: `Bearer ${authKey}` },
       body: form,
     });
     if (!resp.ok) {
       const text = await resp.text();
+      const provider = useGroq ? "Groq" : "OpenAI";
       return {
         ok: false,
-        error: `Whisper HTTP ${resp.status} · ${text.slice(0, 300)}`,
+        error: `${provider} Whisper HTTP ${resp.status} · ${text.slice(0, 300)}`,
       };
     }
     const data = (await resp.json()) as { text?: string };

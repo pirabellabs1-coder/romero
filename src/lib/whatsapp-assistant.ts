@@ -1019,9 +1019,16 @@ export async function runAssistant(input: {
       ? "\n\n# BASE DE CONNAISSANCES\n" +
         kb.map((k) => `## ${k.title} [${k.category}]\n${k.content}`).join("\n\n")
       : "";
+    const STYLE_RULES = `\n\n## RÈGLES DE STYLE — À RESPECTER STRICTEMENT
+- N'utilise JAMAIS de markdown : pas de **gras**, pas de *italique*, pas de listes à tirets avec -, pas de ### titres.
+- Écris en français, texte brut, comme dans un vrai message Telegram/WhatsApp.
+- Phrases courtes, direct et efficace (tu parles à Mickael, il est occupé).
+- Pour lister deux ou trois options, écris-les à la suite dans la phrase, séparées par des tirets simples. Jamais de puces à part.
+- Pas de « c'est noté ! » redondant : va directement à la question ou l'action.`;
     let systemPrompt =
       effectivePrompt(inst) +
       `\n\n## CONTEXTE TECHNIQUE\n- Fuseau horaire : ${timeZone}\n- Plateforme : ${input.platform}\n- Nom de l'utilisateur : ${input.displayName ?? "(inconnu)"}` +
+      STYLE_RULES +
       kbBlock;
     if (!calClient && calError) {
       systemPrompt += `\n\n## AVERTISSEMENT\nGoogle Calendar n'est PAS connecté (${calError}). Réponds à Mickael que la connexion agenda doit être établie via /admin/agents/whatsapp avant que tu puisses gérer ses rendez-vous.`;

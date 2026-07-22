@@ -80,6 +80,19 @@ function chunkString(s: string, size: number): string[] {
   return out;
 }
 
+// Filet de sécurité : retire les marqueurs markdown même si l'IA en
+// glisse malgré la consigne système. Telegram sans parse_mode affiche
+// les astérisques tels quels, ce qui pollue le rendu.
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "· ")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+}
+
 async function downloadTelegramFile(
   token: string,
   fileId: string
@@ -245,7 +258,10 @@ Les nouveaux leads arrivent automatiquement ici avec un brouillon IA à valider 
         filenameHint: "voice.ogg",
       });
       if (!transcribed.ok) {
-        await sendReply(token, msg.chat.id, `Transcription échouée : ${transcribed.error}`);
+        const friendly = /429|quota|insufficient/i.test(transcribed.error)
+          ? "Transcription vocale indisponible pour le moment (quota API épuisé). Tape ton message en texte, je gère."
+          : `Transcription échouée : ${transcribed.error}`;
+        await sendReply(token, msg.chat.id, friendly);
         return NextResponse.json({ ok: true, error: transcribed.error });
       }
       userText = transcribed.text;
@@ -279,7 +295,7 @@ Les nouveaux leads arrivent automatiquement ici avec un brouillon IA à valider 
       return NextResponse.json({ ok: false, error: result.error });
     }
 
-    await sendReply(token, msg.chat.id, result.reply);
+    await sendReply(token, msg.chat.id, stripMarkdown(result.reply));
     return NextResponse.json({ ok: true, tools_used: result.tools_used });
   } catch (e) {
     console.error("[telegram/webhook]", e);
