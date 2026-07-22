@@ -22,7 +22,7 @@
 //   Mickael. En prod, on ajoutera un filtrage par platform_user_id
 //   (whitelist configurable depuis /admin/agents/whatsapp).
 
-import { withTransaction, query } from "@/lib/db";
+import { withTransaction, query, queryOne, execute } from "@/lib/db";
 import {
   buildClient,
   createEvent,
@@ -268,6 +268,121 @@ const TOOLS = [
       },
     },
   },
+  // ═══ Tools inter-agents : pilotage des autres agents depuis Telegram ═══
+  {
+    name: "list_pending_leads",
+    description:
+      "Liste les leads du chatbot du site en attente de traitement (non encore notifiés à Mickael). Utile pour « Y a-t-il des leads en attente ? » ou « Récap des demandes du site ». Renvoie nom, email, date de mariage envisagée, résumé de la conversation.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        limit: { type: "integer", description: "Nombre max de leads (défaut 5)" },
+      },
+    },
+  },
+  {
+    name: "list_pending_approvals",
+    description:
+      "Liste les brouillons IA de réponse en attente de validation par Mickael. Utile pour « Quels sont les brouillons à valider ? ». Renvoie contact, message original, statut.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        limit: { type: "integer", description: "Nombre max (défaut 10)" },
+      },
+    },
+  },
+  {
+    name: "list_unread_messages",
+    description:
+      "Liste les messages du formulaire de contact du site non encore lus par Mickael. Utile pour « Nouveaux messages ? ». Renvoie nom, email, lieu, date, extrait du message.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        limit: { type: "integer", description: "Nombre max (défaut 5)" },
+      },
+    },
+  },
+  {
+    name: "list_unpaid_invoices",
+    description:
+      "Liste les factures non payées (agent Admin). Utile pour « Factures en attente ? » ou « Combien on m'en doit ? ». Renvoie client, montant, date d'échéance.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        limit: { type: "integer", description: "Nombre max (défaut 10)" },
+      },
+    },
+  },
+  {
+    name: "list_recent_publications",
+    description:
+      "Liste les publications Instagram récentes de l'agent Marketing avec leurs stats (likes, reach). Utile pour « Comment marche mon dernier post ? ».",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        limit: { type: "integer", description: "Nombre max (défaut 5)" },
+      },
+    },
+  },
+  {
+    name: "list_upcoming_weddings",
+    description:
+      "Liste les prochains mariages à venir depuis le CRM (admin_contacts). Renvoie nom du couple, date, lieu, jours restants. Utile pour « Mes prochains mariages ? ».",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        limit: { type: "integer", description: "Nombre max (défaut 5)" },
+      },
+    },
+  },
+  {
+    name: "create_marketing_brief",
+    description:
+      "Crée un brief marketing dans l'agent Marketing à partir d'un texte descriptif. Le brief sera en statut brouillon, prêt à être développé en post IG/LinkedIn/Blog depuis /admin/agents/marketing. À utiliser quand Mickael dit « Prépare un post sur le mariage de X » ou « Crée un brief marketing ».",
+    input_schema: {
+      type: "object" as const,
+      required: ["description"],
+      properties: {
+        description: {
+          type: "string",
+          description: "Description libre du sujet à traiter (contexte, angle, ambiance)",
+        },
+        source_note: {
+          type: "string",
+          description: "Note interne facultative (ex: nom du mariage source)",
+        },
+      },
+    },
+  },
+  {
+    name: "create_contact",
+    description:
+      "Ajoute un contact (couple de mariés) au CRM admin_contacts. Utile pour « Ajoute Sophie & Marc au CRM » avec leurs coordonnées. Upsert par email si présent.",
+    input_schema: {
+      type: "object" as const,
+      required: ["name"],
+      properties: {
+        name: { type: "string", description: "Nom du couple ex: 'Sophie & Marc Durand'" },
+        email: { type: "string", description: "Email principal (facultatif)" },
+        phone: { type: "string", description: "Téléphone principal (facultatif)" },
+        wedding_date: {
+          type: "string",
+          description: "Date du mariage (YYYY-MM-DD, facultatif)",
+        },
+        wedding_location: { type: "string", description: "Lieu du mariage (facultatif)" },
+        notes: { type: "string", description: "Notes libres (facultatif)" },
+      },
+    },
+  },
+  {
+    name: "system_status",
+    description:
+      "Renvoie un récap système complet : nombre de brouillons IA en attente, messages non lus, leads chatbot, événements récents, prochain mariage. À utiliser pour « État général ? » ou en début de journée. Plus complet que /status.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
 ];
 
 // ─── Exécution d'un tool call ──────────────────────────────────────────
@@ -290,7 +405,20 @@ async function runTool(
     };
   }
 
-  if (!client) {
+  // Tools inter-agents (DB uniquement) : pas besoin de Google Calendar.
+  const nonCalendarTools = new Set([
+    "list_pending_leads",
+    "list_pending_approvals",
+    "list_unread_messages",
+    "list_unpaid_invoices",
+    "list_recent_publications",
+    "list_upcoming_weddings",
+    "create_marketing_brief",
+    "create_contact",
+    "system_status",
+  ]);
+
+  if (!client && !nonCalendarTools.has(tu.name)) {
     return {
       ok: false,
       result:
@@ -487,6 +615,256 @@ async function runTool(
           });
           return `${i + 1}. ${start} → ${end}`;
         });
+        return { ok: true, result: lines.join("\n") };
+      }
+      // ═══ Tools inter-agents ═══
+      case "list_pending_leads": {
+        const { limit = 5 } = tu.input as { limit?: number };
+        const rows = await query<{
+          id: number;
+          lead_data: Record<string, unknown>;
+          updated_at: string;
+        }>(
+          `SELECT id, lead_data, updated_at FROM chat_conversations
+           WHERE notified = FALSE ORDER BY updated_at DESC LIMIT $1`,
+          [Math.min(limit, 20)]
+        ).catch(() => []);
+        if (rows.length === 0) return { ok: true, result: "Aucun lead en attente." };
+        const lines = rows.map((r) => {
+          const ld = r.lead_data || {};
+          const name = (ld.contact_name as string) || (ld.contact_email as string) || `Visiteur #${r.id}`;
+          const email = ld.contact_email as string | undefined;
+          const date = ld.wedding_date as string | undefined;
+          const loc = ld.wedding_location as string | undefined;
+          return `- ${name}${email ? ` (${email})` : ""}${date ? ` · ${date}` : ""}${loc ? ` · ${loc}` : ""}`;
+        });
+        return { ok: true, result: `${rows.length} lead(s) en attente :\n${lines.join("\n")}` };
+      }
+      case "list_pending_approvals": {
+        const { limit = 10 } = tu.input as { limit?: number };
+        const rows = await query<{
+          id: number;
+          contact_name: string;
+          contact_email: string;
+          source: string;
+          created_at: string;
+        }>(
+          `SELECT id, contact_name, contact_email, source, created_at
+           FROM pending_approvals WHERE status = 'pending'
+           ORDER BY created_at DESC LIMIT $1`,
+          [Math.min(limit, 20)]
+        ).catch(() => []);
+        if (rows.length === 0)
+          return { ok: true, result: "Aucun brouillon IA en attente. Tout est traité." };
+        const lines = rows.map(
+          (r) => `- #${r.id} · ${r.contact_name} (${r.source}) · ${r.contact_email}`
+        );
+        return {
+          ok: true,
+          result: `${rows.length} brouillon(s) à valider :\n${lines.join("\n")}\n\nOuvrir : https://romerophotography.fr/admin/approvals`,
+        };
+      }
+      case "list_unread_messages": {
+        const { limit = 5 } = tu.input as { limit?: number };
+        const rows = await query<{
+          id: number;
+          first_name: string;
+          last_name: string;
+          email: string;
+          place: string;
+          message: string;
+          created_at: string;
+        }>(
+          `SELECT id, first_name, last_name, email, place, message, created_at
+           FROM messages WHERE read_at IS NULL
+           ORDER BY created_at DESC LIMIT $1`,
+          [Math.min(limit, 20)]
+        ).catch(() => []);
+        if (rows.length === 0) return { ok: true, result: "Aucun message non lu." };
+        const lines = rows.map(
+          (r) =>
+            `- ${r.first_name} ${r.last_name} (${r.email})${r.place ? ` · ${r.place}` : ""} : « ${r.message.slice(0, 80)}${r.message.length > 80 ? "…" : ""} »`
+        );
+        return { ok: true, result: `${rows.length} message(s) non lu(s) :\n${lines.join("\n")}` };
+      }
+      case "list_unpaid_invoices": {
+        const { limit = 10 } = tu.input as { limit?: number };
+        const rows = await query<{
+          id: number;
+          reference: string;
+          client_name: string;
+          amount_cents: number;
+          due_date: string | null;
+        }>(
+          `SELECT id, reference, client_name, amount_cents, to_char(due_date, 'YYYY-MM-DD') as due_date
+           FROM admin_documents WHERE type = 'invoice' AND status IN ('sent','overdue')
+           ORDER BY due_date ASC NULLS LAST LIMIT $1`,
+          [Math.min(limit, 20)]
+        ).catch(() => []);
+        if (rows.length === 0) return { ok: true, result: "Aucune facture impayée." };
+        const total = rows.reduce((a, r) => a + r.amount_cents, 0);
+        const lines = rows.map(
+          (r) =>
+            `- ${r.reference} · ${r.client_name} : ${(r.amount_cents / 100).toFixed(0)} €${r.due_date ? ` (échéance ${r.due_date})` : ""}`
+        );
+        return {
+          ok: true,
+          result: `${rows.length} facture(s) impayée(s) · total ${(total / 100).toFixed(0)} € :\n${lines.join("\n")}`,
+        };
+      }
+      case "list_recent_publications": {
+        const { limit = 5 } = tu.input as { limit?: number };
+        const rows = await query<{
+          id: number;
+          instagram_caption: string;
+          published_at: string;
+          insights: Record<string, unknown> | null;
+        }>(
+          `SELECT id, LEFT(instagram_caption, 60) as instagram_caption,
+                  to_char(instagram_published_at, 'YYYY-MM-DD') as published_at,
+                  instagram_insights as insights
+           FROM marketing_briefs
+           WHERE instagram_status = 'published'
+           ORDER BY instagram_published_at DESC LIMIT $1`,
+          [Math.min(limit, 10)]
+        ).catch(() => []);
+        if (rows.length === 0) return { ok: true, result: "Aucune publication IG récente." };
+        const lines = rows.map((r) => {
+          const insights = r.insights || {};
+          const likes = insights.likes ?? "?";
+          const reach = insights.reach ?? "?";
+          return `- ${r.published_at} · « ${r.instagram_caption || "(sans caption)"}… » · ${likes} likes / ${reach} reach`;
+        });
+        return { ok: true, result: `${rows.length} dernière(s) publication(s) :\n${lines.join("\n")}` };
+      }
+      case "list_upcoming_weddings": {
+        const { limit = 5 } = tu.input as { limit?: number };
+        const rows = await query<{
+          id: number;
+          name: string;
+          wedding_date: string;
+          wedding_location: string | null;
+          days_until: number;
+        }>(
+          `SELECT id, name,
+                  to_char(wedding_date, 'YYYY-MM-DD') as wedding_date,
+                  wedding_location,
+                  (wedding_date - CURRENT_DATE) AS days_until
+           FROM admin_contacts
+           WHERE wedding_date IS NOT NULL AND wedding_date >= CURRENT_DATE
+           ORDER BY wedding_date ASC LIMIT $1`,
+          [Math.min(limit, 10)]
+        ).catch(() => []);
+        if (rows.length === 0)
+          return { ok: true, result: "Aucun mariage à venir dans le CRM." };
+        const lines = rows.map(
+          (r) =>
+            `- ${r.name} · ${r.wedding_date} (J-${r.days_until})${r.wedding_location ? ` · ${r.wedding_location}` : ""}`
+        );
+        return { ok: true, result: `${rows.length} mariage(s) à venir :\n${lines.join("\n")}` };
+      }
+      case "create_marketing_brief": {
+        const { description, source_note } = tu.input as {
+          description?: string;
+          source_note?: string;
+        };
+        if (!description || description.trim().length < 10)
+          return { ok: false, result: "ERREUR · description trop courte (min 10 chars)" };
+        const row = await queryOne<{ id: number }>(
+          `INSERT INTO marketing_briefs (brief_text, source_note)
+           VALUES ($1, $2) RETURNING id`,
+          [description, source_note ?? ""]
+        ).catch((e) => {
+          throw new Error(`INSERT marketing_briefs échoué : ${e.message}`);
+        });
+        if (!row) return { ok: false, result: "ERREUR · brief non créé" };
+        return {
+          ok: true,
+          result: `✓ Brief marketing #${row.id} créé. Développe-le en post IG/LinkedIn/Blog depuis /admin/agents/marketing`,
+        };
+      }
+      case "create_contact": {
+        const { name, email, phone, wedding_date, wedding_location, notes } =
+          tu.input as {
+            name?: string;
+            email?: string;
+            phone?: string;
+            wedding_date?: string;
+            wedding_location?: string;
+            notes?: string;
+          };
+        if (!name || name.trim().length < 2)
+          return { ok: false, result: "ERREUR · nom obligatoire" };
+        // Upsert par email si présent, sinon par nom
+        let existing: { id: number } | null = null;
+        if (email) {
+          existing = await queryOne<{ id: number }>(
+            `SELECT id FROM admin_contacts WHERE LOWER(email) = LOWER($1)`,
+            [email]
+          ).catch(() => null);
+        }
+        if (!existing) {
+          existing = await queryOne<{ id: number }>(
+            `SELECT id FROM admin_contacts WHERE LOWER(name) = LOWER($1)`,
+            [name]
+          ).catch(() => null);
+        }
+        if (existing) {
+          await execute(
+            `UPDATE admin_contacts SET
+               email = COALESCE(NULLIF(email, ''), $1),
+               phone = COALESCE(NULLIF(phone, ''), $2),
+               wedding_date = COALESCE(wedding_date, NULLIF($3, '')::date),
+               wedding_location = COALESCE(NULLIF(wedding_location, ''), $4),
+               notes = COALESCE(NULLIF(notes, ''), $5),
+               updated_at = NOW()
+             WHERE id = $6`,
+            [email ?? "", phone ?? "", wedding_date ?? "", wedding_location ?? "", notes ?? "", existing.id]
+          ).catch(() => {});
+          return { ok: true, result: `✓ Contact ${name} mis à jour (id #${existing.id})` };
+        }
+        const row = await queryOne<{ id: number }>(
+          `INSERT INTO admin_contacts (name, email, phone, wedding_date, wedding_location, notes)
+           VALUES ($1, NULLIF($2, ''), NULLIF($3, ''), NULLIF($4, '')::date, NULLIF($5, ''), NULLIF($6, ''))
+           RETURNING id`,
+          [name, email ?? "", phone ?? "", wedding_date ?? "", wedding_location ?? "", notes ?? ""]
+        ).catch((e) => {
+          throw new Error(`INSERT admin_contacts échoué : ${e.message}`);
+        });
+        return { ok: true, result: `✓ Contact ${name} ajouté au CRM (id #${row?.id ?? "?"})` };
+      }
+      case "system_status": {
+        const [approvals, msgs, leads, invoices, wedding] = await Promise.all([
+          queryOne<{ c: number }>(
+            `SELECT COUNT(*)::int as c FROM pending_approvals WHERE status = 'pending'`
+          ).catch(() => null),
+          queryOne<{ c: number }>(
+            `SELECT COUNT(*)::int as c FROM messages WHERE read_at IS NULL`
+          ).catch(() => null),
+          queryOne<{ c: number }>(
+            `SELECT COUNT(*)::int as c FROM chat_conversations WHERE notified = FALSE`
+          ).catch(() => null),
+          queryOne<{ c: number; total: number }>(
+            `SELECT COUNT(*)::int as c, COALESCE(SUM(amount_cents),0)::int as total
+             FROM admin_documents WHERE type = 'invoice' AND status IN ('sent','overdue')`
+          ).catch(() => null),
+          queryOne<{ name: string; date: string; days: number }>(
+            `SELECT name, to_char(wedding_date, 'YYYY-MM-DD') as date,
+                    (wedding_date - CURRENT_DATE) AS days
+             FROM admin_contacts
+             WHERE wedding_date IS NOT NULL AND wedding_date >= CURRENT_DATE
+             ORDER BY wedding_date ASC LIMIT 1`
+          ).catch(() => null),
+        ]);
+        const lines = [
+          `📊 État système :`,
+          `- Brouillons IA en attente : ${approvals?.c ?? "?"}`,
+          `- Messages non lus : ${msgs?.c ?? "?"}`,
+          `- Leads chatbot en attente : ${leads?.c ?? "?"}`,
+          `- Factures impayées : ${invoices?.c ?? "?"} (${((invoices?.total ?? 0) / 100).toFixed(0)} €)`,
+        ];
+        if (wedding)
+          lines.push(`- Prochain mariage : ${wedding.name} le ${wedding.date} (J-${wedding.days})`);
         return { ok: true, result: lines.join("\n") };
       }
       default:
