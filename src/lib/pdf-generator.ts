@@ -29,12 +29,14 @@ import { PDFDocument, PDFPage, PDFFont, StandardFonts, rgb } from "pdf-lib";
 // avec « WinAnsi cannot encode ». On les remplace en entrée par leur
 // équivalent WinAnsi ou ASCII avant de dessiner.
 const WINANSI_REPLACE: Array<[RegExp, string]> = [
-  [/[     ]/g, " "], // fines / no-break narrow → espace
-  [/→/g, "->"],                          // flèche droite
-  [/←/g, "<-"],                          // flèche gauche
-  [/─/g, "-"],                           // box drawing horizontal
-  [/[  ]/g, "\n"],                  // separateurs de ligne
-  [/﻿/g, ""],                            // BOM
+  [/[\u2009\u200A\u202F\u205F\u3000]/g, " "],
+  [/[\u2028\u2029]/g, "\n"],
+  [/[\uFEFF\u200B\u200C\u200D]/g, ""],
+  [/\u2192/g, "->"],
+  [/\u2190/g, "<-"],
+  [/\u2194/g, "<->"],
+  [/[\u2500-\u257F]/g, "-"],
+  [/\u2212/g, "-"],
 ];
 export function sanitizeForPdf(s: string): string {
   let out = s;
@@ -142,20 +144,26 @@ const RULE = rgb(0.85, 0.80, 0.70);
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 function formatCents(cents: number): string {
-  return (cents / 100).toLocaleString("fr-FR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  // Intl fr-FR insère U+202F (espace fine insécable) entre les tranches
+  // de milliers et avant le %/€. WinAnsi ne l'encode pas → sanitize.
+  return sanitizeForPdf(
+    (cents / 100).toLocaleString("fr-FR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  );
 }
 
 function formatDate(iso: string): string {
   if (!iso) return "";
   try {
-    return new Date(iso).toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
+    return sanitizeForPdf(
+      new Date(iso).toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+    );
   } catch {
     return iso;
   }
