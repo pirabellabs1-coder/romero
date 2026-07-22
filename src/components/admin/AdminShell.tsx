@@ -10,23 +10,49 @@ type Props = {
   children: React.ReactNode;
 };
 
-const LINKS: Array<{ href: string; label: string }> = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/inbox", label: "Inbox" },
-  { href: "/admin/approvals", label: "Réponses IA" },
-  { href: "/admin/calendar", label: "Calendrier" },
-  { href: "/admin/analytics", label: "Analytics" },
-  { href: "/admin/content", label: "Contenu" },
-  { href: "/admin/galleries", label: "Galeries" },
-  { href: "/admin/posts", label: "Journal" },
-  { href: "/admin/reviews", label: "Avis" },
-  { href: "/admin/messages", label: "Messages" },
-  { href: "/admin/mail-preview", label: "Email" },
-  { href: "/admin/agents", label: "Agents IA" },
-  { href: "/admin/settings", label: "Paramètres" },
-  { href: "/admin/design", label: "Design" },
-  { href: "/admin/account", label: "Compte" },
+type NavItem = { href: string; label: string };
+type NavSection = { title: string; items: NavItem[] };
+
+const SECTIONS: NavSection[] = [
+  {
+    title: "Pilotage",
+    items: [
+      { href: "/admin", label: "Dashboard" },
+      { href: "/admin/inbox", label: "Inbox" },
+      { href: "/admin/approvals", label: "Réponses IA" },
+      { href: "/admin/calendar", label: "Calendrier" },
+      { href: "/admin/analytics", label: "Analytics" },
+    ],
+  },
+  {
+    title: "Intelligence artificielle",
+    items: [
+      { href: "/admin/agents", label: "Agents IA" },
+      { href: "/admin/agents/health", label: "Santé des agents" },
+    ],
+  },
+  {
+    title: "Site & contenu",
+    items: [
+      { href: "/admin/content", label: "Contenu" },
+      { href: "/admin/galleries", label: "Galeries" },
+      { href: "/admin/posts", label: "Journal" },
+      { href: "/admin/reviews", label: "Avis" },
+      { href: "/admin/messages", label: "Messages" },
+      { href: "/admin/mail-preview", label: "Email" },
+    ],
+  },
+  {
+    title: "Configuration",
+    items: [
+      { href: "/admin/settings", label: "Paramètres" },
+      { href: "/admin/design", label: "Design" },
+      { href: "/admin/account", label: "Compte" },
+    ],
+  },
 ];
+
+const LINKS: NavItem[] = SECTIONS.flatMap((s) => s.items);
 
 function linkActive(pathname: string, href: string) {
   if (href === "/admin") return pathname === "/admin";
@@ -109,22 +135,30 @@ export default function AdminShell({ unread, profile, children }: Props) {
           </button>
         </div>
         <nav className="admin-side-nav">
-          {LINKS.map((l) => {
-            const active = linkActive(pathname, l.href);
-            const showBadge =
-              (l.href === "/admin/messages" || l.href === "/admin/inbox") && unread > 0;
-            return (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={active ? "active" : ""}
-                title={collapsed ? l.label : undefined}
-              >
-                <span className="admin-side-label">{collapsed ? l.label.charAt(0) : l.label}</span>
-                {showBadge && <span className="badge">{unread}</span>}
-              </Link>
-            );
-          })}
+          {SECTIONS.map((section, si) => (
+            <div key={section.title} className="admin-side-section">
+              {!collapsed && (
+                <div className="admin-side-section-title">{section.title}</div>
+              )}
+              {collapsed && si > 0 && <div className="admin-side-section-divider" />}
+              {section.items.map((l) => {
+                const active = linkActive(pathname, l.href);
+                const showBadge =
+                  (l.href === "/admin/messages" || l.href === "/admin/inbox") && unread > 0;
+                return (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className={active ? "active" : ""}
+                    title={collapsed ? l.label : undefined}
+                  >
+                    <span className="admin-side-label">{collapsed ? l.label.charAt(0) : l.label}</span>
+                    {showBadge && <span className="badge">{unread}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
         <div className="spacer" />
 

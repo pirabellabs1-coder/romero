@@ -1,6 +1,6 @@
 /**
  * Générateur PDF du guide utilisateur Romero Studio.
- * ─────────────────────────────────────────────────
+ * -------------------------------------------------
  * Manuel complet ~20 pages avec :
  *   - Cover professionnelle
  *   - Table des matières
@@ -10,9 +10,10 @@
  *   - FAQ et dépannage
  *   - Contact support
  */
-import { PDFDocument, PDFPage, PDFFont, StandardFonts, rgb, RGB } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import type { PDFPage, PDFFont, RGB } from "pdf-lib";
 
-// ─── Palette de couleurs ────────────────────────────────────────────
+// --- Palette de couleurs --------------------------------------------
 const COLORS = {
   gold: rgb(0.72, 0.59, 0.35),
   goldLight: rgb(0.9, 0.83, 0.7),
@@ -27,15 +28,15 @@ const COLORS = {
   pink: rgb(0.88, 0.19, 0.42),
 };
 
-// ─── Layout ─────────────────────────────────────────────────────────
+// --- Layout ---------------------------------------------------------
 const A4 = { w: 595, h: 842 };
 const MARGIN = 50;
 const CONTENT_W = A4.w - 2 * MARGIN;
 
-// ─── Types ──────────────────────────────────────────────────────────
+// --- Types ----------------------------------------------------------
 type Fonts = { regular: PDFFont; bold: PDFFont; italic: PDFFont };
 
-// ─── Helpers texte ──────────────────────────────────────────────────
+// --- Helpers texte --------------------------------------------------
 function wrapText(font: PDFFont, size: number, text: string, maxW: number): string[] {
   const words = text.split(/\s+/);
   const lines: string[] = [];
@@ -73,7 +74,7 @@ function drawWrapped(
   return yCur;
 }
 
-// ─── Header/Footer ──────────────────────────────────────────────────
+// --- Header/Footer --------------------------------------------------
 function drawHeader(page: PDFPage, fonts: Fonts, pageNum: number, totalPages: number) {
   const y = A4.h - 25;
   page.drawText("Romero Studio · Guide d'utilisation", {
@@ -110,7 +111,7 @@ function drawFooter(page: PDFPage, fonts: Fonts) {
   });
 }
 
-// ─── Blocs de contenu réutilisables ─────────────────────────────────
+// --- Blocs de contenu réutilisables ---------------------------------
 function drawSectionTitle(
   page: PDFPage,
   title: string,
@@ -268,7 +269,7 @@ function drawKvPair(
   return after - 4;
 }
 
-// ─── Schéma : flow chatbot → CRM ────────────────────────────────────
+// --- Schéma : flow chatbot -> CRM ------------------------------------
 function drawFlowSchema(page: PDFPage, y: number, fonts: Fonts): number {
   const boxes = [
     { label: "Visiteur\nsite web", color: COLORS.blue },
@@ -333,7 +334,7 @@ function drawFlowSchema(page: PDFPage, y: number, fonts: Fonts): number {
   return y - boxH - 20;
 }
 
-// ─── Schéma agents ──────────────────────────────────────────────────
+// --- Schéma agents --------------------------------------------------
 function drawAgentsSchema(page: PDFPage, y: number, fonts: Fonts): number {
   const centerX = A4.w / 2;
   const hubY = y - 60;
@@ -387,7 +388,7 @@ function drawAgentsSchema(page: PDFPage, y: number, fonts: Fonts): number {
   return hubY - R - 30;
 }
 
-// ─── Page cover ─────────────────────────────────────────────────────
+// --- Page cover -----------------------------------------------------
 function drawCover(page: PDFPage, fonts: Fonts) {
   // Fond crème
   page.drawRectangle({ x: 0, y: 0, width: A4.w, height: A4.h, color: COLORS.cream });
@@ -467,7 +468,7 @@ function drawCover(page: PDFPage, fonts: Fonts) {
   });
 }
 
-// ─── Table des matières ─────────────────────────────────────────────
+// --- Table des matières ---------------------------------------------
 function drawTOC(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   drawSectionTitle(page, "Sommaire", MARGIN, y, fonts);
@@ -519,7 +520,7 @@ function drawTOC(page: PDFPage, fonts: Fonts) {
   });
 }
 
-// ─── Page intro ─────────────────────────────────────────────────────
+// --- Page intro -----------------------------------------------------
 function drawIntro(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   y = drawSectionTitle(page, "1. Introduction", MARGIN, y, fonts);
@@ -555,7 +556,7 @@ function drawIntro(page: PDFPage, fonts: Fonts) {
   );
 }
 
-// ─── Page première connexion ────────────────────────────────────────
+// --- Page première connexion ----------------------------------------
 function drawFirstConnection(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   y = drawSectionTitle(page, "2. Première connexion", MARGIN, y, fonts);
@@ -651,7 +652,7 @@ function drawFirstConnection2(page: PDFPage, fonts: Fonts) {
   y = drawKvPair(page, "PWA installable", "Ajoutez la plateforme sur votre écran d'accueil", MARGIN, y, fonts);
 }
 
-// ─── Page tableau de bord ───────────────────────────────────────────
+// --- Page tableau de bord -------------------------------------------
 function drawDashboard(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   y = drawSectionTitle(page, "3. Tableau de bord", MARGIN, y, fonts);
@@ -681,9 +682,9 @@ function drawDashboard(page: PDFPage, fonts: Fonts) {
     fonts
   );
 
-  y = drawBullet(page, "Cliquez un message → vous voyez le fil complet à droite", MARGIN, y, fonts);
-  y = drawBullet(page, "Bouton « Répondre par IA » → brouillon envoyé sur Telegram pour validation", MARGIN, y, fonts);
-  y = drawBullet(page, "Zone de réponse en bas → tapez directement, envoyez", MARGIN, y, fonts);
+  y = drawBullet(page, "Cliquez un message -> vous voyez le fil complet à droite", MARGIN, y, fonts);
+  y = drawBullet(page, "Bouton « Répondre par IA » -> brouillon envoyé sur Telegram pour validation", MARGIN, y, fonts);
+  y = drawBullet(page, "Zone de réponse en bas -> tapez directement, envoyez", MARGIN, y, fonts);
   y = drawBullet(page, "Nouvelles conversations détectées automatiquement toutes les 30 secondes", MARGIN, y, fonts);
 }
 
@@ -723,7 +724,7 @@ function drawDashboard2(page: PDFPage, fonts: Fonts) {
   );
 }
 
-// ─── Page agent site ────────────────────────────────────────────────
+// --- Page agent site ------------------------------------------------
 function drawAgentSite(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   y = drawSectionTitle(page, "4. Agent Site · chatbot", MARGIN, y, fonts);
@@ -803,7 +804,7 @@ function drawAgentSite2(page: PDFPage, fonts: Fonts) {
   y = drawBullet(page, "Le brouillon Telegram ne se déclenche pas : vérifiez que votre bot est actif", MARGIN, y, fonts);
 }
 
-// ─── Page agent WhatsApp ────────────────────────────────────────────
+// --- Page agent WhatsApp --------------------------------------------
 function drawAgentWhatsApp(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   y = drawSectionTitle(page, "5. Agent WhatsApp & Telegram", MARGIN, y, fonts);
@@ -891,7 +892,7 @@ function drawAgentWhatsApp2(page: PDFPage, fonts: Fonts) {
   );
 }
 
-// ─── Page agent Marketing ───────────────────────────────────────────
+// --- Page agent Marketing -------------------------------------------
 function drawAgentMarketing(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   y = drawSectionTitle(page, "6. Agent Marketing", MARGIN, y, fonts);
@@ -1016,7 +1017,7 @@ function drawAgentMarketing2(page: PDFPage, fonts: Fonts) {
   );
 }
 
-// ─── Page agent Admin ───────────────────────────────────────────────
+// --- Page agent Admin -----------------------------------------------
 function drawAgentAdmin(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   y = drawSectionTitle(page, "7. Agent Administratif", MARGIN, y, fonts);
@@ -1107,7 +1108,7 @@ function drawAgentAdmin2(page: PDFPage, fonts: Fonts) {
   );
 }
 
-// ─── Page pilotage Telegram ─────────────────────────────────────────
+// --- Page pilotage Telegram -----------------------------------------
 function drawTelegramPiloting(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   y = drawSectionTitle(page, "8. Piloter tout depuis Telegram", MARGIN, y, fonts);
@@ -1121,17 +1122,17 @@ function drawTelegramPiloting(page: PDFPage, fonts: Fonts) {
   );
 
   y = drawSubTitle(page, "Consulter — vocaux qui marchent", MARGIN, y, fonts);
-  y = drawBullet(page, "« Quels sont mes leads en attente ? » → liste des 5 derniers leads chatbot", MARGIN, y, fonts);
-  y = drawBullet(page, "« Combien de brouillons IA à valider ? » → nombre + liens directs", MARGIN, y, fonts);
-  y = drawBullet(page, "« Factures impayées ? » → liste + montant total dû", MARGIN, y, fonts);
-  y = drawBullet(page, "« Mes prochains mariages ? » → J-XX + lieu", MARGIN, y, fonts);
-  y = drawBullet(page, "« Comment marche mon dernier post IG ? » → likes/reach", MARGIN, y, fonts);
-  y = drawBullet(page, "« État général ce matin » → récap système complet en un message", MARGIN, y, fonts);
+  y = drawBullet(page, "« Quels sont mes leads en attente ? » -> liste des 5 derniers leads chatbot", MARGIN, y, fonts);
+  y = drawBullet(page, "« Combien de brouillons IA à valider ? » -> nombre + liens directs", MARGIN, y, fonts);
+  y = drawBullet(page, "« Factures impayées ? » -> liste + montant total dû", MARGIN, y, fonts);
+  y = drawBullet(page, "« Mes prochains mariages ? » -> J-XX + lieu", MARGIN, y, fonts);
+  y = drawBullet(page, "« Comment marche mon dernier post IG ? » -> likes/reach", MARGIN, y, fonts);
+  y = drawBullet(page, "« État général ce matin » -> récap système complet en un message", MARGIN, y, fonts);
 
   y = drawSubTitle(page, "Créer — vocaux qui marchent", MARGIN, y, fonts);
-  y = drawBullet(page, "« Prends RDV demain 15h avec Sophie » → événement Google Calendar créé", MARGIN, y, fonts);
-  y = drawBullet(page, "« Ajoute Sophie & Marc au CRM, mariage juin, sophie@... » → contact créé", MARGIN, y, fonts);
-  y = drawBullet(page, "« Prépare un brief marketing sur le mariage de Léa » → brief dans agent Marketing", MARGIN, y, fonts);
+  y = drawBullet(page, "« Prends RDV demain 15h avec Sophie » -> événement Google Calendar créé", MARGIN, y, fonts);
+  y = drawBullet(page, "« Ajoute Sophie & Marc au CRM, mariage juin, sophie@... » -> contact créé", MARGIN, y, fonts);
+  y = drawBullet(page, "« Prépare un brief marketing sur le mariage de Léa » -> brief dans agent Marketing", MARGIN, y, fonts);
 
   y -= 6;
   y = drawInfoBox(
@@ -1146,7 +1147,7 @@ function drawTelegramPiloting(page: PDFPage, fonts: Fonts) {
   );
 }
 
-// ─── Page Studio Settings + Sécurité ────────────────────────────────
+// --- Page Studio Settings + Sécurité --------------------------------
 function drawStudioAndSecurity(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   y = drawSectionTitle(page, "9. Studio Settings & sécurité", MARGIN, y, fonts);
@@ -1190,7 +1191,7 @@ function drawStudioAndSecurity(page: PDFPage, fonts: Fonts) {
   y = drawBullet(page, "KB des agents : backup JSON versionné dans le git du projet", MARGIN, y, fonts);
 }
 
-// ─── Page FAQ / dépannage ───────────────────────────────────────────
+// --- Page FAQ / dépannage -------------------------------------------
 function drawFAQ(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   y = drawSectionTitle(page, "10. FAQ et dépannage", MARGIN, y, fonts);
@@ -1274,7 +1275,7 @@ function drawFAQ2(page: PDFPage, fonts: Fonts) {
   );
 }
 
-// ─── Page contact ───────────────────────────────────────────────────
+// --- Page contact ---------------------------------------------------
 function drawContact(page: PDFPage, fonts: Fonts) {
   let y = A4.h - 90;
   y = drawSectionTitle(page, "11. Contact et support", MARGIN, y, fonts);
@@ -1335,7 +1336,7 @@ function drawContact(page: PDFPage, fonts: Fonts) {
   });
 }
 
-// ─── Point d'entrée principal ───────────────────────────────────────
+// --- Point d'entrée principal ---------------------------------------
 export async function buildUserGuidePDF(): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle("Romero Studio — Guide d'utilisation");
