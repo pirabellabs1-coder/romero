@@ -64,36 +64,57 @@ async function loadStudioProfile(): Promise<
   const inst = await getAgent("admin");
   if (!inst) return { ok: false, error: "Agent admin introuvable" };
   const cfg = inst.config as Record<string, string>;
+
+  // Mapping legacy company_* / vat_status → nouveaux Studio Settings :
+  //   legal_name, legal_status, siret, legal_address, rcs_city,
+  //   contact_email, contact_phone, iban, tva_applicable (bool str)
+  // On accepte les deux formats pour la retrocompat, en donnant priorite
+  // aux nouvelles clefs (Studio Settings unifie).
+  const map = {
+    company_legal_name: cfg.legal_name || cfg.company_legal_name || "Mickael Romero",
+    company_status:
+      cfg.legal_status ||
+      cfg.company_status ||
+      "Micro-entrepreneur — Entreprise Individuelle",
+    company_siret: cfg.siret || cfg.company_siret || "",
+    company_rcs: cfg.rcs_city || cfg.company_rcs || "",
+    company_address: cfg.legal_address || cfg.company_address || "",
+    company_email:
+      cfg.contact_email || cfg.company_email || "romerophotography.contact@gmail.com",
+    company_phone: cfg.contact_phone || cfg.company_phone || "",
+    company_iban: cfg.iban || cfg.company_iban || "",
+    // TVA : par defaut franchise en base pour micro-entrepreneur (non
+    // applicable, art 293B). Si Mickael passe au reel, cocher tva_applicable
+    // en Studio Settings.
+    vat_status:
+      cfg.tva_applicable === "true" || cfg.vat_status === "yes" ? "yes" : "no",
+    vat_rate: cfg.tva_rate || cfg.vat_rate || "20",
+    vat_number: cfg.tva_number || cfg.vat_number || "",
+  };
   const missing: string[] = [];
-  const need = [
-    "company_legal_name",
-    "company_status",
-    "company_siret",
-    "company_address",
-    "company_email",
-    "company_phone",
-    "vat_status",
-  ];
-  for (const k of need) if (!cfg[k]) missing.push(k);
+  // On exige seulement les champs vraiment necessaires pour le PDF legal.
+  if (!map.company_siret) missing.push("SIRET");
+  if (!map.company_address) missing.push("adresse");
+  if (!map.company_phone) missing.push("telephone");
   if (missing.length > 0)
     return {
       ok: false,
-      error: `Champs manquants dans la configuration : ${missing.join(", ")}`,
+      error: `Champs manquants dans Studio Settings : ${missing.join(", ")}. Va sur /admin/agents/studio pour les completer.`,
     };
   return {
     ok: true,
     profile: {
-      company_legal_name: cfg.company_legal_name,
-      company_status: cfg.company_status,
-      company_siret: cfg.company_siret,
-      company_rcs: cfg.company_rcs,
-      company_address: cfg.company_address,
-      company_email: cfg.company_email,
-      company_phone: cfg.company_phone,
-      company_iban: cfg.company_iban,
-      vat_status: cfg.vat_status,
-      vat_rate: cfg.vat_rate,
-      vat_number: cfg.vat_number,
+      company_legal_name: map.company_legal_name,
+      company_status: map.company_status,
+      company_siret: map.company_siret,
+      company_rcs: map.company_rcs,
+      company_address: map.company_address,
+      company_email: map.company_email,
+      company_phone: map.company_phone,
+      company_iban: map.company_iban,
+      vat_status: map.vat_status,
+      vat_rate: map.vat_rate,
+      vat_number: map.vat_number,
       legal_mentions: cfg.legal_mentions,
       contract_extra_clauses: cfg.contract_extra_clauses,
     },
