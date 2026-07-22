@@ -211,23 +211,26 @@ export default function Inbox({
                 gap: 8,
                 padding: "8px 12px",
                 borderRadius: 4,
-                border: `1px solid ${active ? c.color : "rgba(184,151,90,0.25)"}`,
-                background: active ? `${c.color}22` : "transparent",
-                color: active ? c.color : "rgba(244,239,227,0.8)",
+                border: `1px solid ${active ? c.color : "rgba(46,61,46,0.35)"}`,
+                background: active ? `${c.color}22` : "rgba(255,255,255,0.55)",
+                color: active ? "#2E3D2E" : "#2E3D2E",
                 cursor: "pointer",
                 fontSize: 12.5,
                 letterSpacing: "0.04em",
+                fontWeight: 500,
               }}
             >
-              <span style={{ color: c.color, fontSize: 12 }}>{c.icon}</span>
+              <span style={{ color: c.color, fontSize: 14 }}>{c.icon}</span>
               <span>{c.label}</span>
               <span
                 style={{
-                  fontSize: 10,
-                  opacity: 0.6,
-                  padding: "2px 6px",
+                  fontSize: 10.5,
+                  color: "#2E3D2E",
+                  opacity: 0.75,
+                  padding: "2px 7px",
                   borderRadius: 10,
-                  background: "rgba(184,151,90,0.14)",
+                  background: "rgba(46,61,46,0.10)",
+                  fontWeight: 600,
                 }}
               >
                 {badge.total}
@@ -235,12 +238,13 @@ export default function Inbox({
               {badge.unread > 0 ? (
                 <span
                   style={{
-                    fontSize: 9,
+                    fontSize: 10,
                     color: "#B8975A",
-                    padding: "2px 6px",
+                    padding: "2px 7px",
                     borderRadius: 10,
-                    background: "rgba(184,151,90,0.25)",
-                    fontWeight: 600,
+                    background: "rgba(184,151,90,0.20)",
+                    fontWeight: 700,
+                    border: "1px solid rgba(184,151,90,0.4)",
                   }}
                 >
                   {badge.unread} non lu
