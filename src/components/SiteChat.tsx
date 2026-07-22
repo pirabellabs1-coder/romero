@@ -30,6 +30,19 @@ const OPENING_MESSAGE =
 
 type Msg = { role: "user" | "assistant"; content: string; ts: number };
 
+// Filet de sécurité côté client : retire les marqueurs markdown si l'IA
+// en glisse (**gras**, *italique*, `code`, ### titres, - listes). Le
+// prompt système interdit déjà le markdown, ceci est une deuxième ligne.
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "· ")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+}
+
 function generateSessionId(): string {
   // 32 chars alphanumériques — suffisant en entropie, format compatible
   // avec la regex de validation côté serveur (16-128 alnum).
@@ -252,7 +265,7 @@ export default function SiteChat() {
                 key={i}
                 className={`rp-chat-msg rp-chat-msg--${m.role}`}
               >
-                <div className="rp-chat-msg__bubble">{m.content}</div>
+                <div className="rp-chat-msg__bubble">{stripMarkdown(m.content)}</div>
               </div>
             ))}
             {sending ? (

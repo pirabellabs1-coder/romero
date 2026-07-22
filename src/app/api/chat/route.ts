@@ -225,7 +225,13 @@ export async function POST(req: NextRequest) {
       ? "\n\n# BASE DE CONNAISSANCES (contenu fourni par le photographe)\n" +
         kb.map((k) => `## ${k.title} [${k.category}]\n${k.content}`).join("\n\n")
       : "";
-    const systemPrompt = effectivePrompt(inst) + kbBlock;
+    const STYLE_RULES = `\n\n# RÈGLES DE STYLE — À RESPECTER STRICTEMENT
+- N'utilise JAMAIS de markdown : pas de **gras**, pas de *italique*, pas de listes à tirets, pas de ### titres.
+- Écris en français en texte brut uniquement, comme dans un vrai message WhatsApp.
+- Phrases courtes, ton chaleureux et naturel.
+- Pour insister sur un mot, mets-le simplement entre guillemets « ainsi » — pas d'astérisques.
+- Pour lister deux ou trois options, écris-les à la suite dans la phrase, pas en liste.`;
+    const systemPrompt = effectivePrompt(inst) + kbBlock + STYLE_RULES;
 
     // Boucle Claude + tool-use
     // ────────────────────────────────────────────────────────────────
