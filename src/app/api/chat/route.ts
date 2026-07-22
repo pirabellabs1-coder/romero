@@ -18,6 +18,7 @@ import {
 import { sendLeadNotification } from "@/lib/mailer";
 import { withTransaction } from "@/lib/db";
 import { getClaudeEndpoint } from "@/lib/claude-endpoint";
+import { bookAppointment } from "@/lib/booking";
 
 /*
  * POST /api/chat
@@ -129,6 +130,40 @@ const TOOLS = [
           type: "string",
           description:
             "Résumé de la conversation en 3-6 phrases, briefing à voix haute pour Mickael. Mentionne ton, budget si évoqué, points d'attention.",
+        },
+      },
+    },
+  },
+  {
+    name: "book_appointment",
+    description:
+      "Réserve un rendez-vous visio dans l'agenda de Mickael. Crée l'événement Google Calendar avec un lien Meet, envoie un email de confirmation au prospect, et notifie Mickael. À N'APPELER QUE si TROIS conditions sont réunies : (1) le visiteur a explicitement choisi un créneau précis (jour + heure), (2) il a donné son prénom ET son email, (3) tu as reconfirmé le créneau dans ta réponse précédente et il a validé. Après appel réussi, dis simplement au visiteur : « c'est calé, tu vas recevoir un email avec le lien Meet ». Silencieux — ne cite pas le nom du tool.",
+    input_schema: {
+      type: "object" as const,
+      required: ["contact_name", "contact_email", "start_iso", "duration_min", "topic"],
+      properties: {
+        contact_name: { type: "string", description: "Prénom + nom (ou juste prénom)" },
+        contact_email: { type: "string", description: "Email du prospect" },
+        contact_phone: { type: "string", description: "Téléphone si connu (facultatif)" },
+        start_iso: {
+          type: "string",
+          description:
+            "Date/heure de début en ISO 8601 avec timezone Paris. Ex: 2026-08-05T15:00:00+02:00. Utilise la date que le visiteur a confirmée, pas ta propre suggestion.",
+        },
+        duration_min: {
+          type: "integer",
+          description:
+            "Durée en minutes. Défaut recommandé : 20. Utilise 30 si le visiteur préfère un échange plus long.",
+        },
+        topic: {
+          type: "string",
+          description:
+            "Sujet court de l'échange. Ex : « Discussion mariage août 2026 » ou « Séance engagement ».",
+        },
+        briefing: {
+          type: "string",
+          description:
+            "Résumé 2-3 phrases pour Mickael : budget évoqué, style, lieu, ce qui compte pour le couple.",
         },
       },
     },
@@ -302,6 +337,60 @@ export async function POST(req: NextRequest) {
             publicResult = "OK · info enregistrée";
             eventName = "lead_info_recorded";
             eventPayload = { fields: Object.keys(tu.input) };
+          } else if (tu.name === "book_appointment") {
+            const {
+              contact_name,
+              contact_email,
+              contact_phone,
+              start_iso,
+              duration_min,
+              topic,
+              briefing,
+            } = tu.input as {
+              contact_name?: string;
+              contact_email?: string;
+              contact_phone?: string;
+              start_iso?: string;
+              duration_min?: number;
+              topic?: string;
+              briefing?: string;
+            };
+            if (!contact_name || !contact_email || !start_iso || !duration_min || !topic) {
+              publicResult = "ERREUR · champs obligatoires manquants";
+              eventName = "book_appointment_error";
+              eventSuccess = false;
+            } else {
+              const bk = await bookAppointment({
+                contactName: contact_name,
+                contactEmail: contact_email,
+                contactPhone: contact_phone,
+                startISO: start_iso,
+                durationMin: duration_min,
+                topic,
+                briefingForMickael: briefing,
+                source: "chatbot",
+              });
+              if (bk.ok) {
+                publicResult = `OK · RDV créé${bk.meetLink ? ` · Meet ${bk.meetLink}` : ""} · email envoyé au prospect · Mickael notifié`;
+                eventName = "appointment_booked";
+                eventPayload = {
+                  eventId: bk.eventId,
+                  meetLink: bk.meetLink,
+                  contactEmail: contact_email,
+                };
+                // Auto-mémorise les infos prospect côté lead_data
+                await updateLeadData(conv.id, {
+                  contact_name,
+                  contact_email,
+                  contact_phone,
+                } as LeadData).catch(() => {});
+              } else {
+                publicResult = `ERREUR · ${bk.error}`;
+                eventName = "appointment_booked_error";
+                eventPayload = { error: bk.error };
+                eventSuccess = false;
+              }
+            }
           } else if (tu.name === "send_lead_notification") {
             const summary =
               typeof tu.input.summary === "string" ? tu.input.summary : "";

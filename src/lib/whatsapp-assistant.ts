@@ -542,9 +542,48 @@ async function runTool(
         });
         if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
         const link = (r.event as { hangoutLink?: string }).hangoutLink || "(lien Meet en cours de génération)";
+
+        // Bonus : envoie un email de confirmation à chaque participant
+        // avec le lien Meet + la date lisible. Best-effort, on n'échoue
+        // pas le tool si le mail plante.
+        if (attendee_emails && attendee_emails.length > 0) {
+          try {
+            const { sendMail } = await import("@/lib/mailer");
+            const humanDate = new Date(start).toLocaleString("fr-FR", {
+              timeZone: "Europe/Paris",
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            for (const email of attendee_emails) {
+              const emailText = `Bonjour,
+
+C'est confirmé : nous avons rendez-vous le ${humanDate} pour « ${title} ».
+
+${link.startsWith("http") ? `Lien Google Meet :\n${link}\n\n` : ""}${description ? `Notes : ${description}\n\n` : ""}À très vite,
+Mickael Romero
+Romero Photography
+https://romerophotography.fr`;
+              await sendMail({
+                to: email,
+                subject: `Confirmation RDV — ${humanDate}`,
+                text: emailText,
+                replyTo: "romerophotography.contact@gmail.com",
+              }).catch((e) => {
+                console.warn(`[assistant] email confirmation ${email} échec :`, e);
+              });
+            }
+          } catch (e) {
+            console.warn("[assistant] envoi emails confirmation échoué :", e);
+          }
+        }
+
         return {
           ok: true,
-          result: `OK · visio créée avec Meet — ${r.event.summary || title} · ${link}`,
+          result: `OK · visio créée avec Meet — ${r.event.summary || title} · ${link}${attendee_emails?.length ? ` · email(s) envoyé(s) : ${attendee_emails.length}` : ""}`,
           eventDetails: {
             id: r.event.id,
             summary: r.event.summary,
