@@ -405,20 +405,11 @@ async function runTool(
     };
   }
 
-  // Tools inter-agents (DB uniquement) : pas besoin de Google Calendar.
-  const nonCalendarTools = new Set([
-    "list_pending_leads",
-    "list_pending_approvals",
-    "list_unread_messages",
-    "list_unpaid_invoices",
-    "list_recent_publications",
-    "list_upcoming_weddings",
-    "create_marketing_brief",
-    "create_contact",
-    "system_status",
-  ]);
+  // ═══ Tools inter-agents (DB uniquement, pas de client Google requis) ═══
+  const interAgentResult = await maybeRunInterAgentTool(tu);
+  if (interAgentResult) return interAgentResult;
 
-  if (!client && !nonCalendarTools.has(tu.name)) {
+  if (!client) {
     return {
       ok: false,
       result:
@@ -617,7 +608,21 @@ async function runTool(
         });
         return { ok: true, result: lines.join("\n") };
       }
-      // ═══ Tools inter-agents ═══
+      default:
+        return { ok: false, result: `ERREUR · outil inconnu ${tu.name}` };
+    }
+  } catch (e) {
+    console.error(`[assistant/tool ${tu.name}]`, e);
+    return { ok: false, result: "ERREUR · échec technique, la conversation continue" };
+  }
+}
+
+// ═══ Handlers inter-agents (DB, indépendants de Google Calendar) ═══
+async function maybeRunInterAgentTool(
+  tu: ClaudeToolUse
+): Promise<{ result: string; ok: boolean } | null> {
+  try {
+    switch (tu.name) {
       case "list_pending_leads": {
         const { limit = 5 } = tu.input as { limit?: number };
         const rows = await query<{
@@ -868,11 +873,12 @@ async function runTool(
         return { ok: true, result: lines.join("\n") };
       }
       default:
-        return { ok: false, result: `ERREUR · outil inconnu ${tu.name}` };
+        // Ce n'est pas un tool inter-agent — on laisse le switch principal gérer
+        return null;
     }
   } catch (e) {
-    console.error(`[assistant/tool ${tu.name}]`, e);
-    return { ok: false, result: "ERREUR · échec technique, la conversation continue" };
+    console.error(`[assistant/inter-agent ${tu.name}]`, e);
+    return { ok: false, result: "ERREUR · échec technique inter-agent" };
   }
 }
 
