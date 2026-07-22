@@ -17,6 +17,7 @@
 // courantes quand on demande à un LLM de renvoyer du JSON en freeform.
 
 import { effectivePrompt, getAgent, listKnowledge } from "@/lib/agents";
+import { getClaudeEndpoint } from "@/lib/claude-endpoint";
 
 const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
 
@@ -153,15 +154,12 @@ export async function generateFromBrief(input: {
     }
 
     // Appelle Claude en forçant l'utilisation du tool return_drafts.
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    const ep = getClaudeEndpoint({ userApiKey: cfg.anthropic_api_key, model: CLAUDE_MODEL });
+    const resp = await fetch(ep.url, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": cfg.anthropic_api_key,
-        "anthropic-version": "2023-06-01",
-      },
+      headers: ep.headers,
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
+        model: ep.model,
         max_tokens: 4096,
         system: systemPrompt,
         tools: [DRAFT_TOOL],

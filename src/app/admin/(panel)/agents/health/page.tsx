@@ -38,9 +38,23 @@ type Check = {
 
 // ─── Individual checks ────────────────────────────────────────────────
 async function checkAnthropic(apiKey?: string): Promise<Check> {
+  const orKey = process.env.OPENROUTER_API_KEY?.replace(/^﻿/, "").trim();
+  // Route OpenRouter si activé (proxy Claude-compatible).
+  if (orKey) {
+    try {
+      const r = await fetch("https://openrouter.ai/api/v1/models", {
+        headers: { Authorization: `Bearer ${orKey}` },
+        cache: "no-store",
+      });
+      if (!r.ok) return { key: "anthropic", label: "Claude via OpenRouter", status: "err", detail: `HTTP ${r.status}` };
+      const data = (await r.json()) as { data?: unknown[] };
+      return { key: "anthropic", label: "Claude via OpenRouter", status: "ok", detail: `${data.data?.length ?? "?"} modèles accessibles (proxy)` };
+    } catch (e) {
+      return { key: "anthropic", label: "Claude via OpenRouter", status: "err", detail: e instanceof Error ? e.message : "Erreur réseau" };
+    }
+  }
   if (!apiKey) return { key: "anthropic", label: "Anthropic Claude", status: "err", detail: "Clé ANTHROPIC_API_KEY manquante", fix: { href: "/admin/agents/studio", label: "Réglages" } };
   try {
-    // Ping léger : /v1/models
     const r = await fetch("https://api.anthropic.com/v1/models", {
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
       cache: "no-store",

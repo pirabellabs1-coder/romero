@@ -17,6 +17,7 @@ import {
 } from "@/lib/site-chat";
 import { sendLeadNotification } from "@/lib/mailer";
 import { withTransaction } from "@/lib/db";
+import { getClaudeEndpoint } from "@/lib/claude-endpoint";
 
 /*
  * POST /api/chat
@@ -431,15 +432,12 @@ async function callClaude(input: {
   system: string;
   messages: ClaudeMessage[];
 }): Promise<ClaudeResponse> {
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+  const ep = getClaudeEndpoint({ userApiKey: input.apiKey, model: CLAUDE_MODEL });
+  const resp = await fetch(ep.url, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": input.apiKey,
-      "anthropic-version": "2023-06-01",
-    },
+    headers: ep.headers,
     body: JSON.stringify({
-      model: CLAUDE_MODEL,
+      model: ep.model,
       max_tokens: 1024,
       system: input.system,
       tools: TOOLS,

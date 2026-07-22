@@ -23,6 +23,7 @@
 //   (whitelist configurable depuis /admin/agents/whatsapp).
 
 import { withTransaction, query, queryOne, execute } from "@/lib/db";
+import { getClaudeEndpoint } from "@/lib/claude-endpoint";
 import {
   buildClient,
   createEvent,
@@ -1098,15 +1099,12 @@ async function callClaude(input: {
   system: string;
   messages: ClaudeMessage[];
 }): Promise<ClaudeResponse> {
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+  const ep = getClaudeEndpoint({ userApiKey: input.apiKey, model: CLAUDE_MODEL });
+  const resp = await fetch(ep.url, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": input.apiKey,
-      "anthropic-version": "2023-06-01",
-    },
+    headers: ep.headers,
     body: JSON.stringify({
-      model: CLAUDE_MODEL,
+      model: ep.model,
       max_tokens: 1024,
       system: input.system,
       tools: TOOLS,
@@ -1115,7 +1113,7 @@ async function callClaude(input: {
   });
   if (!resp.ok) {
     const txt = await resp.text();
-    throw new Error(`Anthropic HTTP ${resp.status} · ${txt.slice(0, 400)}`);
+    throw new Error(`Claude HTTP ${resp.status} · ${txt.slice(0, 400)}`);
   }
   return (await resp.json()) as ClaudeResponse;
 }

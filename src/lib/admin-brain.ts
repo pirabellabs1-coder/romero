@@ -13,6 +13,7 @@
 // Utilise Claude Haiku avec un tool structured output (comme marketing).
 
 import { effectivePrompt, getAgent, listKnowledge } from "@/lib/agents";
+import { getClaudeEndpoint } from "@/lib/claude-endpoint";
 
 const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
 
@@ -254,15 +255,12 @@ export async function extractFromBrief(input: {
         ? CONTRACT_TOOL
         : INVOICE_TOOL;
 
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    const ep = getClaudeEndpoint({ userApiKey: cfg.anthropic_api_key, model: CLAUDE_MODEL });
+    const resp = await fetch(ep.url, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": cfg.anthropic_api_key,
-        "anthropic-version": "2023-06-01",
-      },
+      headers: ep.headers,
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
+        model: ep.model,
         max_tokens: 2048,
         system: systemPrompt,
         tools: [tool],

@@ -16,6 +16,7 @@ import { execute, queryOne } from "@/lib/db";
 import { getAgent } from "@/lib/agents";
 import { getSharedConfig } from "@/lib/studio-settings";
 import { sendMail } from "@/lib/mailer";
+import { getClaudeEndpoint } from "@/lib/claude-endpoint";
 
 export type ApprovalSource = "contact_form" | "chatbot" | "instagram";
 
@@ -51,15 +52,12 @@ Rédige une réponse email courte (5-8 lignes maxi) et personnelle en ${input.la
 Réponds UNIQUEMENT avec le texte de l'email, sans introduction ni méta-commentaire.`;
 
   try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
+    const ep = getClaudeEndpoint({ userApiKey: apiKey, model: "claude-haiku-4-5-20251001" });
+    const r = await fetch(ep.url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
+      headers: ep.headers,
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: ep.model,
         max_tokens: 700,
         system: persona + (kbSnippet ? "\n\nContexte (base de connaissances) :\n" + kbSnippet : ""),
         messages: [{ role: "user", content: userPrompt }],

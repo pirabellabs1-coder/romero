@@ -17,6 +17,7 @@ import {
   updateKnowledge,
 } from "@/lib/agents";
 import { SEED_KB } from "@/lib/agent-seed-kb";
+import { getClaudeEndpoint } from "@/lib/claude-endpoint";
 
 function assertSlug(raw: string): AgentSlug {
   if (!(raw in AGENT_CATALOG)) throw new Error(`Agent inconnu : ${raw}`);
@@ -279,15 +280,12 @@ export async function runPlaygroundMessage(
 
     const system = effectivePrompt(inst) + kbBlock;
 
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    const ep = getClaudeEndpoint({ userApiKey: apiKey, model: "claude-haiku-4-5-20251001" });
+    const resp = await fetch(ep.url, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
+      headers: ep.headers,
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: ep.model,
         max_tokens: 1024,
         system,
         messages: [{ role: "user", content: input }],
