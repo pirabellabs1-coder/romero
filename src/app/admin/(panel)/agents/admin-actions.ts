@@ -161,8 +161,14 @@ function computeTotals(
   vatRate: number,
   vatApplicable: boolean
 ): { subtotal: number; vat: number; total: number } {
+  // Coerce défensif : l'IA peut renvoyer un nombre en string ("249900")
+  // ou vide — évite un NaN qui casserait l'INSERT (colonnes cents = int).
+  const num = (v: unknown): number => {
+    const n = typeof v === "number" ? v : parseInt(String(v ?? "").replace(/[^\d-]/g, ""), 10);
+    return Number.isFinite(n) ? n : 0;
+  };
   const subtotal = lines.reduce(
-    (s, l) => s + l.quantity * l.unit_price_cents,
+    (s, l) => s + num(l.quantity || 1) * num(l.unit_price_cents),
     0
   );
   const vat = vatApplicable ? Math.round((subtotal * vatRate) / 100) : 0;
@@ -222,6 +228,17 @@ export async function createDocumentAction(input: {
       const s = v.trim();
       return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null;
     };
+    // L'IA renvoie parfois "<UNKNOWN>", "" ou un nombre en string pour un
+    // entier -> une colonne INT Postgres rejette tout ce qui n'est pas un
+    // entier. On coerce en number sûr ou null.
+    const intOrNull = (v: unknown): number | null => {
+      if (typeof v === "number" && Number.isFinite(v)) return Math.round(v);
+      if (typeof v === "string") {
+        const n = parseInt(v.replace(/[^\d-]/g, ""), 10);
+        return Number.isFinite(n) ? n : null;
+      }
+      return null;
+    };
 
     let pdfBytes: Uint8Array;
     let content: Record<string, unknown> = input.data;
@@ -249,14 +266,17 @@ export async function createDocumentAction(input: {
       clientAddress = quote.client.address ?? null;
       weddingDate = dateOrNull(quote.wedding.date);
       weddingLocation = quote.wedding.location ?? null;
-      guestCount = quote.wedding.guest_count ?? null;
+      guestCount = intOrNull(quote.wedding.guest_count);
       pdfBytes = await buildQuotePdf({ studio: profile.profile, doc: quote });
       content = quote as unknown as Record<string, unknown>;
     } else if (input.kind === "contract") {
       const d = input.data as unknown as ContractDoc;
+      const priceCents = intOrNull(d.price_cents) ?? 0;
       const contract: ContractDoc = {
         ...d,
         reference,
+        price_cents: priceCents,
+        deposit_pct: intOrNull(d.deposit_pct) ?? 30,
         issue_date: d.issue_date || new Date().toISOString().slice(0, 10),
       };
       totals = {
@@ -270,7 +290,7 @@ export async function createDocumentAction(input: {
       clientAddress = contract.client.address ?? null;
       weddingDate = dateOrNull(contract.wedding.date);
       weddingLocation = contract.wedding.location ?? null;
-      guestCount = contract.wedding.guest_count ?? null;
+      guestCount = intOrNull(contract.wedding.guest_count);
       pdfBytes = await buildContractPdf({
         studio: profile.profile,
         doc: contract,
@@ -290,7 +310,7 @@ export async function createDocumentAction(input: {
       clientAddress = invoice.client.address ?? null;
       weddingDate = dateOrNull(invoice.wedding.date);
       weddingLocation = invoice.wedding.location ?? null;
-      guestCount = invoice.wedding.guest_count ?? null;
+      guestCount = intOrNull(invoice.wedding.guest_count);
       dueDate = dateOrNull(invoice.due_date);
       pdfBytes = await buildInvoicePdf({ studio: profile.profile, doc: invoice });
       content = invoice as unknown as Record<string, unknown>;
