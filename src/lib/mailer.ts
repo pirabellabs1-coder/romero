@@ -197,7 +197,9 @@ export async function sendMail(input: {
     }
   }
 
-  return { sent: false, error: "no_provider" };
+  // Si Resend existait mais a échoué, on remonte SA vraie erreur plutôt
+  // que le trompeur « no_provider ».
+  return { sent: false, error: lastError ?? "no_provider" };
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
