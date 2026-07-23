@@ -175,7 +175,7 @@ const RULE = rgb(0.82, 0.84, 0.8);
 const WHITE = rgb(1, 1, 1);
 
 // Zone photo (bandeau haut)
-const HERO_H = 208;
+const HERO_H = 300;
 const HERO_Y = PAGE_H - HERO_H;
 
 // Ancres fixes du bas de page
@@ -370,16 +370,16 @@ export async function fetchHeroImage(): Promise<Hero> {
 }
 
 /**
- * Bandeau photo avec fondu sur trois côtés.
+ * Grand bandeau photo façon faire-part : la photo occupe le haut du
+ * document, le couple centré et pleinement visible. Fondus doux en
+ * dégradé (vignette) plutôt qu'un bloc blanc, pour un rendu élégant.
  *
- * pdf-lib n'a pas de gradient : on empile des bandes de 0,8 pt qui se
- * chevauchent de 0,5 pt. En dessous de ~1,2 pt le rendu est lisse ;
- * avec des bandes épaisses on voyait des rayures.
+ * pdf-lib n'a pas de gradient : on empile des bandes de 0,7 pt qui se
+ * chevauchent de 0,4 pt (aucune rayure visible sous ~1 pt).
  *
- *   gauche  (0 → 34 %)   blanc quasi opaque : zone identité
- *   centre  (34 → 66 %)  photo pleinement visible
- *   droite  (66 → 100 %) fondu vers le blanc : zone titre + courbe
- *   bas     (110 pt)     dissolution vers le corps du document
+ *   gauche  vignette douce derrière l'identité (logo + contacts)
+ *   droite  vignette légère derrière le titre DEVIS
+ *   bas     dissolution progressive vers le corps du document
  */
 async function drawHeroPhoto(pdf: PDFDocument, page: PDFPage, hero: Hero): Promise<void> {
   if (!hero) return;
@@ -389,56 +389,60 @@ async function drawHeroPhoto(pdf: PDFDocument, page: PDFPage, hero: Hero): Promi
         ? await pdf.embedPng(hero.bytes)
         : await pdf.embedJpg(hero.bytes);
 
+    // « Cover » : remplit la zone sans déformer.
     const scale = Math.max(PAGE_W / img.width, HERO_H / img.height);
     const drawW = img.width * scale;
     const drawH = img.height * scale;
     const drawX = (PAGE_W - drawW) / 2;
-    // 0.30 : on garde le haut du sujet (visages) plutôt que le centre.
-    const drawY = HERO_Y - (drawH - HERO_H) * 0.3;
+    // 0.34 : cadre les visages + le bouquet au centre du bandeau.
+    const drawY = HERO_Y - (drawH - HERO_H) * 0.34;
 
-    page.drawImage(img, { x: drawX, y: drawY, width: drawW, height: drawH, opacity: 0.92 });
+    // Photo pleine intensité — plus de couleur, plus vivant.
+    page.drawImage(img, { x: drawX, y: drawY, width: drawW, height: drawH, opacity: 1 });
 
-    const step = 0.8;
-    const overlap = 0.5;
-    const smooth = (u: number) => u * u * (3 - 2 * u);
+    const step = 0.7;
+    const overlap = 0.4;
 
-    // Fondu gauche
-    const leftEnd = PAGE_W * 0.42;
+    // Vignette gauche : dégradé doux, opaque au bord → transparent vers
+    // le centre. Courbe en puissance pour un fondu naturel (pas de
+    // plateau blanc qui « couperait » la photo).
+    const leftEnd = PAGE_W * 0.44;
     for (let x = 0; x < leftEnd; x += step) {
-      const t = x / leftEnd;
-      const a = t < 0.55 ? 0.97 : 0.97 * (1 - smooth((t - 0.55) / 0.45));
-      if (a <= 0.005) continue;
+      const t = x / leftEnd; // 0 au bord → 1 au centre
+      const a = 0.94 * Math.pow(1 - t, 1.6);
+      if (a <= 0.004) continue;
       page.drawRectangle({
         x, y: HERO_Y, width: step + overlap, height: HERO_H,
         color: WHITE, opacity: a,
       });
     }
 
-    // Fondu droite
-    const rightStart = PAGE_W * 0.6;
+    // Vignette droite : plus légère (le titre DEVIS reste lisible mais la
+    // photo transparaît).
+    const rightStart = PAGE_W * 0.66;
     for (let x = rightStart; x < PAGE_W; x += step) {
-      const t = (x - rightStart) / (PAGE_W - rightStart);
-      const a = 0.97 * smooth(Math.min(1, t / 0.7));
-      if (a <= 0.005) continue;
+      const t = (x - rightStart) / (PAGE_W - rightStart); // 0 → 1 au bord
+      const a = 0.9 * Math.pow(t, 1.4);
+      if (a <= 0.004) continue;
       page.drawRectangle({
         x, y: HERO_Y, width: step + overlap, height: HERO_H,
         color: WHITE, opacity: a,
       });
     }
 
-    // Fondu bas
-    const fadeH = 110;
+    // Fondu bas : dissolution progressive et longue vers le blanc.
+    const fadeH = 150;
     for (let dy = 0; dy < fadeH; dy += step) {
-      const t = dy / fadeH;
-      const a = 0.99 * (1 - t) * (1 - t);
-      if (a <= 0.005) continue;
+      const t = dy / fadeH; // 0 en bas de zone → 1 plus haut
+      const a = Math.pow(1 - t, 2.2);
+      if (a <= 0.004) continue;
       page.drawRectangle({
         x: 0, y: HERO_Y + dy, width: PAGE_W, height: step + overlap,
         color: WHITE, opacity: a,
       });
     }
 
-    // Coupe nette sous la zone
+    // Coupe nette sous la zone (rien ne déborde sur le corps).
     page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: HERO_Y, color: WHITE });
   } catch {
     // embed échoué — on continue sans photo
@@ -571,7 +575,7 @@ function drawTableHeader(page: PDFPage, fonts: Fonts, y: number): number {
 // le footer décoratif.
 const TABLE_FLOOR = MARGIN + 74;
 // Hauteur nécessaire pour la zone totaux + blocs (acompte/signature).
-const BOTTOM_SECTION_H = 210;
+const BOTTOM_SECTION_H = 150;
 
 // Dessine le tableau avec pagination automatique : si une ligne ne tient
 // pas au-dessus du plancher, on ouvre une nouvelle page et on réaffiche
