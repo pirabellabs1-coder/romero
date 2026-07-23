@@ -214,6 +214,15 @@ export async function createDocumentAction(input: {
     const vatApplicable = profile.profile.vat_status === "yes";
     const vatRate = Number(profile.profile.vat_rate) || 20;
 
+    // Coerce chaîne vide/invalide en null : une colonne DATE Postgres
+    // rejette "" (« invalid input syntax for type date »). L'IA renvoie
+    // souvent "" quand la date n'est pas connue.
+    const dateOrNull = (v: unknown): string | null => {
+      if (typeof v !== "string") return null;
+      const s = v.trim();
+      return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null;
+    };
+
     let pdfBytes: Uint8Array;
     let content: Record<string, unknown> = input.data;
     let totals = { subtotal: 0, vat: 0, total: 0 };
@@ -238,7 +247,7 @@ export async function createDocumentAction(input: {
       clientEmail = quote.client.email ?? null;
       clientPhone = quote.client.phone ?? null;
       clientAddress = quote.client.address ?? null;
-      weddingDate = quote.wedding.date ?? null;
+      weddingDate = dateOrNull(quote.wedding.date);
       weddingLocation = quote.wedding.location ?? null;
       guestCount = quote.wedding.guest_count ?? null;
       pdfBytes = await buildQuotePdf({ studio: profile.profile, doc: quote });
@@ -259,7 +268,7 @@ export async function createDocumentAction(input: {
       clientEmail = contract.client.email ?? null;
       clientPhone = contract.client.phone ?? null;
       clientAddress = contract.client.address ?? null;
-      weddingDate = contract.wedding.date ?? null;
+      weddingDate = dateOrNull(contract.wedding.date);
       weddingLocation = contract.wedding.location ?? null;
       guestCount = contract.wedding.guest_count ?? null;
       pdfBytes = await buildContractPdf({
@@ -279,10 +288,10 @@ export async function createDocumentAction(input: {
       clientEmail = invoice.client.email ?? null;
       clientPhone = invoice.client.phone ?? null;
       clientAddress = invoice.client.address ?? null;
-      weddingDate = invoice.wedding.date ?? null;
+      weddingDate = dateOrNull(invoice.wedding.date);
       weddingLocation = invoice.wedding.location ?? null;
       guestCount = invoice.wedding.guest_count ?? null;
-      dueDate = invoice.due_date ?? null;
+      dueDate = dateOrNull(invoice.due_date);
       pdfBytes = await buildInvoicePdf({ studio: profile.profile, doc: invoice });
       content = invoice as unknown as Record<string, unknown>;
     }

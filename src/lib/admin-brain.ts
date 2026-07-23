@@ -274,7 +274,19 @@ export async function extractFromBrief(input: {
       effectivePrompt(inst) +
       prestataire +
       kbBlock +
-      "\n\n## RAPPEL\nTu DOIS toujours appeler le tool structuré fourni. Jamais de texte libre. Utilise les infos PRESTATAIRE ci-dessus telles quelles — ne mets JAMAIS de placeholder « [À compléter] » : si une info manque vraiment, laisse le champ vide.";
+      "\n\n## RAPPEL\nTu DOIS toujours appeler le tool structuré fourni. Jamais de texte libre. Utilise les infos PRESTATAIRE ci-dessus telles quelles — ne mets JAMAIS de placeholder « [À compléter] » : si une info manque vraiment, laisse le champ vide." +
+      `\n\n## QUALITÉ RÉDACTIONNELLE (français impeccable, vocabulaire mariage)
+- Accents obligatoires partout : é, è, à, ô, ç, ê… (préparatifs, cérémonie, séance, réservation).
+- Vocabulaire métier correct : dis « préparatifs des mariés » (pas « préparation »), « séance d'engagement » (pas « séance engagement »), « vin d'honneur », « ouverture de bal », « cérémonie laïque ou religieuse ».
+- Dans le champ "detail" de chaque ligne, rédige des puces courtes séparées par des retours à la ligne, chacune commençant par une majuscule, sans point final, formulées de façon homogène. Exemple :
+  Préparatifs des mariés
+  Cérémonie civile et cérémonie laïque ou religieuse
+  Photos de couple et de groupe
+  Vin d'honneur
+  Ouverture de bal
+  Galerie privée en ligne
+  Retouches premium
+- Les labels de ligne sont clairs et en toutes lettres (« Formule Prestige Éternel », « Séance d'engagement avant le mariage », « Second photographe »).`;
 
     const tool =
       input.kind === "quote"

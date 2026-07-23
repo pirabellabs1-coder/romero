@@ -466,7 +466,7 @@ function drawDocHeader(page: PDFPage, fonts: Fonts, studio: StudioProfile, doc: 
   y -= 14;
   page.drawText("Photographe de mariage", { x: MARGIN, y, size: 9.5, font: fonts.bold, color: INK });
   y -= 14;
-  page.drawText("Nice, Cote d'Azur & France", { x: MARGIN, y, size: 9.5, font: fonts.bold, color: INK });
+  page.drawText("Nice, Côte d'Azur & France", { x: MARGIN, y, size: 9.5, font: fonts.bold, color: INK });
 
   y -= 28;
   const ix = MARGIN + 4;
@@ -489,7 +489,7 @@ function drawDocHeader(page: PDFPage, fonts: Fonts, studio: StudioProfile, doc: 
   const rx = PAGE_W - MARGIN;
   rightAlign(page, formatDateUpper(doc.date), rx, top - 20, 8.5, fonts.bold, FOREST);
   rightAlign(page, doc.title, rx, top - 62, 32, fonts.bold, FOREST);
-  rightAlign(page, "N " + doc.reference, rx, top - 88, 13.5, fonts.regular, INK);
+  rightAlign(page, "N° " + doc.reference, rx, top - 88, 13.5, fonts.regular, INK);
   page.drawLine({
     start: { x: rx - 155, y: top - 104 },
     end: { x: rx, y: top - 104 },
@@ -505,7 +505,7 @@ function drawDocHeader(page: PDFPage, fonts: Fonts, studio: StudioProfile, doc: 
     ry -= 24;
   }
   if (doc.dueDate) {
-    rightAlign(page, "DATE D'ECHEANCE", rx, ry, 8.5, fonts.bold, FOREST);
+    rightAlign(page, "DATE D'ÉCHÉANCE", rx, ry, 8.5, fonts.bold, FOREST);
     ry -= 16;
     rightAlign(page, formatDateUpper(doc.dueDate), rx, ry, 10.5, fonts.regular, INK);
   }
@@ -538,9 +538,9 @@ function drawClientBlock(page: PDFPage, fonts: Fonts, client: Client, y: number,
 
 // ─── Tableau ─────────────────────────────────────────────────────────
 const COLS = [
-  { w: 0.215, label: "DESIGNATION" },
-  { w: 0.325, label: "DETAIL" },
-  { w: 0.115, label: "QUANTITE" },
+  { w: 0.215, label: "DÉSIGNATION" },
+  { w: 0.325, label: "DÉTAIL" },
+  { w: 0.115, label: "QUANTITÉ" },
   { w: 0.17, label: "PRIX UNIT. TTC" },
   { w: 0.175, label: "TOTAL TTC" },
 ];
@@ -711,7 +711,7 @@ function drawDepositBox(
     "M 0 0 C -2.6 -2.8 -5.4 -1 -5.4 1.5 C -5.4 3.9 -2.8 5.6 0 8 C 2.8 5.6 5.4 3.9 5.4 1.5 C 5.4 -1 2.6 -2.8 0 0 Z",
     { x: cx, y: y + 3, borderColor: SAGE, borderWidth: 1.1 }
   );
-  centerText(page, "ACOMPTE A LA RESERVATION", cx, y - 28, 8, fonts.regular, MUTED);
+  centerText(page, "ACOMPTE À LA RÉSERVATION", cx, y - 28, 8, fonts.regular, MUTED);
   centerText(page, pct + "%", cx, y - 53, 21, fonts.bold, INK);
   centerText(page, "soit " + formatCents(amountCents) + " EUR", cx, y - 70, 9, fonts.regular, MUTED);
 }
@@ -725,7 +725,7 @@ function drawSignatureBox(
   title = "SIGNATURE"
 ): void {
   page.drawText(title, { x, y, size: 10, font: fonts.bold, color: FOREST });
-  page.drawText('(Precedee de la mention "Bon pour accord")', {
+  page.drawText('(Précédée de la mention « Bon pour accord »)', {
     x, y: y - 13, size: 7.5, font: fonts.regular, color: MUTED,
   });
   page.drawRectangle({
@@ -767,7 +767,7 @@ function drawFooter(
     drawBottomCurves(page);
     drawDotGrid(page, PAGE_W - MARGIN - 66, MARGIN + 6);
   }
-  page.drawText("Capturer vos emotions, sublimer vos souvenirs.", {
+  page.drawText("Capturer vos émotions, sublimer vos souvenirs.", {
     x: MARGIN + 8, y: FOOTER_BASELINE_Y, size: 10.5,
     font: fonts.italic, color: WHITE, opacity: 0.95,
   });
@@ -842,7 +842,7 @@ export async function buildQuotePdf(rawInput: {
   drawSignatureBox(page, fonts, PAGE_W - MARGIN - halfW - 4, blocksY - 6, halfW);
 
   const validity = input.doc.validity_days ?? 60;
-  page.drawText("Devis valable " + validity + " jours a compter de sa date d'emission.", {
+  page.drawText("Devis valable " + validity + " jours à compter de sa date d'émission.", {
     x: MARGIN, y: LEGAL_NOTE_Y + 14, size: 7.5, font: fonts.italic, color: MUTED,
   });
 
@@ -890,9 +890,9 @@ export async function buildInvoicePdf(rawInput: {
   }
   const paid = input.doc.already_paid_cents ?? 0;
   if (paid > 0) {
-    y = drawTotalBar(page, fonts, "ACOMPTE DEJA VERSE", paid, y, { muted: true });
+    y = drawTotalBar(page, fonts, "ACOMPTE DÉJÀ VERSÉ", paid, y, { muted: true });
   }
-  y = drawTotalBar(page, fonts, "MONTANT A PAYER", Math.max(0, t.total - paid), y);
+  y = drawTotalBar(page, fonts, "MONTANT À PAYER", Math.max(0, t.total - paid), y);
 
   const colW = CONTENT_W * 0.42;
   const rightX = PAGE_W - MARGIN - colW - 4;
@@ -900,18 +900,18 @@ export async function buildInvoicePdf(rawInput: {
 
   drawLabeledBox(
     page, fonts, "CONDITIONS DE PAIEMENT",
-    input.doc.payment_terms || "Paiement a reception, par virement bancaire.",
+    input.doc.payment_terms || "Paiement à réception, par virement bancaire.",
     MARGIN, blocksY, colW, 40
   );
   drawLabeledBox(
-    page, fonts, "COORDONNEES BANCAIRES",
-    input.studio.company_iban ? "IBAN : " + input.studio.company_iban : "(a communiquer)",
+    page, fonts, "COORDONNÉES BANCAIRES",
+    input.studio.company_iban ? "IBAN : " + input.studio.company_iban : "(à communiquer)",
     MARGIN, blocksY - 66, colW, 40
   );
   drawSignatureBox(page, fonts, rightX, blocksY - 6, colW);
 
   page.drawText(
-    "En cas de retard de paiement : penalite de 3x le taux d'interet legal + indemnite forfaitaire de 40 EUR (art. L441-10 C. com.).",
+    "En cas de retard de paiement : pénalité de 3x le taux d'intérêt légal + indemnité forfaitaire de 40 EUR (art. L441-10 C. com.).",
     { x: MARGIN, y: LEGAL_NOTE_Y, size: 6.5, font: fonts.italic, color: MUTED }
   );
 
@@ -974,7 +974,7 @@ export async function buildContractPdf(rawInput: {
     end: { x: PAGE_W / 2 + 74, y: PAGE_H - MARGIN - 112 },
     thickness: 1.3, color: SAGE,
   });
-  rightAlign(page, "N " + d.reference, PAGE_W - MARGIN, PAGE_H - MARGIN - 16, 9, fonts.bold, FOREST);
+  rightAlign(page, "N° " + d.reference, PAGE_W - MARGIN, PAGE_H - MARGIN - 16, 9, fonts.bold, FOREST);
   rightAlign(page, formatDate(d.issue_date), PAGE_W - MARGIN, PAGE_H - MARGIN - 28, 8.5, fonts.regular, MUTED);
 
   let y = HERO_Y - 16;
@@ -988,7 +988,7 @@ export async function buildContractPdf(rawInput: {
     if (y - need < bottom) newPage();
   };
 
-  page.drawText("Entre les soussignes :", { x: MARGIN, y, size: 10, font: fonts.italic, color: INK });
+  page.drawText("Entre les soussignés :", { x: MARGIN, y, size: 10, font: fonts.italic, color: INK });
   y -= 28;
 
   const heading = (t: string) => {
@@ -1004,7 +1004,7 @@ export async function buildContractPdf(rawInput: {
   for (const l of [
     "Romero Photography - " + st.company_legal_name,
     st.company_address,
-    "Tel. : " + st.company_phone,
+    "Tél. : " + st.company_phone,
     "Site : https://romerophotography.fr",
     "E-mail : " + st.company_email,
     "SIRET : " + st.company_siret,
@@ -1017,7 +1017,7 @@ export async function buildContractPdf(rawInput: {
 
   ensureRoom(130);
   heading("Les Clients");
-  drawFieldLine(page, fonts, "Nom & prenom", d.client.name, MARGIN, y, 230);
+  drawFieldLine(page, fonts, "Nom & prénom", d.client.name, MARGIN, y, 230);
   y -= 17;
   drawFieldLine(page, fonts, "Adresse", d.client.address?.split("\n")[0], MARGIN, y, 250);
   y -= 17;
@@ -1027,7 +1027,7 @@ export async function buildContractPdf(rawInput: {
     MARGIN, y, 210
   );
   y -= 17;
-  drawFieldLine(page, fonts, "Telephone", d.client.phone, MARGIN, y, 220);
+  drawFieldLine(page, fonts, "Téléphone", d.client.phone, MARGIN, y, 220);
   y -= 17;
   drawFieldLine(page, fonts, "E-mail", d.client.email, MARGIN, y, 240);
   y -= 28;
@@ -1036,18 +1036,18 @@ export async function buildContractPdf(rawInput: {
   heading("Informations concernant le mariage");
   drawFieldLine(page, fonts, "Date", d.wedding.date ? formatDate(d.wedding.date) : undefined, MARGIN, y, 180);
   y -= 17;
-  drawFieldLine(page, fonts, "Lieu des preparatifs", d.wedding.prep_location, MARGIN, y, 200);
+  drawFieldLine(page, fonts, "Lieu des préparatifs", d.wedding.prep_location, MARGIN, y, 200);
   y -= 17;
-  drawFieldLine(page, fonts, "Lieu de la ceremonie", d.wedding.ceremony_location ?? d.wedding.location, MARGIN, y, 200);
+  drawFieldLine(page, fonts, "Lieu de la cérémonie", d.wedding.ceremony_location ?? d.wedding.location, MARGIN, y, 200);
   y -= 17;
-  drawFieldLine(page, fonts, "Lieu de reception", d.wedding.reception_location, MARGIN, y, 210);
+  drawFieldLine(page, fonts, "Lieu de réception", d.wedding.reception_location, MARGIN, y, 210);
   y -= 17;
   drawFieldLine(
-    page, fonts, "Nombre d'invites",
+    page, fonts, "Nombre d'invités",
     d.wedding.guest_count ? String(d.wedding.guest_count) : undefined, MARGIN, y, 210
   );
   y -= 17;
-  drawFieldLine(page, fonts, "Formule reservee", d.formula_name, MARGIN, y, 210);
+  drawFieldLine(page, fonts, "Formule réservée", d.formula_name, MARGIN, y, 210);
   y -= 17;
   drawFieldLine(page, fonts, "Options", d.options, MARGIN, y, 240);
   y -= 32;
@@ -1063,34 +1063,34 @@ export async function buildContractPdf(rawInput: {
   };
 
   article(1, "Objet",
-    "Le present contrat definit les conditions de realisation de la prestation photographique de mariage.");
+    "Le présent contrat définit les conditions de réalisation de la prestation photographique de mariage.");
 
   const deposit = Math.round((d.price_cents * d.deposit_pct) / 100);
   const balance = d.price_cents - deposit;
   const vatApplicable = st.vat_status === "yes";
-  article(2, "Conditions financieres",
+  article(2, "Conditions financières",
     "Montant total : " + formatCents(d.price_cents) + " EUR TTC - Acompte : " +
     formatCents(deposit) + " EUR (" + d.deposit_pct + " %). Solde de " +
-    formatCents(balance) + " EUR a regler selon les conditions convenues." +
+    formatCents(balance) + " EUR à régler selon les conditions convenues." +
     (vatApplicable ? "" : " TVA non applicable, article 293 B du CGI."));
 
-  article(3, "Reservation",
-    "La reservation est definitive a reception du contrat signe et de l'acompte.");
+  article(3, "Réservation",
+    "La réservation est définitive à réception du contrat signé et de l'acompte.");
   article(4, "Obligations des clients",
-    "Les clients s'engagent a communiquer toutes les informations utiles au bon deroulement de la prestation.");
+    "Les clients s'engagent à communiquer toutes les informations utiles au bon déroulement de la prestation.");
   article(5, "Obligations du photographe",
-    "Le photographe met tout en oeuvre pour realiser la prestation avec professionnalisme.");
+    "Le photographe met tout en œuvre pour réaliser la prestation avec professionnalisme.");
   article(6, "Repas du photographe",
-    "Si la formule comprend une presence pendant le repas (notamment les formules incluant l'ouverture de bal), les clients s'engagent a prevoir un repas complet pour le photographe.");
+    "Si la formule comprend une présence pendant le repas (notamment les formules incluant l'ouverture de bal), les clients s'engagent à prévoir un repas complet pour le photographe.");
   article(7, "Livraison",
-    "Les photographies seront livrees via une galerie privee en ligne.");
+    "Les photographies seront livrées via une galerie privée en ligne.");
   article(8, "Droit d'auteur",
-    "Le photographe conserve les droits d'auteur. Les clients disposent d'un droit d'usage prive.");
+    "Le photographe conserve les droits d'auteur. Les clients disposent d'un droit d'usage privé.");
 
   ensureRoom(84);
-  page.drawText("9. Droit a l'image", { x: MARGIN, y, size: 11.5, font: fonts.bold, color: FOREST });
+  page.drawText("9. Droit à l'image", { x: MARGIN, y, size: 11.5, font: fonts.bold, color: FOREST });
   y -= 21;
-  drawCheckbox(page, fonts, "J'autorise Romero Photography a utiliser certaines photographies.", MARGIN, y);
+  drawCheckbox(page, fonts, "J'autorise Romero Photography à utiliser certaines photographies.", MARGIN, y);
   y -= 18;
   drawCheckbox(page, fonts, "Je refuse toute utilisation.", MARGIN, y);
   y -= 30;
@@ -1101,7 +1101,7 @@ export async function buildContractPdf(rawInput: {
   }
 
   ensureRoom(140);
-  drawFieldLine(page, fonts, "Fait a", undefined, MARGIN, y, 130);
+  drawFieldLine(page, fonts, "Fait à", undefined, MARGIN, y, 130);
   drawFieldLine(page, fonts, "Le", undefined, MARGIN + 250, y, 130);
   y -= 36;
 
