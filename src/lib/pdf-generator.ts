@@ -556,33 +556,45 @@ function colBounds(): number[] {
   return xs;
 }
 
+// En-tête de tableau (réutilisé sur chaque page de continuation).
+function drawTableHeader(page: PDFPage, fonts: Fonts, y: number): number {
+  const xs = colBounds();
+  const headH = 24;
+  page.drawRectangle({ x: MARGIN, y: y - headH, width: CONTENT_W, height: headH, color: SAGE });
+  COLS.forEach((c, i) => {
+    centerText(page, c.label, (xs[i] + xs[i + 1]) / 2, y - headH + 8.5, 7.5, fonts.bold, WHITE);
+  });
+  return y - headH;
+}
+
+// Zone basse à laisser libre sur la page où sont dessinés le tableau et
+// le footer décoratif.
+const TABLE_FLOOR = MARGIN + 74;
+// Hauteur nécessaire pour la zone totaux + blocs (acompte/signature).
+const BOTTOM_SECTION_H = 210;
+
+// Dessine le tableau avec pagination automatique : si une ligne ne tient
+// pas au-dessus du plancher, on ouvre une nouvelle page et on réaffiche
+// l'en-tête. Retourne la page courante et le y en bas du tableau.
 function drawLinesTable(
+  pdf: PDFDocument,
   page: PDFPage,
   fonts: Fonts,
   lines: DocumentLine[],
   startY: number,
   vatRatePct: number,
   vatApplicable: boolean
-): { y: number; subtotal: number; vat: number; total: number } {
+): { page: PDFPage; y: number; subtotal: number; vat: number; total: number } {
   const xs = colBounds();
-  const headH = 24;
-  let y = startY;
-
-  // En-tête sauge
-  page.drawRectangle({ x: MARGIN, y: y - headH, width: CONTENT_W, height: headH, color: SAGE });
-  COLS.forEach((c, i) => {
-    centerText(page, c.label, (xs[i] + xs[i + 1]) / 2, y - headH + 8.5, 7.5, fonts.bold, WHITE);
-  });
-  y -= headH;
-
   const labelW = COLS[0].w * CONTENT_W - 14;
   const detailW = COLS[1].w * CONTENT_W - 24;
-  const lineH = 11;      // interligne label et puces
-  const padV = 9;        // marge verticale interne haut/bas
+  const lineH = 11;
+  const padV = 9;
   const minRow = 30;
 
-  // Pré-calcul des lignes wrappées + hauteur naturelle
-  let subtotal = 0;
+  let curPage = page;
+  let y = drawTableHeader(curPage, fonts, startY);
+
   const rows = lines.map((line) => {
     const labelLines = wrapText(line.label, fonts.bold, 8.5, labelW);
     const bullets = String(line.detail || "")
@@ -595,57 +607,60 @@ function drawLinesTable(
     return { line, labelLines, bullets, h: Math.max(minRow, contentH) };
   });
 
+  let subtotal = 0;
   for (const r of rows) {
     const h = r.h;
+    // Nouvelle page si la ligne ne tient pas.
+    if (y - h < TABLE_FLOOR) {
+      curPage = wrapPage(pdf.addPage([PAGE_W, PAGE_H]));
+      drawTopRightCurve(curPage);
+      y = drawTableHeader(curPage, fonts, PAGE_H - MARGIN - 20);
+    }
     const rowTop = y;
     const rowBottom = y - h;
     const lineTotal = r.line.quantity * r.line.unit_price_cents;
     subtotal += lineTotal;
 
-    // Cadre + séparateurs de colonnes
-    page.drawRectangle({
+    curPage.drawRectangle({
       x: MARGIN, y: rowBottom, width: CONTENT_W, height: h,
       borderColor: RULE, borderWidth: 0.6,
     });
     for (let i = 1; i < xs.length - 1; i++) {
-      page.drawLine({
+      curPage.drawLine({
         start: { x: xs[i], y: rowTop }, end: { x: xs[i], y: rowBottom },
         thickness: 0.6, color: RULE,
       });
     }
 
-    // Colonne DESIGNATION (label, centré verticalement, clippé)
     let ly = rowTop - padV - 8 + ((h - 2 * padV) - r.labelLines.length * lineH) / 2;
     if (ly > rowTop - padV - 8) ly = rowTop - padV - 8;
     for (const l of r.labelLines) {
-      if (ly < rowBottom + 4) break; // clip strict
-      page.drawText(l, { x: xs[0] + 7, y: ly, size: 8.5, font: fonts.bold, color: INK });
+      if (ly < rowBottom + 4) break;
+      curPage.drawText(l, { x: xs[0] + 7, y: ly, size: 8.5, font: fonts.bold, color: INK });
       ly -= lineH;
     }
 
-    // Colonne DETAIL (puces, clippées strictement)
     let dy = rowTop - padV - 6;
     for (const bulletLines of r.bullets) {
       if (dy < rowBottom + 4) break;
-      page.drawCircle({ x: xs[1] + 9, y: dy + 3, size: 1.2, color: INK });
+      curPage.drawCircle({ x: xs[1] + 9, y: dy + 3, size: 1.2, color: INK });
       for (const bl of bulletLines) {
         if (dy < rowBottom + 4) break;
-        page.drawText(bl, { x: xs[1] + 15, y: dy, size: 8, font: fonts.regular, color: INK });
+        curPage.drawText(bl, { x: xs[1] + 15, y: dy, size: 8, font: fonts.regular, color: INK });
         dy -= lineH;
       }
     }
 
-    // Colonnes chiffrées (centrées verticalement)
     const mid = rowTop - h / 2 - 3;
-    centerText(page, String(r.line.quantity), (xs[2] + xs[3]) / 2, mid, 8.5, fonts.regular, INK);
-    centerText(page, formatCents(r.line.unit_price_cents) + " EUR", (xs[3] + xs[4]) / 2, mid, 8.5, fonts.regular, INK);
-    centerText(page, formatCents(lineTotal) + " EUR", (xs[4] + xs[5]) / 2, mid, 8.5, fonts.regular, INK);
+    centerText(curPage, String(r.line.quantity), (xs[2] + xs[3]) / 2, mid, 8.5, fonts.regular, INK);
+    centerText(curPage, formatCents(r.line.unit_price_cents) + " EUR", (xs[3] + xs[4]) / 2, mid, 8.5, fonts.regular, INK);
+    centerText(curPage, formatCents(lineTotal) + " EUR", (xs[4] + xs[5]) / 2, mid, 8.5, fonts.regular, INK);
 
     y = rowBottom;
   }
 
   const vat = vatApplicable ? Math.round(subtotal * (vatRatePct / 100)) : 0;
-  return { y, subtotal, vat, total: subtotal + vat };
+  return { page: curPage, y, subtotal, vat, total: subtotal + vat };
 }
 
 /** Bandeau de total aligné à droite. */
@@ -668,7 +683,7 @@ function drawTotalBar(
   });
   page.drawRectangle({
     x: barX + barW - valueW, y: y - barH, width: valueW, height: barH,
-    borderColor: RULE, borderWidth: 0.6,
+    borderColor: RULE, borderWidth: 0.6, color: WHITE,
   });
   page.drawText(label, {
     x: barX + 12, y: y - barH + 8, size: 8.5,
@@ -768,6 +783,21 @@ function drawFooter(
   );
 }
 
+// Ouvre une nouvelle page si la zone totaux+blocs ne tient pas sous le
+// tableau. Retourne { page, y } pret a dessiner la section basse.
+function ensureBottomRoom(
+  pdf: PDFDocument,
+  page: PDFPage,
+  y: number
+): { page: PDFPage; y: number } {
+  if (y - BOTTOM_SECTION_H < MARGIN + 74) {
+    const np = wrapPage(pdf.addPage([PAGE_W, PAGE_H]));
+    drawTopRightCurve(np);
+    return { page: np, y: PAGE_H - MARGIN - 40 };
+  }
+  return { page, y };
+}
+
 // ─── DEVIS ───────────────────────────────────────────────────────────
 export async function buildQuotePdf(rawInput: {
   studio: StudioProfile;
@@ -775,9 +805,10 @@ export async function buildQuotePdf(rawInput: {
 }): Promise<Uint8Array> {
   const input = sanitizeDeep(rawInput);
   const pdf = await PDFDocument.create();
-  const page = wrapPage(pdf.addPage([PAGE_W, PAGE_H]));
+  let page = wrapPage(pdf.addPage([PAGE_W, PAGE_H]));
   const fonts = await loadFonts(pdf);
-  await drawHeroPhoto(pdf, page, await fetchHeroImage());
+  const hero = await fetchHeroImage();
+  await drawHeroPhoto(pdf, page, hero);
 
   let y = drawDocHeader(page, fonts, input.studio, {
     title: "DEVIS",
@@ -785,29 +816,27 @@ export async function buildQuotePdf(rawInput: {
     date: input.doc.issue_date,
     weddingDate: input.doc.wedding.date,
   });
-
   y = drawClientBlock(page, fonts, input.doc.client, y);
 
   const vatApplicable = input.studio.vat_status === "yes";
   const vatRate = Number(input.studio.vat_rate) || 20;
-  const totals = drawLinesTable(page, fonts, input.doc.lines, y, vatRate, vatApplicable);
+  const t = drawLinesTable(pdf, page, fonts, input.doc.lines, y, vatRate, vatApplicable);
+  page = t.page;
 
-  // Les totaux et les blocs bas S'ENCHAINENT sous le tableau. On borne
-  // toutefois le point de depart pour garder les blocs au-dessus du footer
-  // meme si le tableau est court (grand blanc) ou long.
-  y = totals.y - 14;
+  const room = ensureBottomRoom(pdf, page, t.y);
+  page = room.page;
+  y = room.y - 14;
+
   if (vatApplicable) {
-    y = drawTotalBar(page, fonts, "SOUS-TOTAL HT", totals.subtotal, y, { muted: true });
-    y = drawTotalBar(page, fonts, "TVA " + vatRate + "%", totals.vat, y, { muted: true });
+    y = drawTotalBar(page, fonts, "SOUS-TOTAL HT", t.subtotal, y, { muted: true });
+    y = drawTotalBar(page, fonts, "TVA " + vatRate + "%", t.vat, y, { muted: true });
   }
-  y = drawTotalBar(page, fonts, "MONTANT TOTAL TTC", totals.total, y);
+  y = drawTotalBar(page, fonts, "MONTANT TOTAL TTC", t.total, y);
 
-  // Bande blocs : acompte (gauche) + signature (droite), cote a cote.
-  // Plancher pour ne jamais chevaucher le footer.
   const halfW = CONTENT_W * 0.42;
-  const blocksY = Math.max(y - 24, MARGIN + 150);
+  const blocksY = y - 26;
   if (input.doc.deposit_pct) {
-    const deposit = Math.round((totals.total * input.doc.deposit_pct) / 100);
+    const deposit = Math.round((t.total * input.doc.deposit_pct) / 100);
     drawDepositBox(page, fonts, input.doc.deposit_pct, deposit, MARGIN + 26, blocksY, halfW);
   }
   drawSignatureBox(page, fonts, PAGE_W - MARGIN - halfW - 4, blocksY - 6, halfW);
@@ -828,9 +857,10 @@ export async function buildInvoicePdf(rawInput: {
 }): Promise<Uint8Array> {
   const input = sanitizeDeep(rawInput);
   const pdf = await PDFDocument.create();
-  const page = wrapPage(pdf.addPage([PAGE_W, PAGE_H]));
+  let page = wrapPage(pdf.addPage([PAGE_W, PAGE_H]));
   const fonts = await loadFonts(pdf);
-  await drawHeroPhoto(pdf, page, await fetchHeroImage());
+  const hero = await fetchHeroImage();
+  await drawHeroPhoto(pdf, page, hero);
 
   let y = drawDocHeader(page, fonts, input.studio, {
     title: "FACTURE",
@@ -839,32 +869,34 @@ export async function buildInvoicePdf(rawInput: {
     weddingDate: input.doc.wedding.date,
     dueDate: input.doc.due_date,
   });
-
   y = drawClientBlock(page, fonts, input.doc.client, y);
 
   const vatApplicable = input.studio.vat_status === "yes";
   const vatRate = Number(input.studio.vat_rate) || 20;
-  const totals = drawLinesTable(page, fonts, input.doc.lines, y, vatRate, vatApplicable);
+  const t = drawLinesTable(pdf, page, fonts, input.doc.lines, y, vatRate, vatApplicable);
+  page = t.page;
 
-  y = totals.y - 14;
+  const room = ensureBottomRoom(pdf, page, t.y);
+  page = room.page;
+  y = room.y - 14;
+
   y = drawTotalBar(
     page, fonts,
     vatApplicable ? "SOUS-TOTAL HT" : "SOUS-TOTAL TTC",
-    totals.subtotal, y, { muted: true }
+    t.subtotal, y, { muted: true }
   );
   if (vatApplicable) {
-    y = drawTotalBar(page, fonts, "TVA " + vatRate + "%", totals.vat, y, { muted: true });
+    y = drawTotalBar(page, fonts, "TVA " + vatRate + "%", t.vat, y, { muted: true });
   }
   const paid = input.doc.already_paid_cents ?? 0;
   if (paid > 0) {
     y = drawTotalBar(page, fonts, "ACOMPTE DEJA VERSE", paid, y, { muted: true });
   }
-  y = drawTotalBar(page, fonts, "MONTANT A PAYER", Math.max(0, totals.total - paid), y);
+  y = drawTotalBar(page, fonts, "MONTANT A PAYER", Math.max(0, t.total - paid), y);
 
-  // Bande blocs : conditions + IBAN (gauche empiles), signature (droite).
   const colW = CONTENT_W * 0.42;
   const rightX = PAGE_W - MARGIN - colW - 4;
-  const blocksY = Math.max(y - 22, MARGIN + 170);
+  const blocksY = y - 22;
 
   drawLabeledBox(
     page, fonts, "CONDITIONS DE PAIEMENT",
