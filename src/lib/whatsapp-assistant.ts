@@ -24,6 +24,7 @@
 
 import { withTransaction, query, queryOne, execute } from "@/lib/db";
 import { getClaudeEndpoint, cachedSystem } from "@/lib/claude-endpoint";
+import { parisYMD, parisOffset, parisHuman, addDaysYMD, parisTimeContext } from "@/lib/paris-time";
 import {
   buildClient,
   createEvent,
@@ -409,14 +410,18 @@ async function runTool(
   // get_current_datetime ne nécessite pas de client Google.
   if (tu.name === "get_current_datetime") {
     const now = new Date();
-    const parts = new Intl.DateTimeFormat("fr-FR", {
-      timeZone,
-      dateStyle: "full",
-      timeStyle: "long",
-    }).format(now);
+    const today = parisYMD(now);
+    const off = parisOffset(now);
     return {
       ok: true,
-      result: `ISO: ${now.toISOString()}\nLisible: ${parts}\nTimeZone: ${timeZone}`,
+      // On donne l'heure de Paris explicitement (pas l'UTC, qui induirait
+      // le modèle en erreur) + la date du jour ISO + le décalage courant.
+      result:
+        `Heure actuelle (Europe/Paris) : ${parisHuman(now)}\n` +
+        `Aujourd'hui (ISO) : ${today}\n` +
+        `Demain : ${addDaysYMD(today, 1)}\n` +
+        `Dans une semaine : ${addDaysYMD(today, 7)}\n` +
+        `Décalage horaire : ${off} (pour construire un ISO complet : YYYY-MM-DDTHH:MM:00${off})`,
     };
   }
 
@@ -1116,6 +1121,7 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
     let systemPrompt =
       effectivePrompt(inst) +
       `\n\n## CONTEXTE TECHNIQUE\n- Fuseau horaire : ${timeZone}\n- Plateforme : ${input.platform}\n- Nom de l'utilisateur : ${input.displayName ?? "(inconnu)"}` +
+      parisTimeContext() +
       SAFETY_RULES +
       STYLE_RULES +
       kbBlock;
