@@ -142,6 +142,11 @@ export async function sendMail(input: {
       .map((l) => `<p style="margin:0 0 12px">${l.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>`)
       .join("")}</div>`;
 
+  // On garde la dernière erreur pour ne PAS la masquer derrière
+  // « no_provider » quand un provider existe mais échoue (ex : format
+  // de pièce jointe invalide).
+  let lastError: string | null = null;
+
   // 1. Resend
   const resend = getResend();
   if (resend) {
@@ -153,20 +158,22 @@ export async function sendMail(input: {
         subject: input.subject,
         text: input.text,
         html,
+        // Resend SDK attend content en Buffer (ou base64 string). On passe
+        // le Buffer directement — c'est le plus fiable.
         attachments: input.attachments?.map((a) => ({
           filename: a.filename,
-          content:
-            typeof a.content === "string"
-              ? a.content
-              : (a.content.toString("base64") as unknown as string),
+          content: Buffer.isBuffer(a.content)
+            ? a.content
+            : Buffer.from(String(a.content)),
           contentType: a.contentType,
         })),
       });
       if (error) throw new Error(error.message || "resend_error");
       return { sent: true, provider: "resend", id: res?.id };
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "resend_error";
-      console.error("[mailer.sendMail] Resend failed:", msg);
+      lastError = e instanceof Error ? e.message : "resend_error";
+      console.error("[mailer.sendMail] Resend failed:", lastError);
+      // fall through to SMTP if configured
     }
   }
 

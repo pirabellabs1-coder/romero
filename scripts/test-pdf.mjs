@@ -68,6 +68,24 @@ const quote = {
       quantity: 1,
       unit_price_cents: 20000,
     },
+    {
+      label: "ALBUM PHOTO PREMIUM 30x30",
+      detail: "- Album fine art 60 pages\n- Papier premium, relie cousu",
+      quantity: 1,
+      unit_price_cents: 69000,
+    },
+    {
+      label: "RETOUCHE AVANCEE",
+      detail: "- 100 cliches retouches en-dela de la couverture standard",
+      quantity: 1,
+      unit_price_cents: 40000,
+    },
+    {
+      label: "FRAIS DE DEPLACEMENT BENIN",
+      detail: "- Vol + hebergement 4 nuits (J-1 au J+2)\n- Transferts locaux et reperages",
+      quantity: 1,
+      unit_price_cents: 80000,
+    },
   ],
   deposit_pct: 30,
   notes: "",
@@ -99,9 +117,9 @@ const contract = {
   deposit_pct: 30,
 };
 
-fs.writeFileSync("v5-devis.pdf", await buildQuotePdf({ studio, doc: quote }));
+fs.writeFileSync("v6-devis.pdf", await buildQuotePdf({ studio, doc: quote }));
 console.log("OK devis");
-fs.writeFileSync("v5-facture.pdf", await buildInvoicePdf({ studio, doc: invoice }));
+fs.writeFileSync("v6-facture.pdf", await buildInvoicePdf({ studio, doc: invoice }));
 console.log("OK facture");
-fs.writeFileSync("v5-contrat.pdf", await buildContractPdf({ studio, doc: contract }));
+fs.writeFileSync("v6-contrat.pdf", await buildContractPdf({ studio, doc: contract }));
 console.log("OK contrat");
