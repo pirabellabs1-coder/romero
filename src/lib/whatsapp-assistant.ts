@@ -523,9 +523,14 @@ async function runTool(
           attendeeEmails: attendee_emails,
         });
         if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
+        // On indique le compte agenda + le lien : Mickael doit savoir OÙ
+        // l'événement a atterri (souvent il regarde un autre compte Google).
         return {
           ok: true,
-          result: `OK · événement créé (id=${r.event.id}) — ${r.event.summary || title}`,
+          result:
+            `OK · événement créé dans l'agenda ${client.calendarId} — ${r.event.summary || title}. ` +
+            `Confirme à Mickael que c'est enregistré dans le compte Google « ${client.calendarId} » ` +
+            `(pas un autre compte) et donne-lui le lien de vérification : ${r.event.htmlLink || "(lien indisponible)"}`,
           eventDetails: { id: r.event.id, summary: r.event.summary, htmlLink: r.event.htmlLink },
         };
       }
@@ -650,7 +655,11 @@ https://romerophotography.fr`;
 
         return {
           ok: true,
-          result: `OK · visio créée avec Meet — ${r.event.summary || title} · ${link}${attendee_emails?.length ? ` · email(s) envoyé(s) : ${attendee_emails.length}` : ""}`,
+          result:
+            `OK · visio créée avec Meet dans l'agenda ${client.calendarId} — ${r.event.summary || title}. ` +
+            `Confirme à Mickael que c'est dans son compte Google « ${client.calendarId} », ` +
+            `donne le lien Meet ${link} et le lien agenda ${(r.event as { htmlLink?: string }).htmlLink || ""}.` +
+            `${attendee_emails?.length ? ` Email(s) de confirmation envoyé(s) : ${attendee_emails.length}.` : ""}`,
           eventDetails: {
             id: r.event.id,
             summary: r.event.summary,
@@ -1115,7 +1124,7 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
 
 10. Pas d'action en cascade. Une intention utilisateur = maximum une action agenda. Si Mickael demande « annule mardi et crée mercredi », traite ça en 2 étapes avec confirmations séparées.
 
-11. Après création/modification. Répète en une ligne ce qui a été fait, avec date-heure lisible et titre. Ex : « Créé : dentiste demain 15 h 20 ». Pas juste « c'est fait ».
+11. Après création/modification. Répète en une ligne ce qui a été fait, avec date-heure lisible et titre. Ex : « Créé : dentiste demain 15 h 20 ». Pas juste « c'est fait ». IMPORTANT : précise TOUJOURS dans quel compte Google l'événement a été enregistré (celui indiqué par le tool) et donne le lien de vérification quand le tool le fournit — Mickael consulte parfois un autre compte Google et croit que rien n'a été enregistré.
 
 12. Erreur = jamais silencieux. Si un tool renvoie une erreur, dis-le à Mickael en clair, ne masque pas.`;
     let systemPrompt =
