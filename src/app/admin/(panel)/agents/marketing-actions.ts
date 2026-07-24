@@ -186,7 +186,7 @@ export async function updateBriefDraftAction(input: {
 export async function publishInstagramAction(
   briefId: number
 ): Promise<
-  | { ok: true; postId: string }
+  | { ok: true; postId: string; facebookWarning?: string }
   | { ok: false; error: string }
 > {
   try {
@@ -260,6 +260,7 @@ export async function publishInstagramAction(
     // Si l'app a un Page ID + Page Access Token en config, on double
     // la visibilité sans effort supplémentaire de rédaction.
     // Best-effort (ne bloque JAMAIS la réponse principale IG).
+    let facebookWarning: string | undefined;
     const pageId = (cfg as { meta_page_id?: string }).meta_page_id;
     if (pageId && cfg.meta_access_token) {
       try {
@@ -285,6 +286,9 @@ export async function publishInstagramAction(
             true
           );
         } else {
+          // On REMONTE l'échec à l'UI au lieu de le cacher : le cross-post
+          // Facebook est cassé (token page expiré, page id erroné…).
+          facebookWarning = `Publié sur Instagram, mais le cross-post Facebook a échoué : ${fb.error}`;
           await logEvent(
             "marketing",
             "facebook_cross_post_error",
@@ -293,12 +297,14 @@ export async function publishInstagramAction(
           );
         }
       } catch (e) {
+        facebookWarning =
+          "Publié sur Instagram, mais le cross-post Facebook a échoué (erreur technique).";
         console.error("[marketing] fb cross-post failed:", e);
       }
     }
 
     revalidate();
-    return { ok: true, postId: result.postId };
+    return { ok: true, postId: result.postId, facebookWarning };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

@@ -39,6 +39,10 @@ export type BookingResult =
       eventId: string;
       meetLink?: string;
       htmlLink?: string;
+      /** true si l'email de confirmation au prospect est réellement parti */
+      emailSent: boolean;
+      /** true si la notif à Mickael (Telegram/WhatsApp) est réellement partie */
+      ownerNotified: boolean;
     }
   | { ok: false; error: string };
 
@@ -130,7 +134,9 @@ export async function bookAppointment(input: BookingInput): Promise<BookingResul
   const meetLink = evtRes.event.hangoutLink;
   const humanDate = fmtHumanDate(input.startISO, timeZone);
 
-  // 4. Email confirmation au prospect (best-effort, on ne bloque pas si ça échoue)
+  // 4. Email confirmation au prospect (best-effort — on capture le résultat
+  // RÉEL au lieu de l'ignorer, pour ne pas mentir au visiteur).
+  let emailSent = false;
   try {
     const emailText = `Bonjour ${input.contactName.split(" ")[0]},
 
@@ -145,17 +151,20 @@ Mickael Romero
 Romero Photography
 https://romerophotography.fr`;
 
-    await sendMail({
+    const mailRes = await sendMail({
       to: input.contactEmail,
       subject: `Confirmation RDV — ${humanDate}`,
       text: emailText,
       replyTo: "romerophotography.contact@gmail.com",
     });
+    emailSent = mailRes.sent;
+    if (!emailSent) console.warn("[booking] email prospect non envoyé :", mailRes.error);
   } catch (e) {
     console.warn("[booking] email prospect a échoué (non bloquant) :", e);
   }
 
-  // 5. Notif Mickael (best-effort aussi)
+  // 5. Notif Mickael (best-effort aussi — résultat capturé)
+  let ownerNotified = false;
   try {
     const notifText = `📅 Nouveau RDV pris (${input.source})
 
@@ -166,13 +175,17 @@ ${input.contactEmail}
 Sujet : ${input.topic}
 ${input.briefingForMickael ? `\n${input.briefingForMickael}` : ""}
 ${meetLink ? `\nMeet : ${meetLink}` : ""}`;
-    await notifyMickael(notifText);
+    const notifRes = await notifyMickael(notifText);
+    ownerNotified = notifRes.ok;
+    if (!notifRes.ok) console.warn("[booking] notif Mickael non envoyée :", notifRes.error);
   } catch (e) {
     console.warn("[booking] notif Mickael a échoué (non bloquant) :", e);
   }
 
   return {
     ok: true,
+    emailSent,
+    ownerNotified,
     eventId: evtRes.event.id ?? "",
     meetLink,
     htmlLink: evtRes.event.htmlLink,

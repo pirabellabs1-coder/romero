@@ -50,14 +50,20 @@ export default function BriefCard({ brief, defaultOpen, hasInstagramCreds }: Pro
   const [blogContent, setBlogContent] = useState(brief.blog_content_md ?? "");
 
   function run(
-    fn: () => Promise<{ ok: boolean; error?: string }>,
+    fn: () => Promise<{ ok: boolean; error?: string; facebookWarning?: string }>,
     okMsg: string
   ) {
     setFlash(null);
     startTransition(async () => {
       const res = await fn();
       if (res.ok) {
-        setFlash({ ok: true, msg: okMsg });
+        // Si le cross-post Facebook a échoué, on le signale honnêtement
+        // (avertissement) au lieu d'afficher un simple succès trompeur.
+        if (res.facebookWarning) {
+          setFlash({ ok: false, msg: `${okMsg} ${res.facebookWarning}` });
+        } else {
+          setFlash({ ok: true, msg: okMsg });
+        }
         router.refresh();
       } else if ("error" in res) {
         setFlash({ ok: false, msg: res.error ?? "Erreur inconnue" });

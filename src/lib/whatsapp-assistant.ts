@@ -618,6 +618,10 @@ async function runTool(
         // Bonus : envoie un email de confirmation à chaque participant
         // avec le lien Meet + la date lisible. Best-effort, on n'échoue
         // pas le tool si le mail plante.
+        // Emails de confirmation : on COMPTE les succès réels (ne pas
+        // affirmer « N envoyés » si certains ont échoué silencieusement).
+        let mailsSent = 0;
+        const mailsTotal = attendee_emails?.length ?? 0;
         if (attendee_emails && attendee_emails.length > 0) {
           try {
             const { sendMail } = await import("@/lib/mailer");
@@ -639,19 +643,29 @@ ${link.startsWith("http") ? `Lien Google Meet :\n${link}\n\n` : ""}${description
 Mickael Romero
 Romero Photography
 https://romerophotography.fr`;
-              await sendMail({
-                to: email,
-                subject: `Confirmation RDV — ${humanDate}`,
-                text: emailText,
-                replyTo: "romerophotography.contact@gmail.com",
-              }).catch((e) => {
+              try {
+                const mr = await sendMail({
+                  to: email,
+                  subject: `Confirmation RDV — ${humanDate}`,
+                  text: emailText,
+                  replyTo: "romerophotography.contact@gmail.com",
+                });
+                if (mr.sent) mailsSent++;
+                else console.warn(`[assistant] email ${email} non envoyé :`, mr.error);
+              } catch (e) {
                 console.warn(`[assistant] email confirmation ${email} échec :`, e);
-              });
+              }
             }
           } catch (e) {
             console.warn("[assistant] envoi emails confirmation échoué :", e);
           }
         }
+        const mailInfo =
+          mailsTotal === 0
+            ? ""
+            : mailsSent === mailsTotal
+            ? ` ${mailsSent} email(s) de confirmation envoyé(s) aux participants.`
+            : ` ATTENTION : seulement ${mailsSent}/${mailsTotal} email(s) de confirmation ont pu partir — préviens Mickael que les autres participants n'ont PAS reçu de confirmation.`;
 
         return {
           ok: true,
@@ -659,7 +673,7 @@ https://romerophotography.fr`;
             `OK · visio créée avec Meet dans l'agenda ${client.calendarId} — ${r.event.summary || title}. ` +
             `Confirme à Mickael que c'est dans son compte Google « ${client.calendarId} », ` +
             `donne le lien Meet ${link} et le lien agenda ${(r.event as { htmlLink?: string }).htmlLink || ""}.` +
-            `${attendee_emails?.length ? ` Email(s) de confirmation envoyé(s) : ${attendee_emails.length}.` : ""}`,
+            mailInfo,
           eventDetails: {
             id: r.event.id,
             summary: r.event.summary,

@@ -397,12 +397,23 @@ export async function POST(req: NextRequest) {
                 source: "chatbot",
               });
               if (bk.ok) {
-                publicResult = `OK · RDV créé${bk.meetLink ? ` · Meet ${bk.meetLink}` : ""} · email envoyé au prospect · Mickael notifié`;
+                // On dit la VÉRITÉ au visiteur : « email envoyé » n'est
+                // affirmé que si l'email est réellement parti. Sinon on
+                // demande à l'agent de rester prudent.
+                const emailPart = bk.emailSent
+                  ? "un email de confirmation avec le lien Meet vient de t'être envoyé"
+                  : "je transmets les détails à Mickael qui te confirmera par email très vite (l'email automatique n'a pas pu partir)";
+                publicResult =
+                  `RDV CRÉÉ dans l'agenda${bk.meetLink ? ` · Meet : ${bk.meetLink}` : ""}. ` +
+                  `Dis au visiteur que c'est bien réservé et que ${emailPart}.` +
+                  (bk.ownerNotified ? "" : " (Note interne : Mickael n'a PAS pu être notifié automatiquement.)");
                 eventName = "appointment_booked";
                 eventPayload = {
                   eventId: bk.eventId,
                   meetLink: bk.meetLink,
                   contactEmail: contact_email,
+                  emailSent: bk.emailSent,
+                  ownerNotified: bk.ownerNotified,
                 };
                 // Auto-mémorise les infos prospect côté lead_data
                 await updateLeadData(conv.id, {
