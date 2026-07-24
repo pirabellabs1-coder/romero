@@ -235,7 +235,15 @@ export async function POST(req: NextRequest) {
           callbackData: `act:${pending.id}:sendedit`,
           editedText: msg.text,
         });
-        await sendReply(token, msg.chat.id, res.newText.replace(/<\/?[^>]+>/g, ""));
+        // newText est déjà échappé HTML par handleApprovalCallback : on
+        // l'envoie AVEC parse_mode HTML (comme le chemin bouton) pour que les
+        // entités (&amp; &lt; &gt;) s'affichent correctement au lieu d'être
+        // rendues littéralement par un envoi texte brut.
+        await tg(token, "sendMessage", {
+          chat_id: msg.chat.id,
+          text: res.newText,
+          parse_mode: "HTML",
+        });
         return NextResponse.json({ ok: true, sent_edit: pending.id, result: res.ok });
       }
     }

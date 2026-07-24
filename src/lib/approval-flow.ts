@@ -20,6 +20,14 @@ import { getClaudeEndpoint } from "@/lib/claude-endpoint";
 
 export type ApprovalSource = "contact_form" | "chatbot" | "instagram";
 
+// ─── Échappement HTML pour Telegram (parse_mode: "HTML") ───────────
+// Un « < » ou « & » non échappé dans un nom / email / texte → Telegram
+// répond 400 « can't parse entities » et le message n'est jamais mis à
+// jour. On échappe TOUTE portion dynamique interpolée dans un newText.
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 // ─── Génération du draft via Claude ────────────────────────────────
 async function draftResponse(input: {
   contactName: string;
@@ -89,9 +97,7 @@ async function sendTelegramApprovalMessage(input: {
   contactMeta: string;
   draft: string;
 }): Promise<{ ok: true; messageId: number } | { ok: false; error: string }> {
-  const escape = (s: string) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const body = `<b>📬 Nouveau lead</b>\n\n<b>${escape(input.contactName)}</b> vous a écrit :\n\n<i>« ${escape(input.contactMessage).slice(0, 500)} »</i>\n\n${input.contactMeta ? escape(input.contactMeta) + "\n\n" : ""}<b>Brouillon IA :</b>\n<code>${escape(input.draft).slice(0, 2500)}</code>\n\n<i>Valide ou ajuste ci-dessous ↓</i>`;
+  const body = `<b>📬 Nouveau lead</b>\n\n<b>${escapeHtml(input.contactName)}</b> vous a écrit :\n\n<i>« ${escapeHtml(input.contactMessage.slice(0, 500))} »</i>\n\n${input.contactMeta ? escapeHtml(input.contactMeta) + "\n\n" : ""}<b>Brouillon IA :</b>\n<code>${escapeHtml(input.draft.slice(0, 2500))}</code>\n\n<i>Valide ou ajuste ci-dessous ↓</i>`;
 
   try {
     const r = await fetch(`https://api.telegram.org/bot${input.botToken}/sendMessage`, {
@@ -196,6 +202,13 @@ export async function createApprovalRequest(input: {
       `UPDATE pending_approvals SET telegram_message_id = $1 WHERE id = $2`,
       [tg.messageId, approvalId]
     ).catch(() => {});
+  } else {
+    // Draft persisté mais notif Telegram KO : on le log clairement plutôt
+    // que de renvoyer un ok silencieux trompeur.
+    console.warn(
+      `[approval-flow] Envoi Telegram échoué (draft #${approvalId} en attente sans notif):`,
+      tg.error
+    );
   }
 
   return { ok: true, approvalId };
@@ -253,7 +266,7 @@ export async function handleApprovalCallback(input: {
     );
     if (!claimed)
       return { ok: false, newText: `⚠️ Déjà traitée (${row.status}).`, error: "already_done" };
-    return { ok: true, newText: `✗ Ignoré · ${row.contact_name} — aucun envoi.` };
+    return { ok: true, newText: `✗ Ignoré · ${escapeHtml(row.contact_name)} — aucun envoi.` };
   }
 
   // ── edit : passe en mode édition, N'ENVOIE RIEN ─────────────────
@@ -270,7 +283,7 @@ export async function handleApprovalCallback(input: {
     return {
       ok: true,
       awaitEdit: true,
-      newText: `✎ Édition en cours · ${row.contact_name}\n\nRéponds à ce message avec ta version corrigée, je l'enverrai telle quelle.`,
+      newText: `✎ Édition en cours · ${escapeHtml(row.contact_name)}\n\nRéponds à ce message avec ta version corrigée, je l'enverrai telle quelle.`,
     };
   }
 
@@ -310,17 +323,17 @@ export async function handleApprovalCallback(input: {
       ).catch(() => {});
       return {
         ok: false,
-        newText: `⚠️ Envoi email échoué pour ${row.contact_name} : ${
-          "error" in mail ? mail.error : "?"
-        }`,
+        newText: `⚠️ Envoi email échoué pour ${escapeHtml(row.contact_name)} : ${escapeHtml(
+          String("error" in mail ? mail.error : "?")
+        )}`,
         sentToClient: false,
       };
     }
     return {
       ok: true,
-      newText: `✅ Envoyé à ${row.contact_name} (${row.contact_email})${
+      newText: `✅ Envoyé à ${escapeHtml(row.contact_name)} (${escapeHtml(row.contact_email)})${
         isEdited ? " · version modifiée" : ""
-      }\n\nRéponse : ${finalText.slice(0, 300)}${finalText.length > 300 ? "…" : ""}`,
+      }\n\nRéponse : ${escapeHtml(finalText.slice(0, 300))}${finalText.length > 300 ? "…" : ""}`,
       sentToClient: true,
     };
   }

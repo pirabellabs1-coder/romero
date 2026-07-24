@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
        AND instagram_published_at >= NOW() - INTERVAL '30 days'
      ORDER BY instagram_published_at DESC
      LIMIT 60`
-  ).catch(() => []);
+  );
 
   let refreshed = 0;
   let failed = 0;
@@ -62,15 +62,21 @@ export async function GET(req: NextRequest) {
         errors.push(`${row.id}: ${r.error}`);
         continue;
       }
-      await execute(
+      const updated = await execute(
         `UPDATE marketing_briefs
          SET instagram_insights = $1::jsonb,
              instagram_insights_fetched_at = NOW(),
              updated_at = NOW()
          WHERE id = $2`,
         [JSON.stringify(r.insights), row.id]
-      ).catch(() => {});
-      refreshed++;
+      );
+      // n'incrémenter refreshed que si l'UPDATE a réellement écrit une ligne
+      if (updated > 0) {
+        refreshed++;
+      } else {
+        failed++;
+        errors.push(`${row.id}: update a affecté 0 ligne`);
+      }
     } catch (e) {
       failed++;
       errors.push(`${row.id}: ${e instanceof Error ? e.message : "?"}`);
@@ -84,11 +90,14 @@ export async function GET(req: NextRequest) {
     failed === 0
   );
 
-  return NextResponse.json({
-    ok: true,
-    checked: rows.length,
-    refreshed,
-    failed,
-    errors: errors.slice(0, 10),
-  });
+  return NextResponse.json(
+    {
+      ok: failed === 0,
+      checked: rows.length,
+      refreshed,
+      failed,
+      errors: errors.slice(0, 10),
+    },
+    { status: failed === 0 ? 200 : 500 }
+  );
 }

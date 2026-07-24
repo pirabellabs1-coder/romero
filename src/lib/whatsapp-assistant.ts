@@ -601,7 +601,16 @@ async function runTool(
           return { ok: false, result: "ERREUR · title, start et end obligatoires" };
         if (!force) {
           const conflicts = await listEvents(client, { timeMinISO: start, timeMaxISO: end });
-          if (conflicts.ok && conflicts.events.length > 0) {
+          // Si la VÉRIFICATION elle-même échoue, on ne crée SURTOUT pas à
+          // l'aveugle (risque de doublon par-dessus un vrai RDV). On demande
+          // à Mickael de réessayer ou de forcer explicitement.
+          if (!conflicts.ok) {
+            return {
+              ok: false,
+              result: `ERREUR · impossible de vérifier les conflits d'agenda (${conflicts.error}). Je n'ai rien créé pour éviter un doublon. Dis à Mickael que la vérification a échoué : il peut réessayer, ou confirmer explicitement de créer quand même (force=true).`,
+            };
+          }
+          if (conflicts.events.length > 0) {
             const list = conflicts.events
               .slice(0, 3)
               .map((e) => {
@@ -635,7 +644,15 @@ async function runTool(
         if (attendee_emails && attendee_emails.length > 0) {
           try {
             const { sendMail } = await import("@/lib/mailer");
-            const humanDate = new Date(start).toLocaleString("fr-FR", {
+            // Source fuseau-cohérente pour l'email : on privilégie l'heure
+            // renvoyée par Google (start.dateTime porte l'offset correct pour
+            // la date de l'événement). À défaut, si l'entrée brute n'a pas
+            // d'offset, on lui adjoint celui de Paris — sinon new Date() la
+            // lirait en UTC serveur (email décalé de 1-2 h vs le vrai RDV).
+            const startForEmail =
+              r.event.start?.dateTime ||
+              (/([+-]\d{2}:?\d{2}|Z)$/.test(start) ? start : `${start}${parisOffset(new Date(start))}`);
+            const humanDate = new Date(startForEmail).toLocaleString("fr-FR", {
               timeZone: "Europe/Paris",
               weekday: "long",
               day: "numeric",

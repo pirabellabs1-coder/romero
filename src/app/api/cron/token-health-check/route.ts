@@ -42,15 +42,27 @@ async function checkInstagramToken(shared: Record<string, string>): Promise<Chec
       );
       if (!r.ok) return { channel: "instagram", ok: false, detail: `HTTP ${r.status}` };
     }
-    // Debug pour l'expiration
+    // Debug pour l'expiration — debug_token exige un APP access token
+    // (APP_ID|APP_SECRET), PAS le token lui-même. Sans app creds, on se fie
+    // au test réel ci-dessus plutôt que de fausser l'état du token.
+    const appId = process.env.META_APP_ID;
+    const appSecret = process.env.META_APP_SECRET;
+    if (!appId || !appSecret) {
+      return { channel: "instagram", ok: true, detail: "Test réel OK (debug_token sauté : app creds absents)" };
+    }
     const dbg = await fetch(
-      `https://graph.facebook.com/v20.0/debug_token?input_token=${token}&access_token=${token}`
-    );
-    const dbgJson = (await dbg.json().catch(() => ({}))) as {
+      `https://graph.facebook.com/v20.0/debug_token?input_token=${token}&access_token=${appId}|${appSecret}`
+    ).catch(() => null);
+    const dbgJson = (dbg ? await dbg.json().catch(() => null) : null) as {
       data?: { expires_at?: number; is_valid?: boolean };
-    };
+    } | null;
+    // Réponse absente (réseau / non-JSON) ≠ token invalide : on ne conclut
+    // « invalidé » que si Meta a explicitement renvoyé is_valid=false.
+    if (!dbgJson) {
+      return { channel: "instagram", ok: true, detail: "Test réel OK (debug_token indisponible)" };
+    }
     const d = dbgJson.data ?? {};
-    if (!d.is_valid) return { channel: "instagram", ok: false, detail: "Token invalidé côté Meta" };
+    if (d.is_valid === false) return { channel: "instagram", ok: false, detail: "Token invalidé côté Meta" };
     if (d.expires_at && d.expires_at > 0) {
       const daysLeft = Math.floor((d.expires_at * 1000 - Date.now()) / 86400000);
       if (daysLeft < 7) {
@@ -78,15 +90,26 @@ async function checkWhatsAppToken(shared: Record<string, string>): Promise<Check
       `https://graph.facebook.com/v20.0/${phoneId}?access_token=${token}`
     );
     if (!r.ok) return { channel: "whatsapp", ok: false, detail: `HTTP ${r.status} — token expiré ou révoqué` };
-    // Debug expiration
+    // Debug expiration — debug_token exige un APP access token (APP_ID|APP_SECRET),
+    // pas le token lui-même. On réutilise les creds de l'app WhatsApp (fallback
+    // sur l'app Meta générale, comme le flux d'auth WhatsApp).
+    const appId = process.env.META_WA_APP_ID || process.env.META_APP_ID;
+    const appSecret = process.env.META_WA_APP_SECRET || process.env.META_APP_SECRET;
+    if (!appId || !appSecret) {
+      return { channel: "whatsapp", ok: true, detail: "Test réel OK (debug_token sauté : app creds absents)" };
+    }
     const dbg = await fetch(
-      `https://graph.facebook.com/v20.0/debug_token?input_token=${token}&access_token=${token}`
-    );
-    const dbgJson = (await dbg.json().catch(() => ({}))) as {
+      `https://graph.facebook.com/v20.0/debug_token?input_token=${token}&access_token=${appId}|${appSecret}`
+    ).catch(() => null);
+    const dbgJson = (dbg ? await dbg.json().catch(() => null) : null) as {
       data?: { expires_at?: number; is_valid?: boolean; type?: string };
-    };
+    } | null;
+    // Réponse absente (réseau / non-JSON) ≠ token invalide.
+    if (!dbgJson) {
+      return { channel: "whatsapp", ok: true, detail: "Test réel OK (debug_token indisponible)" };
+    }
     const d = dbgJson.data ?? {};
-    if (!d.is_valid) return { channel: "whatsapp", ok: false, detail: "Token invalidé côté Meta" };
+    if (d.is_valid === false) return { channel: "whatsapp", ok: false, detail: "Token invalidé côté Meta" };
     // System User = permanent
     if (d.type === "SYSTEM_USER" && d.expires_at === 0) {
       return { channel: "whatsapp", ok: true, detail: "System User token permanent" };

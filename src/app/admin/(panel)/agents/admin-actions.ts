@@ -12,6 +12,7 @@ import {
   type QuoteDoc,
   type ContractDoc,
   type InvoiceDoc,
+  type DocumentLine,
 } from "@/lib/pdf-generator";
 import { sendPdfToSign, type YousignEnv } from "@/lib/yousign";
 import {
@@ -127,7 +128,9 @@ async function loadStudioProfile(): Promise<
 }
 
 // ─── Numérotation séquentielle par type ───────────────────────────
-async function nextReference(docType: DocKind): Promise<string> {
+type AllocatedRef = { reference: string; year: number; number: number };
+
+async function nextReference(docType: DocKind): Promise<AllocatedRef> {
   const year = new Date().getFullYear();
   const prefix = docType === "quote" ? "DEV" : docType === "contract" ? "CT" : "FA";
 
@@ -152,7 +155,21 @@ async function nextReference(docType: DocKind): Promise<string> {
   });
 
   const n = row?.next_number ?? 1;
-  return `${prefix}-${year}-${String(n).padStart(3, "0")}`;
+  return { reference: `${prefix}-${year}-${String(n).padStart(3, "0")}`, year, number: n };
+}
+
+// Récupère un numéro gaspillé quand la création échoue APRÈS l'allocation
+// (PDF/upload/INSERT KO) : la numérotation des factures doit rester continue
+// (obligation légale). On ne décrémente QUE si personne n'a alloué après
+// nous (le compteur vaut encore number+1) — sinon on clobberait une
+// allocation concurrente. Best-effort : un échec de reclaim n'est pas bloquant.
+async function reclaimReference(docType: DocKind, year: number, number: number): Promise<void> {
+  await execute(
+    `UPDATE admin_doc_counters
+     SET next_number = next_number - 1
+     WHERE doc_type = $1 AND year = $2 AND next_number = $3`,
+    [docType, year, number + 1]
+  ).catch(() => {});
 }
 
 // ─── Calcul des totaux depuis les lignes ──────────────────────────
@@ -211,12 +228,16 @@ export async function createDocumentAction(input: {
   | { ok: true; documentId: number; reference: string; pdfUrl: string }
   | { ok: false; error: string }
 > {
+  // Alloué dans le try ; conservé ici pour pouvoir récupérer le numéro si
+  // une étape ultérieure (PDF/upload/INSERT) échoue (numérotation continue).
+  let refInfo: AllocatedRef | null = null;
   try {
     await requireUser();
     const profile = await loadStudioProfile();
     if (!profile.ok) return profile;
 
-    const reference = await nextReference(input.kind);
+    refInfo = await nextReference(input.kind);
+    const reference = refInfo.reference;
     const vatApplicable = profile.profile.vat_status === "yes";
     const vatRate = Number(profile.profile.vat_rate) || 20;
 
@@ -239,6 +260,22 @@ export async function createDocumentAction(input: {
       }
       return null;
     };
+    // Coercion des lignes IDENTIQUE à computeTotals ET au PDF : sans ça le
+    // total stocké (computeTotals faisait `quantity || 1`) divergeait du PDF
+    // (drawLinesTable multipliait quantity brut → NaN si absent). On normalise
+    // une seule fois AVANT le calcul et le rendu : quantité par défaut 1,
+    // prix coercé en entier. PDF et total_cents sont ainsi toujours cohérents.
+    const numCents = (v: unknown): number => {
+      const n =
+        typeof v === "number" ? v : parseInt(String(v ?? "").replace(/[^\d-]/g, ""), 10);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const normalizeLines = (lines: DocumentLine[] | undefined): DocumentLine[] =>
+      (lines ?? []).map((l) => ({
+        ...l,
+        quantity: numCents(l.quantity) || 1,
+        unit_price_cents: numCents(l.unit_price_cents),
+      }));
 
     let pdfBytes: Uint8Array;
     let content: Record<string, unknown> = input.data;
@@ -258,6 +295,7 @@ export async function createDocumentAction(input: {
         ...d,
         reference,
         issue_date: d.issue_date || new Date().toISOString().slice(0, 10),
+        lines: normalizeLines(d.lines),
       };
       totals = computeTotals(quote.lines, vatRate, vatApplicable);
       clientName = quote.client.name;
@@ -302,6 +340,7 @@ export async function createDocumentAction(input: {
         ...d,
         reference,
         issue_date: d.issue_date || new Date().toISOString().slice(0, 10),
+        lines: normalizeLines(d.lines),
       };
       totals = computeTotals(invoice.lines, vatRate, vatApplicable);
       clientName = invoice.client.name;
@@ -342,22 +381,43 @@ export async function createDocumentAction(input: {
         totals.subtotal,
         totals.vat,
         totals.total,
-        vatApplicable ? vatRate : 0,
+        // Un contrat n'applique jamais la TVA (vat_cents=0, total=HT) : on
+        // stocke donc vat_rate=0 pour ne pas afficher un « TVA 20 % » incohérent
+        // avec vat_cents=0. Devis/factures gardent le taux effectif.
+        input.kind === "contract" ? 0 : vatApplicable ? vatRate : 0,
         JSON.stringify(content),
         pdfUrl,
         dueDate,
       ]
     );
-    if (!inserted?.id) return { ok: false, error: "Insert échoué" };
+    if (!inserted?.id) {
+      await reclaimReference(input.kind, refInfo.year, refInfo.number);
+      return { ok: false, error: "Insert échoué" };
+    }
 
-    await logEvent("admin", `${input.kind}_created`, {
-      document_id: inserted.id,
-      reference,
-      total_cents: totals.total,
-    });
-    revalidate();
+    // Le document est PERSISTÉ (queryOne hors transaction = auto-commit) : le
+    // numéro est définitivement consommé. On neutralise le reclaim pour qu'une
+    // erreur ultérieure (logEvent/revalidate) ne décrémente PAS le compteur —
+    // sinon on rendrait le numéro et la création suivante dupliquerait la réf.
+    refInfo = null;
+
+    // Post-persistance best-effort : un échec de logEvent/revalidate ne doit
+    // PAS transformer une création réussie en erreur (sinon retry → doublon).
+    try {
+      await logEvent("admin", `${input.kind}_created`, {
+        document_id: inserted.id,
+        reference,
+        total_cents: totals.total,
+      });
+      revalidate();
+    } catch (postErr) {
+      console.warn("[admin/createDocument] post-persist non bloquant :", postErr);
+    }
     return { ok: true, documentId: inserted.id, reference, pdfUrl };
   } catch (e) {
+    // Étape post-allocation en échec : on tente de récupérer le numéro
+    // réservé pour garder la numérotation continue (best-effort).
+    if (refInfo) await reclaimReference(input.kind, refInfo.year, refInfo.number);
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
@@ -563,6 +623,22 @@ export async function pushToAccountingAction(
       currency: "EUR",
       notes: content.notes,
     };
+
+    // Acompte déjà versé : le PDF déduit l'acompte du « MONTANT À PAYER »
+    // (borné à 0, cf. pdf-generator). Pour que la facture comptable corresponde
+    // EXACTEMENT au PDF, on ajoute une ligne négative « Acompte déjà versé »
+    // (hors TVA). On BORNE l'acompte au total de la facture pour ne jamais
+    // produire un net comptable négatif quand l'acompte ≥ total.
+    const rawPaid = Number(content.already_paid_cents) || 0;
+    const alreadyPaid = Math.min(Math.max(rawPaid, 0), Number(doc.total_cents) || 0);
+    if (alreadyPaid > 0) {
+      payload.lines.push({
+        label: "Acompte déjà versé",
+        quantity: 1,
+        unit_price_cents: -alreadyPaid,
+        vat_rate: 0,
+      });
+    }
 
     const result = await createUnifiedInvoice({
       provider,

@@ -146,14 +146,15 @@ export async function addSigner(input: {
         signature_level: input.signatureLevel ?? "electronic_signature",
         signature_authentication_mode:
           input.signatureAuthenticationMode ?? "no_otp",
-        // Bloc signature : Yousign place automatiquement le bloc sur
-        // la dernière page à droite. Pour un placement précis, on peut
-        // spécifier des coordonnées ; on garde le placement auto pour v1.
+        // Bloc signature : placé EXPLICITEMENT sur la page 1 à coordonnées
+        // fixes. Yousign ne déduit pas la dernière page — le champ apparaît
+        // donc bien sur la première page. Pour cibler la dernière page réelle
+        // il faudrait parser le PDF en amont (non implémenté pour l'instant).
         fields: [
           {
             document_id: input.documentId,
             type: "signature",
-            page: 1, // Yousign place sur la dernière page dispo
+            page: 1, // page explicite (1re page du PDF)
             x: 400,
             y: 700,
           },
@@ -262,6 +263,15 @@ export async function sendPdfToSign(input: {
     signatureRequestId: create.data.id,
   });
   if (!activate.ok) return { ok: false, error: `Activation : ${activate.error}` };
+
+  // Un HTTP 200 ne garantit pas à lui seul l'envoi effectif : on exige que
+  // la request soit bien passée en "ongoing" avant de la considérer envoyée.
+  if (activate.data.status !== "ongoing") {
+    return {
+      ok: false,
+      error: `Activation : statut inattendu "${activate.data.status}" (attendu "ongoing")`,
+    };
+  }
 
   return { ok: true, signatureRequestId: create.data.id };
 }

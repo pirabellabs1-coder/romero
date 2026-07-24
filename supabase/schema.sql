@@ -439,6 +439,18 @@ CREATE INDEX IF NOT EXISTS idx_admin_contacts_name ON public.admin_contacts(LOWE
 CREATE INDEX IF NOT EXISTS idx_admin_contacts_email ON public.admin_contacts(LOWER(email))
   WHERE email IS NOT NULL;
 
+-- ── Dédup des notifications compte à rebours mariages ────────────────────
+-- Garantit exactement-une-fois par (contact, checkpoint) pour le cron
+-- wedding-countdown : une ligne = un seuil (J-180/30/7/1) déjà notifié à
+-- Mickael pour ce mariage. Le cron n'envoie que les seuils absents ici, ce
+-- qui permet le rattrapage sans double-envoi si un jour de cron a sauté.
+CREATE TABLE IF NOT EXISTS public.countdown_notifications (
+  contact_id BIGINT NOT NULL REFERENCES public.admin_contacts(id) ON DELETE CASCADE,
+  checkpoint INTEGER NOT NULL,
+  sent_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (contact_id, checkpoint)
+);
+
 -- ── Studio settings partagés (clés API + identité entreprise) ────────────
 -- Table clé-valeur pour les paramètres communs aux 4 agents : clé
 -- Anthropic, OpenAI, Meta Graph, SIRET, TVA, etc. Chaque agent hérite

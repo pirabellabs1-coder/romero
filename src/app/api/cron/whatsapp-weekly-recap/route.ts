@@ -132,7 +132,13 @@ function formatWeeklyRecap(
     const s = e.start.dateTime || e.start.date;
     if (!s) continue;
     const d = new Date(s);
-    const key = d.toISOString().slice(0, 10);
+    // Clé de regroupement dans le fuseau tz (cohérente avec l'affichage)
+    const key = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(d);
     const arr = byDay.get(key) || [];
     arr.push(e);
     byDay.set(key, arr);
@@ -147,7 +153,10 @@ function formatWeeklyRecap(
       const sb = new Date(b.start.dateTime || b.start.date || "").getTime();
       return sa - sb;
     });
-    const d = new Date(key);
+    // key = 'YYYY-MM-DD' local (tz). On le réancre à MIDI UTC avant de
+    // formater : minuit UTC basculerait le libellé au jour précédent pour
+    // tout fuseau à décalage UTC négatif. Midi garde le bon jour pour ±12 h.
+    const d = new Date(key + "T12:00:00Z");
     const dayLabel = d.toLocaleDateString("fr-FR", {
       weekday: "long",
       day: "numeric",

@@ -16,7 +16,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { cronAuthorized } from "@/lib/cron-auth";
-import { query } from "@/lib/db";
+import { query, execute } from "@/lib/db";
 import { logEvent } from "@/lib/agents";
 import { notifyMickael } from "@/lib/whatsapp-notify";
 
@@ -31,6 +31,7 @@ type UpcomingWedding = {
   wedding_date: string;
   wedding_location: string | null;
   days_until: number;
+  checkpoint: number;
 };
 
 // Créneaux d'anticipation retenus (en jours). L'agent lit
@@ -43,19 +44,27 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Une seule requête : tous les mariages dont la date est exactement
-    // égale à aujourd'hui + N jours, pour N dans CHECKPOINTS.
+    // Une seule requête : tous les mariages dont un seuil (J-180/30/7/1)
+    // est atteint (days_until <= N) ET pas encore notifié pour ce couple.
+    // Le <= (au lieu d'une égalité stricte) rattrape les jours manqués si
+    // le cron n'a pas tourné pile le jour du checkpoint.
     const rows = await query<UpcomingWedding>(
       `SELECT
-         id, name, email, phone,
-         wedding_date::text,
-         wedding_location,
-         (wedding_date - CURRENT_DATE)::int AS days_until
-       FROM admin_contacts
-       WHERE wedding_date IS NOT NULL
-         AND wedding_date > CURRENT_DATE
-         AND (wedding_date - CURRENT_DATE)::int = ANY($1::int[])
-       ORDER BY wedding_date ASC, name ASC`,
+         c.id, c.name, c.email, c.phone,
+         c.wedding_date::text,
+         c.wedding_location,
+         (c.wedding_date - CURRENT_DATE)::int AS days_until,
+         cp.checkpoint
+       FROM admin_contacts c
+       CROSS JOIN unnest($1::int[]) AS cp(checkpoint)
+       WHERE c.wedding_date IS NOT NULL
+         AND c.wedding_date > CURRENT_DATE
+         AND (c.wedding_date - CURRENT_DATE)::int <= cp.checkpoint
+         AND NOT EXISTS (
+           SELECT 1 FROM countdown_notifications n
+           WHERE n.contact_id = c.id AND n.checkpoint = cp.checkpoint
+         )
+       ORDER BY cp.checkpoint ASC, c.wedding_date ASC, c.name ASC`,
       [CHECKPOINTS]
     );
 
@@ -67,13 +76,24 @@ export async function GET(req: NextRequest) {
     const text = formatCountdownMessage(rows);
     const result = await notifyMickael(text);
 
+    // Mémorise les checkpoints notifiés pour garantir exactement-une-fois :
+    // uniquement si l'envoi a réussi (sinon on retentera au prochain cron).
+    if (result.ok) {
+      await execute(
+        `INSERT INTO countdown_notifications (contact_id, checkpoint)
+         SELECT * FROM unnest($1::bigint[], $2::int[])
+         ON CONFLICT (contact_id, checkpoint) DO NOTHING`,
+        [rows.map((r) => r.id), rows.map((r) => r.checkpoint)]
+      );
+    }
+
     await logEvent(
       "admin",
       "wedding_countdown_sent",
       {
         matches: rows.length,
         by_checkpoint: rows.reduce((acc, r) => {
-          acc[r.days_until] = (acc[r.days_until] ?? 0) + 1;
+          acc[r.checkpoint] = (acc[r.checkpoint] ?? 0) + 1;
           return acc;
         }, {} as Record<number, number>),
         provider: result.ok ? result.provider : null,
@@ -97,12 +117,14 @@ export async function GET(req: NextRequest) {
 }
 
 function formatCountdownMessage(rows: UpcomingWedding[]): string {
-  // Regroupe par jours_until pour un rendu bien lisible.
+  // Regroupe par checkpoint (J-180/30/7/1) pour un rendu bien lisible. On
+  // groupe par seuil et non par days_until : en cas de rattrapage le
+  // days_until réel peut différer du seuil, mais l'étape reste la même.
   const groups = new Map<number, UpcomingWedding[]>();
   for (const r of rows) {
-    const arr = groups.get(r.days_until) || [];
+    const arr = groups.get(r.checkpoint) || [];
     arr.push(r);
-    groups.set(r.days_until, arr);
+    groups.set(r.checkpoint, arr);
   }
 
   const lines: string[] = ["💍 Mariages à venir — étapes clés", ""];

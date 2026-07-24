@@ -55,7 +55,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Devis qui vont bientôt expirer (25-30 j) — à relancer avant expiration.
+    // Devis qui vont bientôt expirer (22-30 j) — à relancer avant expiration.
+    // Fenêtre de 8 j > période du cron (7 j) : ~1 j de marge pour absorber le
+    // jitter d'exécution et la bascule DST (le run peut glisser de 1 h) sans
+    // qu'un devis passe direct en 'expired' sans avoir été relancé.
     const toRelaunch = await query<ExpiringQuote>(
       `SELECT
          id, reference, client_name, total_cents, created_at::text,
@@ -63,7 +66,7 @@ export async function GET(req: NextRequest) {
        FROM admin_documents
        WHERE doc_type = 'quote'
          AND status = 'sent'
-         AND created_at BETWEEN NOW() - INTERVAL '30 days' AND NOW() - INTERVAL '25 days'
+         AND created_at BETWEEN NOW() - INTERVAL '30 days' AND NOW() - INTERVAL '22 days'
        ORDER BY created_at ASC
        LIMIT 20`
     );
@@ -89,7 +92,7 @@ export async function GET(req: NextRequest) {
 
     if (toRelaunch.length > 0) {
       lines.push("");
-      lines.push(`▸ ${toRelaunch.length} devis à relancer avant expiration (25-30 j) :`);
+      lines.push(`▸ ${toRelaunch.length} devis à relancer avant expiration (22-30 j) :`);
       for (const q of toRelaunch.slice(0, 10)) {
         const daysLeft = 30 - q.days_since_sent;
         lines.push(`· ${q.reference} · ${q.client_name} · ${eur(q.total_cents)} € · expire dans ${daysLeft} j`);

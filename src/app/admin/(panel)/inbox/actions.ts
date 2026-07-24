@@ -30,6 +30,22 @@ export async function generateReplyForContactAction(
     );
     if (!row) return { ok: false, error: "Message introuvable" };
 
+    // #5 Idempotence : ne pas generer un 2e brouillon si une reponse est
+    // deja en cours ou deja envoyee pour ce message. Une demande 'rejected'
+    // ou 'sent_failed' n'empeche pas une nouvelle tentative.
+    const existing = await queryOne<{ id: number }>(
+      `SELECT id FROM pending_approvals
+       WHERE source = 'contact_form' AND source_id = $1
+         AND status IN ('pending','edited_pending','sent')
+       LIMIT 1`,
+      [contactId]
+    );
+    if (existing)
+      return {
+        ok: false,
+        error: "Une reponse est deja en cours ou deja envoyee pour ce message.",
+      };
+
     const meta = [
       row.phone && `Téléphone : ${row.phone}`,
       row.place && `Lieu : ${row.place}`,

@@ -155,6 +155,25 @@ export async function POST(req: NextRequest) {
         { status: 404 }
       );
 
+    // #5 Idempotence : refuse un 2e envoi si une reponse est deja en cours
+    // (brouillon IA) ou deja envoyee pour ce message. Une demande 'rejected'
+    // ou 'sent_failed' n'empeche pas une nouvelle tentative.
+    const existingReply = await queryOne<{ id: number }>(
+      `SELECT id FROM pending_approvals
+       WHERE source = 'contact_form' AND source_id = $1
+         AND status IN ('pending','edited_pending','sent')
+       LIMIT 1`,
+      [contactId]
+    );
+    if (existingReply)
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Une reponse est deja en cours ou deja envoyee pour ce message.",
+        },
+        { status: 409 }
+      );
+
     const subject =
       contact.lang === "en"
         ? "Re: your message on romerophotography.fr"

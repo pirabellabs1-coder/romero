@@ -45,6 +45,7 @@ export async function notifyMickael(text: string): Promise<NotifyResult> {
   ) {
     const chunks = chunkString(text, 4000);
     let ok = true;
+    let sent = 0; // nb de chunks WhatsApp réellement partis
     for (const chunk of chunks) {
       const resp = await fetch(
         `https://graph.facebook.com/v22.0/${cfg.whatsapp_phone_number_id}/messages`,
@@ -68,8 +69,16 @@ export async function notifyMickael(text: string): Promise<NotifyResult> {
           `[notify/whatsapp] échec HTTP ${resp.status} · ${t.slice(0, 200)}`
         );
         ok = false;
+        // Si au moins un chunk est déjà parti sur WhatsApp, ne PAS
+        // rejouer tout le message sur Telegram (doublon partiel + complet).
+        if (sent > 0)
+          return {
+            ok: false,
+            error: `WhatsApp HTTP ${resp.status} après ${sent} chunk(s) envoyé(s)`,
+          };
         break;
       }
+      sent++;
     }
     if (ok)
       return { ok: true, provider: "whatsapp", chunks: chunks.length };

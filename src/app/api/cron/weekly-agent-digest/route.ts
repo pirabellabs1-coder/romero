@@ -163,9 +163,17 @@ async function safeQuery<T extends Record<string, unknown>>(sql: string): Promis
     const rows = await query<T>(sql);
     return rows[0] ?? null;
   } catch (e) {
-    // Table manquante ou colonne renommée : on ne bloque pas le digest,
-    // les métriques concernées apparaîtront comme 0.
-    console.warn("[digest/query]", e instanceof Error ? e.message : e);
+    // Table manquante ou colonne renommée : on ne bloque pas le digest, mais
+    // on rend l'échec VISIBLE via un event success=false (consultable sur
+    // /admin/agents) — pour distinguer un vrai 0 d'une requête cassée.
+    const message = e instanceof Error ? e.message : String(e);
+    console.warn("[digest/query]", message);
+    try {
+      await logEvent("site", "weekly_digest_query_failed", { message, sql }, false);
+    } catch (logErr) {
+      // Journalisation best-effort : ne jamais casser le digest.
+      console.warn("[digest/query] logEvent échoué", logErr instanceof Error ? logErr.message : logErr);
+    }
     return null;
   }
 }
