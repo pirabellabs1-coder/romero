@@ -314,7 +314,7 @@ CREATE TABLE IF NOT EXISTS public.marketing_briefs (
   blog_content_md   TEXT,
 
   -- Statuts par plateforme
-  instagram_status  TEXT NOT NULL DEFAULT 'draft' CHECK (instagram_status IN ('draft','scheduled','published','failed')),
+  instagram_status  TEXT NOT NULL DEFAULT 'draft' CHECK (instagram_status IN ('draft','scheduled','publishing','published','failed')),
   instagram_scheduled_for TIMESTAMPTZ,
   instagram_published_at TIMESTAMPTZ,
   instagram_post_id TEXT,

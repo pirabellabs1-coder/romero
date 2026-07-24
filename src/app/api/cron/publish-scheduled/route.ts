@@ -19,24 +19,15 @@
  *   statuts terminaux).
  */
 import { NextRequest, NextResponse } from "next/server";
+import { cronAuthorized } from "@/lib/cron-auth";
 import { processScheduledInstagramPosts } from "@/app/admin/(panel)/agents/marketing-actions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const authHeader = req.headers.get("authorization") || "";
-
-  if (secret) {
-    const expected = `Bearer ${secret}`;
-    if (authHeader !== expected) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-    }
-  } else {
-    console.warn(
-      "[cron/publish-scheduled] CRON_SECRET non défini — requête acceptée sans vérification (dev only)."
-    );
+  if (!cronAuthorized(req)) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
   try {

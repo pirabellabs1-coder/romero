@@ -202,12 +202,25 @@ export async function createApprovalRequest(input: {
 }
 
 // ─── Handle callback ───────────────────────────────────────────────
-// Traite un clic bouton Telegram. Renvoie le nouveau texte à afficher
-// dans le message (via editMessageText côté webhook).
+// Traite un clic bouton Telegram (ou une action web). Renvoie le nouveau
+// texte à afficher dans le message (via editMessageText côté webhook).
+//
+// Actions :
+//   approve   — envoie le brouillon IA tel quel        (depuis 'pending')
+//   reject    — ignore, aucun envoi                     (depuis 'pending')
+//   edit      — ENTRE en mode édition (aucun envoi)     (depuis 'pending')
+//               → renvoie awaitEdit:true ; le webhook envoie un force_reply
+//   sendedit  — envoie la version corrigée de Mickael   (depuis 'edited_pending')
 export async function handleApprovalCallback(input: {
   callbackData: string;
-  editedText?: string; // pour l'action "edit" quand Mickael tape sa version
-}): Promise<{ ok: boolean; newText: string; sentToClient?: boolean; error?: string }> {
+  editedText?: string; // pour "sendedit" : la version tapée par Mickael
+}): Promise<{
+  ok: boolean;
+  newText: string;
+  sentToClient?: boolean;
+  awaitEdit?: boolean;
+  error?: string;
+}> {
   const parts = input.callbackData.split(":");
   if (parts.length !== 3 || parts[0] !== "act")
     return { ok: false, newText: "❌ Callback invalide.", error: "bad_format" };
@@ -229,25 +242,57 @@ export async function handleApprovalCallback(input: {
     [id]
   );
   if (!row) return { ok: false, newText: "❌ Demande introuvable.", error: "not_found" };
-  if (row.status !== "pending" && action !== "edit")
-    return { ok: false, newText: `⚠️ Déjà traitée (${row.status}).`, error: "already_done" };
 
+  // ── reject ──────────────────────────────────────────────────────
   if (action === "reject") {
-    await execute(
-      `UPDATE pending_approvals SET status = 'rejected', decided_at = NOW() WHERE id = $1`,
+    // Atomique : ne rejette que si encore en attente (évite d'écraser un envoi).
+    const claimed = await queryOne<{ id: number }>(
+      `UPDATE pending_approvals SET status = 'rejected', decided_at = NOW()
+       WHERE id = $1 AND status IN ('pending','edited_pending') RETURNING id`,
       [id]
     );
+    if (!claimed)
+      return { ok: false, newText: `⚠️ Déjà traitée (${row.status}).`, error: "already_done" };
+    return { ok: true, newText: `✗ Ignoré · ${row.contact_name} — aucun envoi.` };
+  }
+
+  // ── edit : passe en mode édition, N'ENVOIE RIEN ─────────────────
+  // (corrige le bug critique : l'ancien code envoyait le brouillon non
+  //  modifié parce qu'aucun editedText n'était jamais fourni.)
+  if (action === "edit") {
+    const claimed = await queryOne<{ id: number }>(
+      `UPDATE pending_approvals SET status = 'edited_pending'
+       WHERE id = $1 AND status = 'pending' RETURNING id`,
+      [id]
+    );
+    if (!claimed)
+      return { ok: false, newText: `⚠️ Déjà traitée (${row.status}).`, error: "already_done" };
     return {
       ok: true,
-      newText: `✗ Ignoré · ${row.contact_name} — aucun envoi.`,
+      awaitEdit: true,
+      newText: `✎ Édition en cours · ${row.contact_name}\n\nRéponds à ce message avec ta version corrigée, je l'enverrai telle quelle.`,
     };
   }
 
-  if (action === "approve" || action === "edit") {
+  // ── approve / sendedit : envoi de l'email ───────────────────────
+  if (action === "approve" || action === "sendedit") {
+    const isEdited = action === "sendedit";
     const finalText =
-      action === "edit" && input.editedText ? input.editedText : row.draft_response;
+      isEdited && input.editedText?.trim() ? input.editedText.trim() : row.draft_response;
 
-    // Envoi email
+    // Claim ATOMIQUE avant l'envoi : seul le premier callback concurrent
+    // passe (empêche le double-envoi sur double-tap). On pose 'sent'
+    // optimiste ; on corrigera en 'sent_failed' si l'email échoue.
+    const allowed = isEdited ? "edited_pending" : "pending";
+    const claimed = await queryOne<{ id: number }>(
+      `UPDATE pending_approvals
+         SET status = 'sent', sent_response = $2, decided_at = NOW(), sent_at = NOW()
+       WHERE id = $1 AND status = $3 RETURNING id`,
+      [id, finalText, allowed]
+    );
+    if (!claimed)
+      return { ok: false, newText: `⚠️ Déjà traitée (${row.status}).`, error: "already_done" };
+
     const subject =
       row.language === "en"
         ? `Re: your message on romerophotography.fr`
@@ -256,17 +301,13 @@ export async function handleApprovalCallback(input: {
       to: row.contact_email,
       subject,
       text: finalText,
-      // On envoie en simple text ; le mailer peut wrap en HTML si besoin
     }).catch((e) => ({ sent: false as const, error: e instanceof Error ? e.message : "?" }));
 
-    await execute(
-      `UPDATE pending_approvals
-       SET status = $1, sent_response = $2, decided_at = NOW(), sent_at = NOW()
-       WHERE id = $3`,
-      [mail.sent ? "sent" : "sent_failed", finalText, id]
-    );
-
     if (!mail.sent) {
+      await execute(
+        `UPDATE pending_approvals SET status = 'sent_failed' WHERE id = $1`,
+        [id]
+      ).catch(() => {});
       return {
         ok: false,
         newText: `⚠️ Envoi email échoué pour ${row.contact_name} : ${
@@ -277,10 +318,41 @@ export async function handleApprovalCallback(input: {
     }
     return {
       ok: true,
-      newText: `✅ Envoyé à ${row.contact_name} (${row.contact_email})\n\nRéponse : ${finalText.slice(0, 300)}${finalText.length > 300 ? "…" : ""}`,
+      newText: `✅ Envoyé à ${row.contact_name} (${row.contact_email})${
+        isEdited ? " · version modifiée" : ""
+      }\n\nRéponse : ${finalText.slice(0, 300)}${finalText.length > 300 ? "…" : ""}`,
       sentToClient: true,
     };
   }
 
   return { ok: false, newText: "❌ Action inconnue.", error: "unknown_action" };
+}
+
+// ─── Édition via force_reply ───────────────────────────────────────
+// Quand Mickael clique « ✎ Modifier », le webhook envoie un message
+// force_reply et enregistre ICI son message_id, pour pouvoir relier la
+// réponse texte de Mickael à la bonne demande. On réutilise la colonne
+// telegram_message_id (l'ancien message d'approbation n'est plus édité).
+export async function markEditPromptSent(
+  approvalId: number,
+  promptMessageId: number
+): Promise<void> {
+  await execute(
+    `UPDATE pending_approvals SET telegram_message_id = $1
+     WHERE id = $2 AND status = 'edited_pending'`,
+    [promptMessageId, approvalId]
+  ).catch(() => {});
+}
+
+// Cherche une demande en attente d'édition dont le prompt force_reply
+// correspond au message auquel Mickael vient de répondre.
+export async function findEditPendingByReply(
+  replyToMessageId: number
+): Promise<{ id: number } | null> {
+  return queryOne<{ id: number }>(
+    `SELECT id FROM pending_approvals
+     WHERE telegram_message_id = $1 AND status = 'edited_pending'
+     ORDER BY id DESC LIMIT 1`,
+    [replyToMessageId]
+  );
 }

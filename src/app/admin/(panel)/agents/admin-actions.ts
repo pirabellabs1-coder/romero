@@ -526,8 +526,6 @@ export async function pushToAccountingAction(
     const cfg = inst?.config as {
       accounting_provider?: string;
       accounting_api_key?: string;
-      vat_status?: string;
-      vat_rate?: string;
     } | undefined;
     const provider = cfg?.accounting_provider;
     const apiKey = cfg?.accounting_api_key;
@@ -540,8 +538,11 @@ export async function pushToAccountingAction(
       return { ok: false, error: `Provider inconnu : ${provider}` };
 
     const content = doc.content as unknown as InvoiceDoc;
-    const vatApplicable = cfg?.vat_status === "yes";
-    const vatRate = Number(cfg?.vat_rate) || 0;
+    // La TVA envoyée en compta DOIT correspondre EXACTEMENT à la facture
+    // émise (PDF + colonnes DB), pas à une relecture de la config qui a pu
+    // changer depuis. On lit donc le taux effectif figé sur le document
+    // (colonne vat_rate = 0 si non assujetti, sinon le taux appliqué).
+    const docVatRate = Number(doc.vat_rate) || 0;
 
     const payload: UnifiedInvoiceInput = {
       reference: doc.reference,
@@ -557,7 +558,7 @@ export async function pushToAccountingAction(
         label: l.label,
         quantity: l.quantity,
         unit_price_cents: l.unit_price_cents,
-        vat_rate: vatApplicable ? vatRate : 0,
+        vat_rate: docVatRate,
       })),
       currency: "EUR",
       notes: content.notes,

@@ -430,6 +430,14 @@ export async function POST(req: NextRequest) {
                 eventName = "appointment_slot_taken";
                 eventPayload = { start_iso };
                 eventSuccess = false;
+              } else if (bk.error === "VERIF_INDISPO") {
+                // La vérification de disponibilité a échoué : on ne réserve
+                // pas à l'aveugle. On invite le visiteur à retenter.
+                publicResult =
+                  "VERIFICATION IMPOSSIBLE · Je n'ai pas pu vérifier la disponibilité à l'instant. Dis au visiteur, sans l'inquiéter, qu'il y a eu un souci technique momentané et propose-lui de retenter dans un instant ou de choisir un autre créneau.";
+                eventName = "appointment_verify_failed";
+                eventPayload = { start_iso };
+                eventSuccess = false;
               } else {
                 publicResult = `ERREUR · ${bk.error}`;
                 eventName = "appointment_booked_error";

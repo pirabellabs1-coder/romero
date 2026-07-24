@@ -25,7 +25,11 @@ import { getAgent } from "@/lib/agents";
 import { runAssistant } from "@/lib/whatsapp-assistant";
 import { transcribeAudioUrl } from "@/lib/voice-transcribe";
 import { writeSharedKey } from "@/lib/studio-settings";
-import { handleApprovalCallback } from "@/lib/approval-flow";
+import {
+  handleApprovalCallback,
+  markEditPromptSent,
+  findEditPendingByReply,
+} from "@/lib/approval-flow";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +43,7 @@ type TelegramUpdate = {
     text?: string;
     voice?: { file_id: string; duration: number; mime_type?: string };
     audio?: { file_id: string; duration: number; mime_type?: string };
+    reply_to_message?: { message_id: number };
   };
   callback_query?: {
     id: string;
@@ -144,13 +149,33 @@ export async function POST(req: NextRequest) {
       }
 
       const result = await handleApprovalCallback({ callbackData: cq.data });
-      // Édite le message d'origine pour refléter la nouvelle situation
+      // Édite le message d'origine pour refléter la nouvelle situation et
+      // RETIRE les boutons (inline_keyboard vide) — évite les double-clics.
       await tg(token, "editMessageText", {
         chat_id: cq.message.chat.id,
         message_id: cq.message.message_id,
         text: result.newText,
         parse_mode: "HTML",
+        reply_markup: { inline_keyboard: [] },
       }).catch(() => {});
+
+      // Mode édition : on envoie un message force_reply pour capturer la
+      // version corrigée de Mickael, et on mémorise son message_id afin de
+      // relier sa future réponse à cette demande précise.
+      if (result.awaitEdit) {
+        const idPart = cq.data.split(":")[1];
+        const approvalId = parseInt(idPart, 10);
+        const prompt = await tg(token, "sendMessage", {
+          chat_id: cq.message.chat.id,
+          text: "✎ Tape ta version corrigée en RÉPONDANT à ce message. Je l'enverrai telle quelle au client.",
+          reply_markup: { force_reply: true, input_field_placeholder: "Ta réponse au client…" },
+        }).catch(() => null);
+        const promptId = (prompt as { result?: { message_id?: number } } | null)?.result
+          ?.message_id;
+        if (Number.isFinite(approvalId) && typeof promptId === "number") {
+          await markEditPromptSent(approvalId, promptId);
+        }
+      }
 
       return NextResponse.json({ ok: true, action: cq.data, result: result.ok });
     }
@@ -197,6 +222,22 @@ export async function POST(req: NextRequest) {
         "Bonjour ! Ce bot est réservé à un usage personnel. Merci de contacter Mickael Romero via https://romerophotography.fr/contact si vous cherchez à échanger avec lui."
       );
       return NextResponse.json({ ok: true, ignored: "unauthorized_user" });
+    }
+
+    // ─── Capture d'une édition de réponse client ──────────────────
+    // Si Mickael RÉPOND au message force_reply « ✎ Modifier », son texte
+    // EST la version corrigée à envoyer au client. On l'intercepte AVANT
+    // l'assistant IA (sinon il serait traité comme une demande d'agenda).
+    if (msg.reply_to_message?.message_id && msg.text?.trim()) {
+      const pending = await findEditPendingByReply(msg.reply_to_message.message_id);
+      if (pending) {
+        const res = await handleApprovalCallback({
+          callbackData: `act:${pending.id}:sendedit`,
+          editedText: msg.text,
+        });
+        await sendReply(token, msg.chat.id, res.newText.replace(/<\/?[^>]+>/g, ""));
+        return NextResponse.json({ ok: true, sent_edit: pending.id, result: res.ok });
+      }
     }
 
     // ─── Commandes système (avant le passage à l'assistant IA) ────

@@ -18,18 +18,14 @@ import {
   type CalendarEvent,
 } from "@/lib/google-calendar";
 import { notifyMickael } from "@/lib/whatsapp-notify";
+import { cronAuthorized } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const authHeader = req.headers.get("authorization") || "";
-  if (secret) {
-    const expected = `Bearer ${secret}`;
-    if (authHeader !== expected) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-    }
+  if (!cronAuthorized(req)) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
   try {

@@ -396,13 +396,35 @@ export async function processScheduledInstagramPosts(): Promise<{
   failed: number;
   details: Array<{ briefId: number; ok: boolean; error?: string }>;
 }> {
+  // Filet : un brief coincé en 'publishing' depuis >15 min = process
+  // interrompu (timeout Vercel). On le repasse 'failed' pour qu'il soit
+  // visible plutôt que bloqué invisible (et jamais re-publié en double).
+  await execute(
+    `UPDATE marketing_briefs
+       SET instagram_status = 'failed',
+           instagram_error = 'Publication interrompue (timeout) — reprogramme si besoin',
+           updated_at = NOW()
+     WHERE instagram_status = 'publishing'
+       AND updated_at < NOW() - INTERVAL '15 minutes'`
+  ).catch(() => {});
+
+  // CLAIM ATOMIQUE : on bascule d'un coup les briefs dus 'scheduled' →
+  // 'publishing' et on récupère la liste via RETURNING. Une invocation cron
+  // concurrente (chevauchement, retry Vercel) ne verra plus aucun brief
+  // 'scheduled' à traiter → plus de double-publication Instagram.
   const due = await query<Brief>(
-    `SELECT * FROM marketing_briefs
-     WHERE instagram_status = 'scheduled'
-       AND instagram_scheduled_for IS NOT NULL
-       AND instagram_scheduled_for <= NOW()
-     ORDER BY instagram_scheduled_for ASC
-     LIMIT 20`
+    `UPDATE marketing_briefs
+       SET instagram_status = 'publishing', updated_at = NOW()
+     WHERE id IN (
+       SELECT id FROM marketing_briefs
+       WHERE instagram_status = 'scheduled'
+         AND instagram_scheduled_for IS NOT NULL
+         AND instagram_scheduled_for <= NOW()
+       ORDER BY instagram_scheduled_for ASC
+       LIMIT 20
+       FOR UPDATE SKIP LOCKED
+     )
+     RETURNING *`
   );
 
   const details: Array<{ briefId: number; ok: boolean; error?: string }> = [];

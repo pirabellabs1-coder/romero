@@ -15,6 +15,7 @@
  * Sécurité : Bearer CRON_SECRET.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { cronAuthorized } from "@/lib/cron-auth";
 import { query } from "@/lib/db";
 import { logEvent } from "@/lib/agents";
 import { notifyMickael } from "@/lib/whatsapp-notify";
@@ -37,9 +38,7 @@ type UpcomingWedding = {
 const CHECKPOINTS = [180, 30, 7, 1];
 
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization") || "";
-  if (secret && auth !== `Bearer ${secret}`) {
+  if (!cronAuthorized(req)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 

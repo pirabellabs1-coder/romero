@@ -55,6 +55,7 @@ type ClaudeToolUse = {
   input: Record<string, unknown>;
 };
 type ClaudeText = { type: "text"; text: string };
+type ClaudeToolResult = { type: "tool_result"; tool_use_id: string; content: string };
 type ClaudeContentBlock = ClaudeText | ClaudeToolUse;
 type ClaudeMessage =
   | { role: "user"; content: string | Array<Record<string, unknown>> }
@@ -500,7 +501,16 @@ async function runTool(
         // sauf si force=true (Mickael a explicitement confirme).
         if (!force) {
           const conflicts = await listEvents(client, { timeMinISO: start, timeMaxISO: end });
-          if (conflicts.ok && conflicts.events.length > 0) {
+          // Si la VÉRIFICATION elle-même échoue, on ne crée SURTOUT pas à
+          // l'aveugle (risque de doublon par-dessus un vrai RDV). On demande
+          // à Mickael de réessayer ou de forcer explicitement.
+          if (!conflicts.ok) {
+            return {
+              ok: false,
+              result: `ERREUR · impossible de vérifier les conflits d'agenda (${conflicts.error}). Je n'ai rien créé pour éviter un doublon. Dis à Mickael que la vérification a échoué : il peut réessayer, ou confirmer explicitement de créer quand même (force=true).`,
+            };
+          }
+          if (conflicts.events.length > 0) {
             const list = conflicts.events
               .slice(0, 3)
               .map((e) => {
@@ -945,7 +955,10 @@ async function maybeRunInterAgentTool(
           ).catch(() => null);
         }
         if (existing) {
-          await execute(
+          // On NE swallow PAS l'erreur : un UPDATE échoué (ex. date invalide
+          // « le 12 juin » qui casse le cast ::date) doit être remonté à
+          // Mickael, pas maquillé en « ✓ mis à jour » mensonger.
+          const updErr = await execute(
             `UPDATE admin_contacts SET
                email = COALESCE(NULLIF(email, ''), $1),
                phone = COALESCE(NULLIF(phone, ''), $2),
@@ -955,7 +968,12 @@ async function maybeRunInterAgentTool(
                updated_at = NOW()
              WHERE id = $6`,
             [email ?? "", phone ?? "", wedding_date ?? "", wedding_location ?? "", notes ?? "", existing.id]
-          ).catch(() => {});
+          ).then(() => null).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+          if (updErr)
+            return {
+              ok: false,
+              result: `ERREUR · mise à jour du contact ${name} échouée (${updErr.message}). Vérifie le format des infos (surtout la date : format AAAA-MM-JJ).`,
+            };
           return { ok: true, result: `✓ Contact ${name} mis à jour (id #${existing.id})` };
         }
         const row = await queryOne<{ id: number }>(
@@ -1070,31 +1088,81 @@ export async function runAssistant(input: {
     // 4. Historique (limité, ordre chronologique)
     const history = await listSessionMessages(session.id);
 
-    // 5. Reconstruit messages pour Claude
-    const claudeMessages: ClaudeMessage[] = [];
+    // 5. Reconstruit messages pour Claude.
+    //
+    // ⚠️ Piège critique (source de HTTP 400 « messages » qui cassaient la
+    // session Telegram sur TOUS les messages suivants) : quand un tour appelle
+    // PLUSIEURS outils en parallèle, la BDD stocke 1 ligne assistant (avec le
+    // tableau complet de blocs, dont N tool_use) suivie de N lignes 'tool'
+    // distinctes. L'API Claude EXIGE que les N tool_result vivent dans UN SEUL
+    // message user qui suit immédiatement l'assistant. Il faut donc FUSIONNER
+    // les lignes 'tool' consécutives d'un même tour dans un unique message user.
+    const built: ClaudeMessage[] = [];
     for (const m of history) {
       if (m.role === "user") {
-        claudeMessages.push({ role: "user", content: m.content });
+        built.push({ role: "user", content: m.content });
       } else if (m.role === "assistant") {
         if (m.tool_calls && Array.isArray(m.tool_calls)) {
-          claudeMessages.push({ role: "assistant", content: m.tool_calls as ClaudeContentBlock[] });
+          built.push({ role: "assistant", content: m.tool_calls as ClaudeContentBlock[] });
         } else {
-          claudeMessages.push({ role: "assistant", content: m.content });
+          built.push({ role: "assistant", content: m.content });
         }
       } else if (m.role === "tool") {
         try {
           const parsed = JSON.parse(m.content) as { tool_use_id: string; content: string };
-          claudeMessages.push({
-            role: "user",
-            content: [
-              { type: "tool_result", tool_use_id: parsed.tool_use_id, content: parsed.content },
-            ],
-          });
+          const block: ClaudeToolResult = {
+            type: "tool_result",
+            tool_use_id: parsed.tool_use_id,
+            content: parsed.content,
+          };
+          const prev = built[built.length - 1];
+          const prevIsToolBatch =
+            prev &&
+            prev.role === "user" &&
+            Array.isArray(prev.content) &&
+            (prev.content[0] as { type?: string } | undefined)?.type === "tool_result";
+          if (prevIsToolBatch) {
+            // même tour → on empile le tool_result dans le message user existant
+            (prev!.content as ClaudeToolResult[]).push(block);
+          } else {
+            built.push({ role: "user", content: [block] });
+          }
         } catch {
           /* ignore tool_result corrompu */
         }
       }
     }
+
+    // Normalise les bords de la fenêtre glissante (LIMIT MAX_HISTORY_MESSAGES) :
+    // elle peut couper au milieu d'un tour à outils et laisser des orphelins que
+    // l'API rejette (400). On garantit : ouverture sur un vrai message user, et
+    // pas de tool_use en suspens juste avant le nouveau message user qu'on ajoute.
+    const isToolResultMsg = (msg: ClaudeMessage) =>
+      Array.isArray(msg.content) &&
+      (msg.content[0] as { type?: string } | undefined)?.type === "tool_result";
+    const hasToolUse = (msg: ClaudeMessage) =>
+      Array.isArray(msg.content) &&
+      (msg.content as Array<{ type?: string }>).some((b) => b.type === "tool_use");
+    let changed = true;
+    while (changed) {
+      changed = false;
+      // Ouverture : un tool_result orphelin ou un assistant en tête = invalide.
+      while (built.length && (built[0].role === "assistant" || isToolResultMsg(built[0]))) {
+        built.shift();
+        changed = true;
+      }
+      // Fin : un tool_use sans réponse, ou un message user en dernier (deux user
+      // d'affilée après l'ajout du message courant) = invalide.
+      while (built.length) {
+        const last = built[built.length - 1];
+        if ((last.role === "assistant" && hasToolUse(last)) || last.role === "user") {
+          built.pop();
+          changed = true;
+        } else break;
+      }
+    }
+
+    const claudeMessages: ClaudeMessage[] = built;
     claudeMessages.push({ role: "user", content: input.message });
 
     // 6. Persistance du user message
@@ -1158,6 +1226,7 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
     const toolsUsed: string[] = [];
     const collectedText: string[] = [];
     let lastAssistantBlocks: ClaudeContentBlock[] = [];
+    let completedCleanly = false;
 
     for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
       const t0 = Date.now();
@@ -1184,6 +1253,7 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
            VALUES ($1, 'assistant', $2, $3)`,
           [session.id, turnText || "(vide)", duration]
         );
+        completedCleanly = true;
         break;
       }
 
@@ -1227,6 +1297,37 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
       });
     }
 
+    // Si on a épuisé MAX_TOOL_TURNS SANS conclure (dernier tour = encore des
+    // outils), les actions ont bien été exécutées mais Claude n'a jamais
+    // formulé de confirmation → Mickael se retrouverait sans retour clair
+    // (« l'agent dit rien alors qu'il a créé le RDV »). On force donc une
+    // synthèse finale SANS outils pour garantir une vraie confirmation.
+    if (!completedCleanly) {
+      try {
+        const wrap = await callClaude({
+          apiKey: cfg.anthropic_api_key || "",
+          system: systemPrompt,
+          messages: claudeMessages,
+          noTools: true,
+        });
+        const wrapText = wrap.content
+          .filter((b): b is ClaudeText => b.type === "text")
+          .map((b) => b.text)
+          .join("\n")
+          .trim();
+        if (wrapText) {
+          collectedText.push(wrapText);
+          lastAssistantBlocks = wrap.content;
+          await query(
+            `INSERT INTO assistant_messages (session_id, role, content) VALUES ($1, 'assistant', $2)`,
+            [session.id, wrapText]
+          );
+        }
+      } catch (e) {
+        console.warn("[whatsapp] synthèse finale (noTools) a échoué :", e);
+      }
+    }
+
     let finalText = collectedText.join("\n\n").trim();
     if (!finalText) {
       const fallback = lastAssistantBlocks
@@ -1262,6 +1363,8 @@ async function callClaude(input: {
   apiKey: string;
   system: string;
   messages: ClaudeMessage[];
+  /** true = force une réponse texte finale (aucun outil proposé) */
+  noTools?: boolean;
 }): Promise<ClaudeResponse> {
   const ep = getClaudeEndpoint({ userApiKey: input.apiKey, model: CLAUDE_MODEL });
   const resp = await fetch(ep.url, {
@@ -1271,7 +1374,7 @@ async function callClaude(input: {
       model: ep.model,
       max_tokens: 1024,
       system: cachedSystem(input.system),
-      tools: TOOLS,
+      ...(input.noTools ? {} : { tools: TOOLS }),
       messages: input.messages,
     }),
   });

@@ -97,7 +97,15 @@ export async function bookAppointment(input: BookingInput): Promise<BookingResul
     timeMinISO: new Date(startMs + 60_000).toISOString(),
     timeMaxISO: new Date(startMs + input.durationMin * 60_000 - 60_000).toISOString(),
   });
-  if (conflicts.ok && conflicts.events.length > 0) {
+  // Si la vérification échoue, on refuse : mieux vaut redemander un créneau
+  // au prospect que de risquer un doublon par-dessus un vrai RDV de Mickael.
+  if (!conflicts.ok) {
+    return {
+      ok: false,
+      error: "VERIF_INDISPO", // le chatbot proposera de réessayer / autre créneau
+    };
+  }
+  if (conflicts.events.length > 0) {
     const busy = conflicts.events
       .slice(0, 3)
       .map((e) => e.summary || "occupé")
