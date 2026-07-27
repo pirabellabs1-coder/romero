@@ -31,6 +31,7 @@ import {
   createEventWithMeet,
   deleteEvent,
   findFreeSlots,
+  isBlockingEvent,
   isFreeSlot,
   listEvents,
   updateEvent,
@@ -510,8 +511,12 @@ async function runTool(
               result: `ERREUR · impossible de vérifier les conflits d'agenda (${conflicts.error}). Je n'ai rien créé pour éviter un doublon. Dis à Mickael que la vérification a échoué : il peut réessayer, ou confirmer explicitement de créer quand même (force=true).`,
             };
           }
-          if (conflicts.events.length > 0) {
-            const list = conflicts.events
+          // On ne bloque que sur des événements RÉELLEMENT occupants : on
+          // ignore les « toute la journée » (marqueurs de fond type « Enfants »,
+          // anniversaires, jours fériés) et les créneaux « Disponible ».
+          const busy = conflicts.events.filter(isBlockingEvent);
+          if (busy.length > 0) {
+            const list = busy
               .slice(0, 3)
               .map((e) => {
                 const s = e.start?.dateTime || e.start?.date || "?";
@@ -610,8 +615,12 @@ async function runTool(
               result: `ERREUR · impossible de vérifier les conflits d'agenda (${conflicts.error}). Je n'ai rien créé pour éviter un doublon. Dis à Mickael que la vérification a échoué : il peut réessayer, ou confirmer explicitement de créer quand même (force=true).`,
             };
           }
-          if (conflicts.events.length > 0) {
-            const list = conflicts.events
+          // On ne bloque que sur des événements RÉELLEMENT occupants : on
+          // ignore les « toute la journée » (marqueurs de fond type « Enfants »,
+          // anniversaires, jours fériés) et les créneaux « Disponible ».
+          const busy = conflicts.events.filter(isBlockingEvent);
+          if (busy.length > 0) {
+            const list = busy
               .slice(0, 3)
               .map((e) => {
                 const s = e.start?.dateTime || e.start?.date || "?";
@@ -1203,7 +1212,7 @@ export async function runAssistant(input: {
     const SAFETY_RULES = `\n\n## RÈGLES DE SÉCURITÉ AGENDA — CRITIQUE, NE JAMAIS DÉROGER
 Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique ces règles à la lettre :
 
-1. Anti-collision. Avant de créer un RDV, le tool vérifie automatiquement les conflits. Si CONFLIT est retourné, NE relance PAS avec force=true. Tu DOIS répondre à Mickael : « Il y a déjà [détail du conflit] à cette heure. Tu veux quand même le poser par-dessus, ou tu préfères un autre créneau ? » et attendre sa réponse EXPLICITE.
+1. Anti-collision. Avant de créer un RDV, le tool vérifie automatiquement les conflits. Si CONFLIT est retourné, ne force PAS tout de suite : réponds d'abord « Il y a déjà [détail du conflit] à cette heure. Tu veux quand même le poser par-dessus, ou choisir un autre créneau ? » et attends sa réponse EXPLICITE. DÈS QUE Mickael confirme (« oui », « oui vas-y », « pose-le quand même »), tu DOIS OBLIGATOIREMENT rappeler create_event / create_event_with_meet avec force=true — c'est le SEUL moyen de créer réellement l'événement par-dessus le conflit. NE dis JAMAIS « c'est créé » sans avoir rappelé le tool avec force=true et reçu un résultat OK : sinon rien n'est enregistré et tu mens à Mickael.
 
 2. Confirmation avant destruction. Pour delete_event : TOUJOURS demander « Confirme-tu la suppression de [titre du RDV] à [heure] ? » avant d'appeler le tool. JAMAIS de suppression au premier coup. Pareil pour update_event si le changement est majeur (déplacement, changement de participant).
 
@@ -1225,7 +1234,9 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
 
 11. Après création/modification. Répète en une ligne ce qui a été fait, avec date-heure lisible et titre. Ex : « Créé : dentiste demain 15 h 20 ». Pas juste « c'est fait ». IMPORTANT : précise TOUJOURS dans quel compte Google l'événement a été enregistré (celui indiqué par le tool) et donne le lien de vérification quand le tool le fournit — Mickael consulte parfois un autre compte Google et croit que rien n'a été enregistré.
 
-12. Erreur = jamais silencieux. Si un tool renvoie une erreur, dis-le à Mickael en clair, ne masque pas.`;
+12. Erreur = jamais silencieux. Si un tool renvoie une erreur, dis-le à Mickael en clair, ne masque pas.
+
+13. JAMAIS de fausse confirmation. Tu ne dis « c'est créé / modifié / supprimé / enregistré » QUE si le tool correspondant a été appelé DANS CE MÊME échange ET a renvoyé un résultat OK. Interdiction absolue d'annoncer une action réussie sur la foi d'un « oui » de Mickael sans avoir réellement rappelé le tool. Si tu as demandé une confirmation (conflit, suppression, doute) et que Mickael confirme, ta PROCHAINE action est l'appel du tool — pas un message « c'est fait ». En cas de doute sur l'état réel, appelle list_calendar_events pour vérifier avant d'affirmer quoi que ce soit.`;
     let systemPrompt =
       effectivePrompt(inst) +
       `\n\n## CONTEXTE TECHNIQUE\n- Fuseau horaire : ${timeZone}\n- Plateforme : ${input.platform}\n- Nom de l'utilisateur : ${input.displayName ?? "(inconnu)"}` +

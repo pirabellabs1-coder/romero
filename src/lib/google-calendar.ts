@@ -50,7 +50,28 @@ export type CalendarEvent = {
   attendees?: Array<{ email: string; displayName?: string }>;
   htmlLink?: string;
   status?: string;
+  /** "transparent" = marqué « Disponible » (ne bloque pas) ; sinon "opaque" */
+  transparency?: string;
+  /** "default" | "outOfOffice" | "focusTime" | "workingLocation" … */
+  eventType?: string;
 };
+
+// ─── Anti-collision : qu'est-ce qui BLOQUE réellement un créneau ? ────────
+// Un événement ne doit provoquer un « conflit » que s'il occupe vraiment le
+// temps de Mickael. On ignore :
+//   - les événements « toute la journée » (start.date sans heure) : ce sont
+//     des marqueurs de fond (anniversaires, « Enfants », jours fériés) qui
+//     recouvrent 24 h et bloqueraient sinon TOUT RDV horaire de la journée ;
+//   - les événements marqués « Disponible » (transparency = "transparent") ;
+//   - les entrées de type lieu de travail / hors-bureau (workingLocation).
+// C'est exactement ainsi que Google calcule le free/busy.
+export function isBlockingEvent(e: CalendarEvent): boolean {
+  if (!e.start?.dateTime) return false; // toute la journée → non bloquant
+  if (e.transparency === "transparent") return false; // « Disponible »
+  if (e.eventType === "workingLocation") return false;
+  if (e.status === "cancelled") return false;
+  return true;
+}
 
 export type CreateEventInput = {
   summary: string;

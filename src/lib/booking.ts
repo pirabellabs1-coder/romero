@@ -12,7 +12,7 @@
  * DRY : évite deux logiques de confirmation qui divergeraient.
  */
 import { getAgent } from "@/lib/agents";
-import { buildClient, createEventWithMeet, listEvents } from "@/lib/google-calendar";
+import { buildClient, createEventWithMeet, isBlockingEvent, listEvents } from "@/lib/google-calendar";
 import { sendMail } from "@/lib/mailer";
 import { notifyMickael } from "@/lib/whatsapp-notify";
 
@@ -105,8 +105,11 @@ export async function bookAppointment(input: BookingInput): Promise<BookingResul
       error: "VERIF_INDISPO", // le chatbot proposera de réessayer / autre créneau
     };
   }
-  if (conflicts.events.length > 0) {
-    const busy = conflicts.events
+  // On n'oppose au prospect que des événements réellement occupants (on ignore
+  // les marqueurs « toute la journée » et les créneaux « Disponible »).
+  const blocking = conflicts.events.filter(isBlockingEvent);
+  if (blocking.length > 0) {
+    const busy = blocking
       .slice(0, 3)
       .map((e) => e.summary || "occupé")
       .join(", ");
