@@ -164,6 +164,16 @@ export async function refreshAccessToken(input: {
     });
     if (!resp.ok) {
       const text = await resp.text();
+      // invalid_grant = refresh_token expiré ou révoqué. Cause fréquente : app
+      // OAuth Google restée en mode « Test » (Google révoque alors les refresh
+      // tokens tous les 7 jours). Message actionnable pour l'agent/l'admin.
+      if (text.includes("invalid_grant")) {
+        return {
+          ok: false,
+          error:
+            "CONNEXION_EXPIREE · La connexion Google Agenda a expiré ou été révoquée. Reconnecte Google dans l'admin (/admin/agents/whatsapp → Google Agenda). Pour que ça ne se reproduise plus, l'écran de consentement OAuth doit être publié « En production » (sinon Google coupe l'accès tous les 7 jours).",
+        };
+      }
       return { ok: false, error: `HTTP ${resp.status} · ${text.slice(0, 300)}` };
     }
     const data = (await resp.json()) as GoogleTokens;
