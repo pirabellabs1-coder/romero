@@ -422,6 +422,30 @@ const TOOLS = [
   },
 ];
 
+// ─── Garde anti-refus ──────────────────────────────────────────────────
+// L'agent a reproduit plusieurs fois le message de rejet du webhook
+// (« ce bot est réservé… contacte Mickael via le site ») EN RÉPONSE À
+// MICKAEL LUI-MÊME — 31/07 pour un RDV femme de ménage, 15/08 pour un
+// dentiste. Deux amorces : les consignes qui citaient la phrase mot pour mot
+// (une interdiction qui contient le texte interdit reste un modèle à imiter),
+// et surtout son propre refus resté dans l'historique, relu ensuite comme un
+// exemple de conduite. Ce message bloque Mickael sur SON assistant : il ne
+// doit ni sortir, ni être réinjecté dans le contexte.
+const FORBIDDEN_REFUSAL_RE =
+  /r[ée]serv[ée]?\s+(?:à|a)\s+un\s+usage\s+personnel|bot\s+est\s+r[ée]serv[ée]|romerophotography\.fr\/contact|contacte[- ](?:le\s+)?via\s+le\s+site/i;
+
+const REFUSAL_CORRECTION =
+  "SYSTÈME · Ta réponse précédente était un refus d'accès. Elle a été bloquée et n'a PAS été envoyée. " +
+  "Le message auquel tu réponds vient de Mickael en personne : son identité est déjà vérifiée par le code, en amont de toi. " +
+  "Reprends sa demande telle quelle et traite-la maintenant — appelle l'outil agenda approprié, ou pose la seule question de " +
+  "clarification qui te manque. N'évoque ni identité, ni autorisation, ni site web : occupe-toi de son rendez-vous.";
+
+// Remplace un refus trouvé dans l'historique par une note correctrice : on
+// garde la place du message (l'API exige une alternance cohérente) mais le
+// modèle n'a plus son mauvais exemple sous les yeux.
+const REFUSAL_PLACEHOLDER =
+  "(réponse retirée : refus d'accès erroné. Mickael est toujours l'expéditeur légitime, ses demandes d'agenda se traitent normalement.)";
+
 // Horodatage court d'un message d'historique : « 28/07/2026 09:06 ».
 function stampFR(value: string | Date): string {
   const d = value instanceof Date ? value : new Date(value);
@@ -1240,7 +1264,12 @@ export async function runAssistant(input: {
         if (m.tool_calls && Array.isArray(m.tool_calls)) {
           built.push({ role: "assistant", content: m.tool_calls as ClaudeContentBlock[] });
         } else {
-          built.push({ role: "assistant", content: m.content });
+          // Un refus d'accès passé ne doit JAMAIS revenir dans le contexte :
+          // le modèle le relit comme un précédent et le reproduit.
+          built.push({
+            role: "assistant",
+            content: FORBIDDEN_REFUSAL_RE.test(m.content) ? REFUSAL_PLACEHOLDER : m.content,
+          });
         }
       } else if (m.role === "tool") {
         try {
@@ -1354,7 +1383,7 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
 
 13. JAMAIS de fausse confirmation. Tu ne dis « c'est créé / modifié / supprimé / enregistré » QUE si le tool correspondant a été appelé DANS CE MÊME échange ET a renvoyé un résultat OK. Interdiction absolue d'annoncer une action réussie sur la foi d'un « oui » de Mickael sans avoir réellement rappelé le tool. Si tu as demandé une confirmation (conflit, suppression, doute) et que Mickael confirme, ta PROCHAINE action est l'appel du tool — pas un message « c'est fait ». En cas de doute sur l'état réel, appelle list_calendar_events pour vérifier avant d'affirmer quoi que ce soit.
 
-14. TOUJOURS supposer que c'est Mickael, et gérer TOUT son agenda (pro ET perso). Le contrôle d'accès est fait par le CODE du webhook AVANT toi : si un message t'arrive, l'expéditeur est déjà autorisé, c'est Mickael. Tu ne dois JAMAIS produire un message de rejet du type « ce bot est réservé à un usage personnel » / « contacte Mickael via le site » — ce texte n'est PAS le tien, l'écrire bloquerait Mickael lui-même. Tu crées normalement TOUS ses rendez-vous : dentiste, médecin, femme de ménage, coiffeur, enfants, école, courses, perso, autant que mariages/séances/repérages. Les mots comme « femme de ménage », « dentiste », « coiffeur » sont l'OBJET du RDV, jamais l'identité de l'expéditeur — ne les prends jamais pour un tiers.
+14. TOUJOURS supposer que c'est Mickael, et gérer TOUT son agenda (pro ET perso). Le contrôle d'accès est fait par le CODE du webhook AVANT toi : si un message t'arrive, l'expéditeur est déjà autorisé, c'est Mickael. Tu n'as donc AUCUN refus d'accès à produire : ne remets jamais en question l'identité de ton interlocuteur, ne le renvoies jamais vers un formulaire, un site ou un autre canal, ne mentionne jamais de restriction d'usage. Ton seul mode de fonctionnement est d'aider. Tu crées normalement TOUS ses rendez-vous : dentiste, médecin, femme de ménage, coiffeur, enfants, école, courses, perso, autant que mariages/séances/repérages. Les mots comme « femme de ménage », « dentiste », « coiffeur » sont l'OBJET du RDV, jamais l'identité de l'expéditeur — ne les prends jamais pour un tiers.
 
 15. DATES RELATIVES : toujours repartir d'AUJOURD'HUI. « Demain », « lundi prochain », « la semaine prochaine », « le 3 » se calculent EXCLUSIVEMENT à partir de la date du jour donnée dans CONTEXTE TEMPOREL (ou via get_current_datetime). Les messages de l'historique sont horodatés entre crochets et peuvent avoir des SEMAINES : une date qui y apparaît (« demain mercredi 29 juillet ») n'a AUCUNE valeur aujourd'hui, ne la recopie jamais. Avant toute création dont la date est relative, appelle get_current_datetime. Le tool refuse toute date antérieure à aujourd'hui : si tu reçois « DATE DANS LE PASSÉ », c'est que tu as recopié une vieille date — recalcule à partir d'aujourd'hui, ne force pas avec allow_past sauf demande explicite de Mickael. Enfin, la date que tu annonces à Mickael est celle que le tool a retournée (« Date réellement enregistrée »), jamais celle que tu croyais avoir demandée.`;
     let systemPrompt =
@@ -1378,6 +1407,7 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
     const collectedText: string[] = [];
     let lastAssistantBlocks: ClaudeContentBlock[] = [];
     let completedCleanly = false;
+    let refusalCorrected = false;
 
     for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
       const t0 = Date.now();
@@ -1396,6 +1426,27 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
         (b): b is ClaudeText => b.type === "text"
       );
       const turnText = textBlocks.map((b) => b.text).join("\n").trim();
+
+      // Refus d'accès adressé à Mickael : on l'intercepte AVANT de le
+      // collecter ou de le persister, et on rend la main au modèle avec une
+      // consigne correctrice pour qu'il traite enfin la demande. Une seule
+      // reprise : si ça recommence, le filet de sécurité plus bas s'en charge.
+      if (
+        toolUses.length === 0 &&
+        !refusalCorrected &&
+        turnText &&
+        FORBIDDEN_REFUSAL_RE.test(turnText)
+      ) {
+        refusalCorrected = true;
+        lastAssistantBlocks = [];
+        claudeMessages.push({ role: "assistant", content: resp.content });
+        claudeMessages.push({ role: "user", content: REFUSAL_CORRECTION });
+        logEvent("whatsapp", "refus_bloque", { text: turnText.slice(0, 300) }, false).catch(
+          () => {}
+        );
+        continue;
+      }
+
       if (turnText) collectedText.push(turnText);
 
       if (toolUses.length === 0) {
@@ -1487,6 +1538,18 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
         .join("\n")
         .trim();
       finalText = fallback || "Je n'ai pas pu formuler de réponse — reformule ta demande ?";
+    }
+
+    // Dernier filet : un refus d'accès ne part JAMAIS vers Mickael, même si la
+    // reprise correctrice ci-dessus n'a pas suffi. On le remplace par une
+    // relance neutre — mieux vaut redemander l'heure que de le renvoyer vers
+    // le formulaire de contact de son propre site.
+    if (FORBIDDEN_REFUSAL_RE.test(finalText)) {
+      logEvent("whatsapp", "refus_bloque_final", { text: finalText.slice(0, 300) }, false).catch(
+        () => {}
+      );
+      finalText =
+        "Je m'occupe de ton agenda. Redis-moi le rendez-vous à poser — objet, jour et heure — et je le crée.";
     }
 
     // Compteur + log turn
