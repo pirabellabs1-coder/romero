@@ -47,6 +47,10 @@ import {
 const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
 const MAX_TOOL_TURNS = 4;
 const MAX_HISTORY_MESSAGES = 24; // fenêtre glissante — 24 suffit pour le fil d'un échange agenda, économise des tokens
+// Au-delà de ce silence, l'historique est considéré comme un autre échange :
+// on repart d'un contexte vierge plutôt que de laisser de vieilles dates
+// contaminer le calcul de « demain » (cf. commentaire dans runAssistant).
+const STALE_CONTEXT_HOURS = 12;
 
 // ─── Types Claude (subset) ─────────────────────────────────────────────
 type ClaudeToolUse = {
@@ -135,7 +139,7 @@ const TOOLS = [
   {
     name: "get_current_datetime",
     description:
-      "Renvoie la date et heure actuelles au format ISO 8601 dans le fuseau horaire de Mickael. À appeler AVANT toute autre opération temporelle pour connaître le contexte (aujourd'hui, demain, cette semaine).",
+      "Renvoie la date et heure actuelles au format ISO 8601 dans le fuseau horaire de Mickael. OBLIGATOIRE avant toute création/modification d'événement dont la date est exprimée en relatif (« demain », « lundi prochain », « la semaine prochaine », « dans 10 jours »). Les dates citées plus haut dans la conversation peuvent dater de plusieurs semaines : elles ne sont JAMAIS une référence pour calculer « demain ».",
     input_schema: { type: "object" as const, properties: {} },
   },
   {
@@ -188,6 +192,11 @@ const TOOLS = [
           description:
             "Créer même si un événement existe déjà sur ce créneau. FALSE par défaut. Ne mettre à TRUE que si Mickael a explicitement confirmé qu'il veut créer malgré le conflit.",
         },
+        allow_past: {
+          type: "boolean",
+          description:
+            "Autoriser une date antérieure à aujourd'hui. FALSE par défaut : une date passée est presque toujours une erreur de calcul. Ne mettre à TRUE que si Mickael veut explicitement consigner un rendez-vous déjà passé.",
+        },
       },
     },
   },
@@ -205,6 +214,11 @@ const TOOLS = [
         end: { type: "string" },
         description: { type: "string" },
         location: { type: "string" },
+        allow_past: {
+          type: "boolean",
+          description:
+            "Autoriser un déplacement vers une date antérieure à aujourd'hui. FALSE par défaut. Ne mettre à TRUE que si Mickael le demande explicitement.",
+        },
       },
     },
   },
@@ -245,6 +259,11 @@ const TOOLS = [
           type: "boolean",
           description:
             "Créer même si un événement existe déjà sur ce créneau. FALSE par défaut. Ne mettre à TRUE qu'après confirmation explicite de Mickael.",
+        },
+        allow_past: {
+          type: "boolean",
+          description:
+            "Autoriser une date antérieure à aujourd'hui. FALSE par défaut : une date passée est presque toujours une erreur de calcul. Ne mettre à TRUE que si Mickael veut explicitement consigner une visio déjà passée.",
         },
       },
     },
@@ -403,6 +422,63 @@ const TOOLS = [
   },
 ];
 
+// Horodatage court d'un message d'historique : « 28/07/2026 09:06 ».
+function stampFR(value: string | Date): string {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "date inconnue";
+  return d.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// Date lisible « mercredi 16 août 2026 à 14:00 » à partir d'un ISO.
+function humanSlot(iso: string, timeZone: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("fr-FR", {
+    timeZone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// ─── Garde anti-date-passée ────────────────────────────────────────────
+// Bug observé le 15/08/2026 : « mets un RDV demain 14 h » a créé l'événement
+// au 29 JUILLET — le modèle avait recopié une date citée des semaines plus
+// tôt dans la même session Telegram au lieu de partir d'aujourd'hui. Google
+// accepte sans broncher une date passée, l'agent annonce « créé ✅ », et
+// Mickael ne voit rien dans son agenda : c'est exactement le symptôme
+// « les RDV ne se prennent pas ».
+// On refuse donc toute écriture antérieure à AUJOURD'HUI (heure de Paris),
+// sauf si Mickael veut explicitement consigner un RDV passé (allow_past).
+export function pastDateGuard(
+  startISO: string | undefined,
+  allowPast: boolean | undefined
+): string | null {
+  if (!startISO || allowPast) return null;
+  const start = new Date(startISO);
+  if (Number.isNaN(start.getTime())) return null; // format invalide : Google le rejettera avec son propre message
+  const todayYMD = parisYMD();
+  const startYMD = parisYMD(start);
+  if (startYMD >= todayYMD) return null;
+  return (
+    `ERREUR · DATE DANS LE PASSÉ — tu as demandé le ${startYMD} alors qu'aujourd'hui est le ${todayYMD}. ` +
+    `RIEN n'a été créé/modifié. Tu as très probablement repris une date citée plus haut dans la conversation : ` +
+    `ces messages peuvent avoir des semaines. Appelle get_current_datetime, recalcule la date à partir d'AUJOURD'HUI ` +
+    `(${todayYMD}), puis rappelle le tool. Si Mickael veut vraiment consigner un rendez-vous déjà passé, demande-lui ` +
+    `confirmation et rappelle le tool avec allow_past=true.`
+  );
+}
+
 // ─── Exécution d'un tool call ──────────────────────────────────────────
 async function runTool(
   tu: ClaudeToolUse,
@@ -487,6 +563,7 @@ async function runTool(
           location,
           attendee_emails,
           force,
+          allow_past,
         } = tu.input as {
           title?: string;
           start?: string;
@@ -495,9 +572,12 @@ async function runTool(
           location?: string;
           attendee_emails?: string[];
           force?: boolean;
+          allow_past?: boolean;
         };
         if (!title || !start || !end)
           return { ok: false, result: "ERREUR · title, start et end obligatoires" };
+        const pastErr = pastDateGuard(start, allow_past);
+        if (pastErr) return { ok: false, result: pastErr };
         // Anti-collision : refuse si un RDV existe deja sur le creneau,
         // sauf si force=true (Mickael a explicitement confirme).
         if (!force) {
@@ -540,25 +620,33 @@ async function runTool(
         if (!r.ok) return { ok: false, result: `ERREUR · ${r.error}` };
         // On indique le compte agenda + le lien : Mickael doit savoir OÙ
         // l'événement a atterri (souvent il regarde un autre compte Google).
+        // On renvoie aussi la date TELLE QUE GOOGLE L'A ENREGISTRÉE : la
+        // confirmation à Mickael doit citer cette date-là, pas celle que le
+        // modèle croit avoir demandée.
         return {
           ok: true,
           result:
             `OK · événement créé dans l'agenda ${client.calendarId} — ${r.event.summary || title}. ` +
-            `Confirme à Mickael que c'est enregistré dans le compte Google « ${client.calendarId} » ` +
+            `Date réellement enregistrée : ${humanSlot(r.event.start?.dateTime || start, timeZone)}. ` +
+            `Confirme à Mickael cette date exacte (pas une autre), précise que c'est dans le compte Google « ${client.calendarId} » ` +
             `(pas un autre compte) et donne-lui le lien de vérification : ${r.event.htmlLink || "(lien indisponible)"}`,
           eventDetails: { id: r.event.id, summary: r.event.summary, htmlLink: r.event.htmlLink },
         };
       }
       case "update_event": {
-        const { event_id, title, start, end, description, location } = tu.input as {
-          event_id?: string;
-          title?: string;
-          start?: string;
-          end?: string;
-          description?: string;
-          location?: string;
-        };
+        const { event_id, title, start, end, description, location, allow_past } =
+          tu.input as {
+            event_id?: string;
+            title?: string;
+            start?: string;
+            end?: string;
+            description?: string;
+            location?: string;
+            allow_past?: boolean;
+          };
         if (!event_id) return { ok: false, result: "ERREUR · event_id requis" };
+        const pastErrUpd = pastDateGuard(start, allow_past);
+        if (pastErrUpd) return { ok: false, result: pastErrUpd };
         const r = await updateEvent(client, event_id, {
           summary: title,
           startISO: start,
@@ -594,6 +682,7 @@ async function runTool(
           description,
           attendee_emails,
           force,
+          allow_past,
         } = tu.input as {
           title?: string;
           start?: string;
@@ -601,9 +690,12 @@ async function runTool(
           description?: string;
           attendee_emails?: string[];
           force?: boolean;
+          allow_past?: boolean;
         };
         if (!title || !start || !end)
           return { ok: false, result: "ERREUR · title, start et end obligatoires" };
+        const pastErrMeet = pastDateGuard(start, allow_past);
+        if (pastErrMeet) return { ok: false, result: pastErrMeet };
         if (!force) {
           const conflicts = await listEvents(client, { timeMinISO: start, timeMaxISO: end });
           // Si la VÉRIFICATION elle-même échoue, on ne crée SURTOUT pas à
@@ -707,6 +799,7 @@ https://romerophotography.fr`;
           ok: true,
           result:
             `OK · visio créée avec Meet dans l'agenda ${client.calendarId} — ${r.event.summary || title}. ` +
+            `Date réellement enregistrée : ${humanSlot(r.event.start?.dateTime || start, timeZone)} — cite CETTE date à Mickael. ` +
             `Confirme à Mickael que c'est dans son compte Google « ${client.calendarId} », ` +
             `donne le lien Meet ${link} et le lien agenda ${(r.event as { htmlLink?: string }).htmlLink || ""}.` +
             mailInfo,
@@ -1112,7 +1205,20 @@ export async function runAssistant(input: {
     });
 
     // 4. Historique (limité, ordre chronologique)
-    const history = await listSessionMessages(session.id);
+    //
+    // ⚠️ Fraîcheur du contexte. Une session Telegram/WhatsApp est unique par
+    // utilisateur et vit des SEMAINES. Sans garde-fou, un « mets un RDV
+    // demain » repart sur une date recopiée d'un échange vieux d'un mois
+    // (bug du 15/08/2026 : RDV créé au 29 juillet, invisible pour Mickael).
+    // Passé un long silence, la continuité conversationnelle n'apporte plus
+    // rien alors que les vieilles dates, elles, polluent : on repart propre.
+    const fullHistory = await listSessionMessages(session.id);
+    const lastMsgAt = fullHistory.length
+      ? new Date(fullHistory[fullHistory.length - 1].created_at).getTime()
+      : 0;
+    const gapHours = lastMsgAt ? (Date.now() - lastMsgAt) / 3_600_000 : 0;
+    const contextIsStale = lastMsgAt > 0 && gapHours >= STALE_CONTEXT_HOURS;
+    const history = contextIsStale ? [] : fullHistory;
 
     // 5. Reconstruit messages pour Claude.
     //
@@ -1126,7 +1232,10 @@ export async function runAssistant(input: {
     const built: ClaudeMessage[] = [];
     for (const m of history) {
       if (m.role === "user") {
-        built.push({ role: "user", content: m.content });
+        // On horodate chaque message d'historique : sans ça, le modèle lit un
+        // fil sans repère temporel et peut réutiliser une date citée des
+        // semaines plus tôt comme si elle était d'actualité.
+        built.push({ role: "user", content: `[${stampFR(m.created_at)}] ${m.content}` });
       } else if (m.role === "assistant") {
         if (m.tool_calls && Array.isArray(m.tool_calls)) {
           built.push({ role: "assistant", content: m.tool_calls as ClaudeContentBlock[] });
@@ -1189,7 +1298,14 @@ export async function runAssistant(input: {
     }
 
     const claudeMessages: ClaudeMessage[] = built;
-    claudeMessages.push({ role: "user", content: input.message });
+    // Le message courant est horodaté comme les autres : le contraste avec les
+    // horodatages de l'historique rend impossible de confondre « demain » avec
+    // le lendemain d'un vieux message. (Seule la copie envoyée à Claude est
+    // préfixée — ce qu'on persiste reste le texte brut de Mickael.)
+    claudeMessages.push({
+      role: "user",
+      content: `[${stampFR(new Date())}] ${input.message}`,
+    });
 
     // 6. Persistance du user message
     await query(
@@ -1238,7 +1354,9 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
 
 13. JAMAIS de fausse confirmation. Tu ne dis « c'est créé / modifié / supprimé / enregistré » QUE si le tool correspondant a été appelé DANS CE MÊME échange ET a renvoyé un résultat OK. Interdiction absolue d'annoncer une action réussie sur la foi d'un « oui » de Mickael sans avoir réellement rappelé le tool. Si tu as demandé une confirmation (conflit, suppression, doute) et que Mickael confirme, ta PROCHAINE action est l'appel du tool — pas un message « c'est fait ». En cas de doute sur l'état réel, appelle list_calendar_events pour vérifier avant d'affirmer quoi que ce soit.
 
-14. TOUJOURS supposer que c'est Mickael, et gérer TOUT son agenda (pro ET perso). Le contrôle d'accès est fait par le CODE du webhook AVANT toi : si un message t'arrive, l'expéditeur est déjà autorisé, c'est Mickael. Tu ne dois JAMAIS produire un message de rejet du type « ce bot est réservé à un usage personnel » / « contacte Mickael via le site » — ce texte n'est PAS le tien, l'écrire bloquerait Mickael lui-même. Tu crées normalement TOUS ses rendez-vous : dentiste, médecin, femme de ménage, coiffeur, enfants, école, courses, perso, autant que mariages/séances/repérages. Les mots comme « femme de ménage », « dentiste », « coiffeur » sont l'OBJET du RDV, jamais l'identité de l'expéditeur — ne les prends jamais pour un tiers.`;
+14. TOUJOURS supposer que c'est Mickael, et gérer TOUT son agenda (pro ET perso). Le contrôle d'accès est fait par le CODE du webhook AVANT toi : si un message t'arrive, l'expéditeur est déjà autorisé, c'est Mickael. Tu ne dois JAMAIS produire un message de rejet du type « ce bot est réservé à un usage personnel » / « contacte Mickael via le site » — ce texte n'est PAS le tien, l'écrire bloquerait Mickael lui-même. Tu crées normalement TOUS ses rendez-vous : dentiste, médecin, femme de ménage, coiffeur, enfants, école, courses, perso, autant que mariages/séances/repérages. Les mots comme « femme de ménage », « dentiste », « coiffeur » sont l'OBJET du RDV, jamais l'identité de l'expéditeur — ne les prends jamais pour un tiers.
+
+15. DATES RELATIVES : toujours repartir d'AUJOURD'HUI. « Demain », « lundi prochain », « la semaine prochaine », « le 3 » se calculent EXCLUSIVEMENT à partir de la date du jour donnée dans CONTEXTE TEMPOREL (ou via get_current_datetime). Les messages de l'historique sont horodatés entre crochets et peuvent avoir des SEMAINES : une date qui y apparaît (« demain mercredi 29 juillet ») n'a AUCUNE valeur aujourd'hui, ne la recopie jamais. Avant toute création dont la date est relative, appelle get_current_datetime. Le tool refuse toute date antérieure à aujourd'hui : si tu reçois « DATE DANS LE PASSÉ », c'est que tu as recopié une vieille date — recalcule à partir d'aujourd'hui, ne force pas avec allow_past sauf demande explicite de Mickael. Enfin, la date que tu annonces à Mickael est celle que le tool a retournée (« Date réellement enregistrée »), jamais celle que tu croyais avoir demandée.`;
     let systemPrompt =
       effectivePrompt(inst) +
       `\n\n## CONTEXTE TECHNIQUE\n- Fuseau horaire : ${timeZone}\n- Plateforme : ${input.platform}\n- Nom de l'utilisateur : ${input.displayName ?? "(inconnu)"}` +
@@ -1246,6 +1364,9 @@ Tu manipules le VRAI agenda de Mickael. Une erreur = un vrai RDV perdu. Applique
       SAFETY_RULES +
       STYLE_RULES +
       kbBlock;
+    if (contextIsStale) {
+      systemPrompt += `\n\n## NOUVEL ÉCHANGE\nLe dernier message de Mickael remonte à ${Math.round(gapHours)} h : l'historique précédent a été volontairement écarté. Tu démarres une conversation neuve. Toutes les dates se calculent à partir d'aujourd'hui (voir CONTEXTE TEMPOREL) — tu n'as aucune date antérieure en mémoire.`;
+    }
     if (!calClient && calError) {
       systemPrompt += `\n\n## AVERTISSEMENT\nGoogle Calendar n'est PAS connecté (${calError}). Réponds à Mickael que la connexion agenda doit être établie via /admin/agents/whatsapp avant que tu puisses gérer ses rendez-vous.`;
     } else if (!calClient) {
