@@ -21,6 +21,8 @@ type FeaturedGallery = {
   place: string;
   coverUrl: string;
   coverPosition: string;
+  /** cochée « mise en avant (accueil) » */
+  featured: boolean;
 };
 
 type Props = {
@@ -28,7 +30,9 @@ type Props = {
   initialEn: Record<string, string>;
   defaultsFr: Record<string, string>;
   defaultsEn: Record<string, string>;
-  featured: FeaturedGallery[];
+  /** TOUTES les galeries publiées — celles cochées alimentent la home */
+  galleries: FeaturedGallery[];
+  setFeaturedAction: (galleryId: number, featured: boolean) => Promise<{ ok: true }>;
   heroPhoto: string;
   heroPhotoFocal?: string;
   teaserPhotos: [string, string, string, string];
@@ -102,7 +106,7 @@ function resolvedInitial(
 
 export default function HomeContentEditor({
   initialFr, initialEn, defaultsFr, defaultsEn,
-  featured, heroPhoto, heroPhotoFocal, teaserPhotos, teaserFocals,
+  galleries, setFeaturedAction, heroPhoto, heroPhotoFocal, teaserPhotos, teaserFocals,
   saveAction, saveHeroAction, saveHeroFocalAction,
   saveTeaserPhoto0, saveTeaserPhoto1, saveTeaserPhoto2, saveTeaserPhoto3,
   saveTeaserFocal0, saveTeaserFocal1, saveTeaserFocal2, saveTeaserFocal3,
@@ -113,6 +117,36 @@ export default function HomeContentEditor({
   const [fr, setFr] = useState<Record<string, string>>(() => resolvedInitial(initialFr, defaultsFr));
   const [en, setEn] = useState<Record<string, string>>(() => resolvedInitial(initialEn, defaultsEn));
   const [saving, setSaving] = useState(false);
+
+  // ─── Bloc ③ : sélection des galeries à la une ───────────────────────
+  // Cocher se fait ICI, sur la page qui décide de ce que la home affiche.
+  // Avant, le bloc se contentait de lister les galeries déjà marquées :
+  // quand aucune ne l'était, il n'y avait rien à modifier et il fallait
+  // deviner qu'il fallait passer par la fiche de chaque galerie.
+  const [gals, setGals] = useState<FeaturedGallery[]>(galleries);
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [featuredError, setFeaturedError] = useState<string | null>(null);
+  const shownOnHome = useMemo(() => gals.filter((g) => g.featured).slice(0, 3), [gals]);
+
+  async function toggleFeatured(id: number, next: boolean) {
+    setFeaturedError(null);
+    setSavingId(id);
+    // Optimiste : la case bascule tout de suite, on revient en arrière si
+    // le serveur refuse — sinon l'écran ment sur l'état réel du site.
+    setGals((prev) => prev.map((g) => (g.id === id ? { ...g, featured: next } : g)));
+    try {
+      const res = await setFeaturedAction(id, next);
+      if (!res?.ok) throw new Error("réponse inattendue du serveur");
+    } catch (e) {
+      setGals((prev) => prev.map((g) => (g.id === id ? { ...g, featured: !next } : g)));
+      setFeaturedError(
+        `Impossible d'enregistrer la mise en avant (${e instanceof Error ? e.message : String(e)}). Rien n'a été changé.`
+      );
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   const [saveStatus, setSaveStatus] = useState<{ kind: "idle" } | { kind: "ok"; count: number } | { kind: "err"; message: string }>({ kind: "idle" });
 
   // Baseline mirrors the resolved values — used for dirty detection.
@@ -359,31 +393,96 @@ export default function HomeContentEditor({
         <div className="content-section-head">
           <h2>③ Mariages à la une</h2>
           <p>
-            Les galeries marquées <em>« Mise en avant »</em>.{" "}
-            <Link href="/admin/galleries" className="gold" style={{ textDecoration: "underline" }}>
-              Gérer les galeries en avant
-            </Link>
+            Cochez les galeries à afficher sur l&apos;accueil. <strong>Les 3 premières cochées</strong> sont
+            reprises dans la section « {(lang === "fr" ? fr : en)["featuredEyebrow"] || "Derniers mariages"} » de la page d&apos;accueil ; l&apos;ordre suit
+            celui du portfolio. La photo affichée est la <em>couverture</em> de la galerie — pour la changer,
+            ouvrez la galerie.
           </p>
         </div>
         {FEATURED_FIELDS.map(renderField)}
-        <div className="content-featured-row">
-          {featured.length === 0 ? (
-            <p className="muted" style={{ fontSize: 13 }}>Aucune galerie n&apos;est marquée « mise en avant ».</p>
-          ) : featured.map((g) => (
-            <div key={g.id} className="content-featured-card">
-              <div className="content-featured-card__photo">
-                {g.coverUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={g.coverUrl} alt={g.names} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: g.coverPosition }} />
-                )}
+
+        {shownOnHome.length > 0 && (
+          <div className="content-featured-row">
+            {shownOnHome.map((g, i) => (
+              <div key={g.id} className="content-featured-card">
+                <div className="content-featured-card__photo">
+                  {g.coverUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={g.coverUrl} alt={g.names} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: g.coverPosition }} />
+                  )}
+                </div>
+                <div className="content-featured-card__title serif">{i + 1}. {g.names}</div>
+                <div className="content-featured-card__sub">{g.place}</div>
+                <Link href={`/admin/galleries/${g.id}`} className="cap-tracked-sm gold" style={{ fontSize: 10 }}>
+                  CHANGER LA PHOTO ↗
+                </Link>
               </div>
-              <div className="content-featured-card__title serif">{g.names}</div>
-              <div className="content-featured-card__sub">{g.place}</div>
-              <Link href={`/admin/galleries/${g.id}`} className="cap-tracked-sm gold" style={{ fontSize: 10 }}>
-                MODIFIER ↗
+            ))}
+          </div>
+        )}
+
+        <div style={{ marginTop: 18 }}>
+          <div className="cap-tracked-sm" style={{ marginBottom: 10, opacity: 0.7 }}>
+            TOUTES LES GALERIES ({gals.length})
+          </div>
+          {gals.length === 0 ? (
+            <p className="muted" style={{ fontSize: 13 }}>
+              Aucune galerie publiée pour l&apos;instant.{" "}
+              <Link href="/admin/galleries" className="gold" style={{ textDecoration: "underline" }}>
+                Créer une galerie
               </Link>
+            </p>
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {gals.map((g) => {
+                const rank = shownOnHome.findIndex((x) => x.id === g.id);
+                return (
+                  <label
+                    key={g.id}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12, padding: "8px 12px",
+                      border: "1px solid rgba(0,0,0,.08)", borderRadius: 8, cursor: "pointer",
+                      background: g.featured ? "rgba(191,161,102,.10)" : "transparent",
+                      opacity: savingId === g.id ? 0.5 : 1,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={g.featured}
+                      disabled={savingId !== null}
+                      onChange={(e) => toggleFeatured(g.id, e.target.checked)}
+                    />
+                    {g.coverUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={g.coverUrl}
+                        alt=""
+                        style={{ width: 44, height: 44, objectFit: "cover", objectPosition: g.coverPosition, borderRadius: 4, flexShrink: 0 }}
+                      />
+                    )}
+                    <span style={{ flex: 1 }}>
+                      <span className="serif" style={{ fontSize: 16 }}>{g.names}</span>
+                      <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>{g.place}</span>
+                    </span>
+                    {rank >= 0 && (
+                      <span className="cap-tracked-sm gold" style={{ fontSize: 10 }}>
+                        SUR L&apos;ACCUEIL · {rank + 1}
+                      </span>
+                    )}
+                    {g.featured && rank < 0 && (
+                      <span className="muted" style={{ fontSize: 11 }}>cochée, hors des 3 premières</span>
+                    )}
+                    <Link href={`/admin/galleries/${g.id}`} className="cap-tracked-sm gold" style={{ fontSize: 10 }}>
+                      OUVRIR ↗
+                    </Link>
+                  </label>
+                );
+              })}
             </div>
-          ))}
+          )}
+          {featuredError && (
+            <p style={{ color: "#b23", fontSize: 13, marginTop: 8 }}>{featuredError}</p>
+          )}
         </div>
       </div>
 

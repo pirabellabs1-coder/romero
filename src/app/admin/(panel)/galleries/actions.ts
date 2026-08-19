@@ -510,3 +510,27 @@ export async function movePhoto(photoId: number, direction: "up" | "down") {
   const slug = (await queryOne<{ slug: string }>("SELECT slug FROM galleries WHERE id = $1", [me.gallery_id]))?.slug;
   if (slug) revalidatePath(`/portfolio/${slug}`);
 }
+
+/**
+ * Coche/décoche « mise en avant (accueil) » pour une galerie, sans ouvrir
+ * sa fiche. Utilisé par le bloc « ③ Mariages à la une » de l'éditeur de la
+ * page d'accueil : c'est là que Mickael décide ce que la home affiche, donc
+ * c'est là que ça doit se marquer.
+ *
+ * On revalide aussi /admin/content/home : sans ça, l'éditeur pouvait
+ * afficher « aucune galerie n'est marquée » alors que la base en comptait
+ * trois — la page servait un rendu antérieur au dernier changement.
+ */
+export async function setGalleryFeatured(galleryId: number, featured: boolean) {
+  requireUser();
+  await execute("UPDATE galleries SET featured = $1 WHERE id = $2", [
+    featured ? 1 : 0,
+    galleryId,
+  ]);
+  revalidatePath("/");
+  revalidatePath("/portfolio");
+  revalidatePath("/admin/content/home");
+  revalidatePath(`/admin/galleries/${galleryId}`);
+  revalidatePath("/admin/galleries");
+  return { ok: true as const };
+}

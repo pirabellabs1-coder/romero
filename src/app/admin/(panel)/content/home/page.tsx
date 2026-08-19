@@ -6,6 +6,7 @@ import { listSectionsForPage } from "@/lib/page-sections";
 import HomeContentEditor from "@/components/admin/HomeContentEditor";
 import SectionsEditor from "@/components/admin/SectionsEditor";
 import { saveContentFields, saveContentPhoto, saveContentPhotoFocal } from "../actions";
+import { setGalleryFeatured } from "../../galleries/actions";
 import {
   addSectionAction,
   updateSectionAction,
@@ -43,6 +44,7 @@ function flatHomeDefaults(lang: "fr" | "en"): Record<string, string> {
   return out;
 }
 
+async function toggleFeatured(galleryId: number, featured: boolean) { "use server"; return setGalleryFeatured(galleryId, featured); }
 async function saveHero(url: string)         { "use server"; return saveContentPhoto("home", "hero_photo", url); }
 async function saveHeroFocal(f: string)      { "use server"; return saveContentPhotoFocal("home", "hero_photo", f); }
 async function saveTeaserPhoto0(url: string) { "use server"; return saveContentPhoto("home", "teaser_photo_0", url); }
@@ -55,23 +57,26 @@ async function saveTeaserFocal2(f: string)   { "use server"; return saveContentP
 async function saveTeaserFocal3(f: string)   { "use server"; return saveContentPhotoFocal("home", "teaser_photo_3", f); }
 
 export default async function HomeContentPage() {
-  const [overrides, featuredGalsAll, sections, teaserPool] = await Promise.all([
+  const [overrides, allGals, sections, teaserPool] = await Promise.all([
     getPageContentBilingual("home"),
-    listGalleries({ featuredOnly: true }),
+    listGalleries(),
     listSectionsForPage("home"),
     pickShowcasePhotos(4, "home-teaser-v1"),
   ]);
-  const featuredGals = featuredGalsAll.slice(0, 3);
-  const featuredCovers = await Promise.all(
-    featuredGals.map((g) => coverFor(g, `home-featured-${g.slug}`))
+  // On envoie TOUTES les galeries publiées, pas seulement celles déjà en
+  // avant : le bloc « à la une » doit permettre de cocher/décocher sur place,
+  // sinon il n'y a rien à modifier quand aucune galerie n'est marquée.
+  const allCovers = await Promise.all(
+    allGals.map((g) => coverFor(g, `home-featured-${g.slug}`))
   );
-  const featured = featuredGals.map((g, i) => ({
+  const galleries = allGals.map((g, i) => ({
     id: g.id,
     slug: g.slug,
     names: g.names,
     place: g.place,
-    coverUrl: featuredCovers[i],
+    coverUrl: allCovers[i],
     coverPosition: g.cover_position || "center center",
+    featured: !!g.featured,
   }));
 
   const heroPhoto = overrides.fr["hero_photo"] || DEFAULT_HERO;
@@ -117,7 +122,8 @@ export default async function HomeContentPage() {
         initialEn={enTexts}
         defaultsFr={flatHomeDefaults("fr")}
         defaultsEn={flatHomeDefaults("en")}
-        featured={featured}
+        galleries={galleries}
+        setFeaturedAction={toggleFeatured}
         heroPhoto={heroPhoto}
         heroPhotoFocal={heroPhotoFocal}
         teaserPhotos={teaserPhotos}
